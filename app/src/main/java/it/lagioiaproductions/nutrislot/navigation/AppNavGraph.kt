@@ -207,6 +207,7 @@ fun AppNavGraph(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("unused")
 private fun ImportFileScreen(
     uiState: ImportFileUiState,
     onBackClick: () -> Unit,
