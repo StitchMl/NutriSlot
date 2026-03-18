@@ -8,14 +8,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import it.lagioiaproductions.nutrislot.data.importer.PdfMealPlanImporter
 import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
-import it.lagioiaproductions.nutrislot.data.repository.ReviewedImportedMealCell
 import it.lagioiaproductions.nutrislot.data.repository.WeeklyPlanRepository
-import it.lagioiaproductions.nutrislot.domain.model.CellRecognitionState
-import it.lagioiaproductions.nutrislot.domain.model.ImportStatus
-import it.lagioiaproductions.nutrislot.domain.model.ImportWarning
-import it.lagioiaproductions.nutrislot.domain.model.ImportedPlanDraft
-import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
-import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealCell
+import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealOption
+import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealRule
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,47 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-data class EditableImportedMealCellUi(
-    val id: String,
-    val dayOfWeek: WeekDay,
-    val mealSlotType: MealSlotType,
-    val mealText: String,
-    val originalMealText: String,
-    val originalRecognitionState: CellRecognitionState,
-    val wasManuallyEdited: Boolean = false
-)
-
-data class ImportFileUiState(
-    val isLoading: Boolean = false,
-    val selectedFileName: String? = null,
-    val importedDraft: ImportedPlanDraft? = null,
-    val editableCells: List<EditableImportedMealCellUi> = emptyList(),
-    val warnings: List<ImportWarning> = emptyList(),
-    val importStatus: ImportStatus? = null,
-    val errorMessage: String? = null,
-    val infoMessage: String? = null,
-    val selectedPreviewDay: WeekDay? = null,
-    val showOnlyFilledSlots: Boolean = false
-) {
-    val hasEditableDraft: Boolean
-        get() = editableCells.isNotEmpty()
-
-    val populatedEditableCellsCount: Int
-        get() = editableCells.count { it.mealText.isNotBlank() }
-
-    @Suppress("unused")
-    val emptyEditableCellsCount: Int
-        get() = editableCells.count { it.mealText.isBlank() }
-
-    val editedCellsCount: Int
-        get() = editableCells.count { it.wasManuallyEdited }
-
-    val filteredEditableCells: List<EditableImportedMealCellUi>
-        get() = editableCells
-            .filter { selectedPreviewDay == null || it.dayOfWeek == selectedPreviewDay }
-            .filter { !showOnlyFilledSlots || it.mealText.isNotBlank() }
-}
 
 class ImportFileViewModel(
     application: Application
@@ -130,9 +85,7 @@ class ImportFileViewModel(
         }
     }
 
-    fun confirmReviewAndSave(
-        onSaved: () -> Unit
-    ) {
+    fun confirmReviewAndSave(onSaved: () -> Unit) {
         val currentState = _uiState.value
         if (currentState.isLoading) return
 
@@ -145,8 +98,9 @@ class ImportFileViewModel(
             return
         }
 
+        val draft = currentState.importedDraft
         val sourceFileName = currentState.selectedFileName
-            ?: currentState.importedDraft?.sourceFileName
+            ?: draft?.sourceFileName
             ?: "piano_alimentare.pdf"
 
         val reviewedCells = currentState.editableCells.map { cell ->
@@ -154,6 +108,26 @@ class ImportFileViewModel(
                 dayOfWeek = cell.dayOfWeek,
                 mealSlotType = cell.mealSlotType,
                 mealText = cell.mealText
+            )
+        }
+
+        val reviewedOptions = draft?.additionalOptions.orEmpty().map { option ->
+            ReviewedImportedMealOption(
+                mealSlotType = option.mealSlotType,
+                title = option.title,
+                mealText = option.rawText,
+                sourceType = option.sourceType,
+                tags = option.tags,
+                pageNumber = option.pageNumber
+            )
+        }
+
+        val reviewedRules = draft?.mealRules.orEmpty().map { rule ->
+            ReviewedImportedMealRule(
+                mealSlotType = rule.mealSlotType,
+                label = rule.label,
+                requiredComponents = rule.requiredComponents,
+                pageNumber = rule.pageNumber
             )
         }
 
@@ -170,7 +144,9 @@ class ImportFileViewModel(
                 withContext(Dispatchers.IO) {
                     repository.saveReviewedImport(
                         sourceFileName = sourceFileName,
-                        cells = reviewedCells
+                        cells = reviewedCells,
+                        extraOptions = reviewedOptions,
+                        mealRules = reviewedRules
                     )
                 }
             }.onSuccess {
@@ -183,12 +159,11 @@ class ImportFileViewModel(
                         warnings = emptyList(),
                         importStatus = null,
                         errorMessage = null,
-                        infoMessage = "Piano salvato correttamente nel database locale.",
+                        infoMessage = "Piano salvato correttamente con ${reviewedOptions.size} opzioni extra e ${reviewedRules.size} regole nutrizionali.",
                         selectedPreviewDay = null,
                         showOnlyFilledSlots = false
                     )
                 }
-
                 onSaved()
             }.onFailure { throwable ->
                 _uiState.update {
@@ -228,28 +203,19 @@ class ImportFileViewModel(
     }
 
     fun clearMealText(cellId: String) {
-        updateMealText(
-            cellId = cellId,
-            newValue = ""
-        )
+        updateMealText(cellId = cellId, newValue = "")
     }
 
     fun toggleShowOnlyFilledSlots() {
         _uiState.update { state ->
-            state.copy(
-                showOnlyFilledSlots = !state.showOnlyFilledSlots
-            )
+            state.copy(showOnlyFilledSlots = !state.showOnlyFilledSlots)
         }
     }
 
-    fun togglePreviewDay(day: WeekDay?) {
+    fun togglePreviewDay(day: it.lagioiaproductions.nutrislot.domain.model.WeekDay?) {
         _uiState.update { state ->
             state.copy(
-                selectedPreviewDay = if (state.selectedPreviewDay == day) {
-                    null
-                } else {
-                    day
-                }
+                selectedPreviewDay = if (state.selectedPreviewDay == day) null else day
             )
         }
     }
@@ -260,13 +226,7 @@ class ImportFileViewModel(
     ): String? {
         val projection = arrayOf(OpenableColumns.DISPLAY_NAME)
 
-        context.contentResolver.query(
-            uri,
-            projection,
-            null,
-            null,
-            null
-        )?.use { cursor ->
+        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
             val nameColumnIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             if (nameColumnIndex != -1 && cursor.moveToFirst()) {
                 return cursor.getString(nameColumnIndex)
@@ -274,53 +234,5 @@ class ImportFileViewModel(
         }
 
         return null
-    }
-
-    private fun buildImportInfoMessage(
-        draft: ImportedPlanDraft
-    ): String {
-        val populatedCount = draft.cells.count { it.rawText.isNotBlank() }
-
-        return when (draft.status) {
-            ImportStatus.SUCCESS -> {
-                "Import completato: $populatedCount slot valorizzati automaticamente. Controlla comunque la preview prima di confermare."
-            }
-
-            ImportStatus.PARTIAL -> {
-                "Import parziale: alcune celle richiedono revisione manuale. Controlla warning e testi estratti prima di proseguire."
-            }
-
-            ImportStatus.UNSUPPORTED -> {
-                "Il file non è stato riconosciuto bene. Puoi comunque ispezionare il risultato, ma il PDF potrebbe non essere adatto al parser automatico."
-            }
-
-            ImportStatus.FAILED -> {
-                "Import fallito. Verifica il file e riprova."
-            }
-        }
-    }
-
-    private fun ImportedPlanDraft.toEditableUiCells(): List<EditableImportedMealCellUi> {
-        return cells
-            .mapNotNull { cell ->
-                val day = cell.dayOfWeek ?: return@mapNotNull null
-                val slot = cell.mealSlotType ?: return@mapNotNull null
-
-                EditableImportedMealCellUi(
-                    id = cell.id,
-                    dayOfWeek = day,
-                    mealSlotType = slot,
-                    mealText = cell.rawText,
-                    originalMealText = cell.rawText,
-                    originalRecognitionState = cell.recognitionState,
-                    wasManuallyEdited = false
-                )
-            }
-            .sortedWith(
-                compareBy(
-                    { it.dayOfWeek.sortOrder },
-                    { it.mealSlotType.sortOrder }
-                )
-            )
     }
 }

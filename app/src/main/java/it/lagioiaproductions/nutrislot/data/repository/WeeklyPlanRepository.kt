@@ -2,38 +2,34 @@ package it.lagioiaproductions.nutrislot.data.repository
 
 import it.lagioiaproductions.nutrislot.data.local.room.MealAssignmentEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealConsumptionEntity
+import it.lagioiaproductions.nutrislot.data.local.room.MealOptionEntity
+import it.lagioiaproductions.nutrislot.data.local.room.MealRuleEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealSlotEntity
 import it.lagioiaproductions.nutrislot.data.local.room.WeeklyPlanDao
 import it.lagioiaproductions.nutrislot.data.local.room.WeeklyPlanEntity
-import it.lagioiaproductions.nutrislot.domain.model.MealAssignment
-import it.lagioiaproductions.nutrislot.domain.model.MealConsumption
-import it.lagioiaproductions.nutrislot.domain.model.MealSlot
+import it.lagioiaproductions.nutrislot.data.repository.mapper.areMealSlotTypesCompatible
+import it.lagioiaproductions.nutrislot.data.repository.mapper.normalizeMealText
+import it.lagioiaproductions.nutrislot.data.repository.mapper.serializeStringList
+import it.lagioiaproductions.nutrislot.data.repository.mapper.toDomain
+import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealCell
+import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealOption
+import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealRule
+import it.lagioiaproductions.nutrislot.data.repository.planning.WeeklyPlanningCalculator
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
-import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlan
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
 import it.lagioiaproductions.nutrislot.domain.model.sortedForWeeklyDisplay
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
 import java.util.UUID
-
-data class ReviewedImportedMealCell(
-    val dayOfWeek: WeekDay,
-    val mealSlotType: MealSlotType,
-    val mealText: String
-)
 
 class WeeklyPlanRepository(
     private val weeklyPlanDao: WeeklyPlanDao
 ) {
 
-    @Suppress("unused")
     suspend fun saveReviewedImport(
         sourceFileName: String?,
-        cells: List<ReviewedImportedMealCell>
+        cells: List<ReviewedImportedMealCell>,
+        extraOptions: List<ReviewedImportedMealOption> = emptyList(),
+        mealRules: List<ReviewedImportedMealRule> = emptyList()
     ): String {
         val planId = UUID.randomUUID().toString()
         val createdAt = System.currentTimeMillis()
@@ -64,9 +60,35 @@ class WeeklyPlanRepository(
             }
         }
 
+        val optionEntities = extraOptions.mapIndexed { index, option ->
+            MealOptionEntity(
+                id = "${planId}_OPTION_$index",
+                planId = planId,
+                mealSlotType = option.mealSlotType.name,
+                title = option.title,
+                mealText = normalizeMealText(option.mealText),
+                sourceType = option.sourceType.name,
+                tagsSerialized = serializeStringList(option.tags),
+                pageNumber = option.pageNumber
+            )
+        }
+
+        val ruleEntities = mealRules.mapIndexed { index, rule ->
+            MealRuleEntity(
+                id = "${planId}_RULE_$index",
+                planId = planId,
+                mealSlotType = rule.mealSlotType.name,
+                label = rule.label,
+                requiredComponentsSerialized = serializeStringList(rule.requiredComponents),
+                pageNumber = rule.pageNumber
+            )
+        }
+
         weeklyPlanDao.insertImportedPlan(
             plan = weeklyPlanEntity,
-            slots = mealSlotEntities
+            slots = mealSlotEntities,
+            options = optionEntities,
+            rules = ruleEntities
         )
 
         return planId
@@ -84,17 +106,14 @@ class WeeklyPlanRepository(
         val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(plan.id)
         val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(plan.id)
 
-        val activeWeekConsumptions = consumptionEntities.filter { consumption ->
-            isInCurrentWeek(consumption.consumedAtEpochMillis)
-        }
-        val activeWeekAssignments = assignmentEntities.filter { assignment ->
-            isInCurrentWeek(assignment.assignedAtEpochMillis)
-        }
-
-        val planning = buildActiveWeekPlanning(
+        val planning = WeeklyPlanningCalculator.buildActiveWeekPlanning(
             slotEntities = slotEntities,
-            actualConsumptions = activeWeekConsumptions,
-            pendingAssignments = activeWeekAssignments
+            actualConsumptions = consumptionEntities.filter { consumption ->
+                WeeklyPlanningCalculator.isInCurrentWeek(consumption.consumedAtEpochMillis)
+            },
+            pendingAssignments = assignmentEntities.filter { assignment ->
+                WeeklyPlanningCalculator.isInCurrentWeek(assignment.assignedAtEpochMillis)
+            }
         )
 
         val targetSlot = slotEntities.firstOrNull { it.id == targetSlotId }
@@ -103,43 +122,15 @@ class WeeklyPlanRepository(
         val sourceSlot = slotEntities.firstOrNull { it.id == sourceSlotId }
             ?: throw IllegalStateException("Slot sorgente non trovato.")
 
-        if (planning.actualSourceByTarget.containsKey(targetSlotId)) {
-            throw IllegalStateException("Questo slot risulta già completato nella settimana corrente.")
-        }
+        validateReplacement(
+            planning = planning,
+            targetSlot = targetSlot,
+            sourceSlot = sourceSlot,
+            targetSlotId = targetSlotId,
+            sourceSlotId = sourceSlotId
+        )
 
-        if (sourceSlot.plannedMealText.isBlank()) {
-            throw IllegalStateException("Lo slot sorgente non contiene un pasto disponibile.")
-        }
-
-        if (
-            !areMealSlotTypesCompatible(
-                targetType = MealSlotType.valueOf(targetSlot.mealSlotType),
-                sourceType = MealSlotType.valueOf(sourceSlot.mealSlotType)
-            )
-        ) {
-            throw IllegalStateException(
-                "Sostituzione non consentita tra ${targetSlot.mealSlotType} e ${sourceSlot.mealSlotType}."
-            )
-        }
-
-        val sourceUsedOrReservedByAnotherTarget = planning.usedSourceByTarget.any { usage ->
-            usage.sourceSlotId == sourceSlotId &&
-                    usage.targetSlotId != targetSlotId
-        }
-
-        if (sourceUsedOrReservedByAnotherTarget) {
-            throw IllegalStateException(
-                "Il pasto selezionato è già stato usato o assegnato in un altro slot della settimana."
-            )
-        }
-
-        val currentTargetAssignmentIds = activeWeekAssignments
-            .filter { it.targetSlotId == targetSlotId }
-            .map { it.id }
-
-        if (currentTargetAssignmentIds.isNotEmpty()) {
-            weeklyPlanDao.deleteMealAssignmentsByIds(currentTargetAssignmentIds)
-        }
+        deleteCurrentAssignmentsForTarget(targetSlotId = targetSlotId, assignments = assignmentEntities)
 
         val newAssignment = MealAssignmentEntity(
             id = UUID.randomUUID().toString(),
@@ -149,9 +140,7 @@ class WeeklyPlanRepository(
             assignedAtEpochMillis = System.currentTimeMillis()
         )
 
-        weeklyPlanDao.insertMealAssignments(
-            assignments = listOf(newAssignment)
-        )
+        weeklyPlanDao.insertMealAssignments(assignments = listOf(newAssignment))
     }
 
     suspend fun recordMealConsumption(
@@ -166,17 +155,17 @@ class WeeklyPlanRepository(
         val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(plan.id)
         val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(plan.id)
 
-        val activeWeekConsumptions = consumptionEntities.filter { consumption ->
-            isInCurrentWeek(consumption.consumedAtEpochMillis)
+        val activeConsumptions = consumptionEntities.filter { consumption ->
+            WeeklyPlanningCalculator.isInCurrentWeek(consumption.consumedAtEpochMillis)
         }
-        val activeWeekAssignments = assignmentEntities.filter { assignment ->
-            isInCurrentWeek(assignment.assignedAtEpochMillis)
+        val activeAssignments = assignmentEntities.filter { assignment ->
+            WeeklyPlanningCalculator.isInCurrentWeek(assignment.assignedAtEpochMillis)
         }
 
-        val planning = buildActiveWeekPlanning(
+        val planning = WeeklyPlanningCalculator.buildActiveWeekPlanning(
             slotEntities = slotEntities,
-            actualConsumptions = activeWeekConsumptions,
-            pendingAssignments = activeWeekAssignments
+            actualConsumptions = activeConsumptions,
+            pendingAssignments = activeAssignments
         )
 
         val targetSlot = slotEntities.firstOrNull { it.id == targetSlotId }
@@ -189,7 +178,7 @@ class WeeklyPlanRepository(
             throw IllegalStateException("Questo slot risulta già completato nella settimana corrente.")
         }
 
-        val pendingAssignmentForTarget = activeWeekAssignments
+        val pendingAssignmentForTarget = activeAssignments
             .sortedBy { it.assignedAtEpochMillis }
             .lastOrNull { it.targetSlotId == targetSlotId }
 
@@ -198,6 +187,74 @@ class WeeklyPlanRepository(
             throw IllegalStateException(
                 "Lo slot ha un pasto assegnato diverso. Aggiorna prima la selezione del pasto."
             )
+        }
+
+        validateReplacement(
+            planning = planning,
+            targetSlot = targetSlot,
+            sourceSlot = sourceSlot,
+            targetSlotId = targetSlotId,
+            sourceSlotId = sourceSlotId
+        )
+
+        deleteCurrentAssignmentsForTarget(targetSlotId = targetSlotId, assignments = activeAssignments)
+
+        val newConsumption = MealConsumptionEntity(
+            id = UUID.randomUUID().toString(),
+            planId = plan.id,
+            targetSlotId = targetSlot.id,
+            sourceSlotId = sourceSlot.id,
+            consumedAtEpochMillis = System.currentTimeMillis()
+        )
+
+        weeklyPlanDao.insertMealConsumptions(consumptions = listOf(newConsumption))
+    }
+
+    suspend fun getLatestWeeklyPlanSnapshot(): WeeklyPlanSnapshot? {
+        val latestPlan = weeklyPlanDao.getLatestPlan() ?: return null
+        return getWeeklyPlanSnapshot(latestPlan.id)
+    }
+
+    suspend fun getWeeklyPlanSnapshot(planId: String): WeeklyPlanSnapshot? {
+        val planEntity = weeklyPlanDao.getPlanById(planId) ?: return null
+        val slotEntities = weeklyPlanDao.getSlotsForPlan(planId)
+        val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(planId)
+        val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(planId)
+        val optionEntities = weeklyPlanDao.getMealOptionsForPlan(planId)
+        val ruleEntities = weeklyPlanDao.getMealRulesForPlan(planId)
+
+        return WeeklyPlanSnapshot(
+            plan = planEntity.toDomain(),
+            slots = slotEntities.map { it.toDomain() }.sortedForWeeklyDisplay(),
+            consumptions = consumptionEntities.map { it.toDomain() },
+            assignments = assignmentEntities.map { it.toDomain() },
+            mealOptions = optionEntities.map { it.toDomain() },
+            mealRules = ruleEntities.map { it.toDomain() }
+        )
+    }
+
+    private suspend fun deleteCurrentAssignmentsForTarget(
+        targetSlotId: String,
+        assignments: List<MealAssignmentEntity>
+    ) {
+        val currentTargetAssignmentIds = assignments
+            .filter { it.targetSlotId == targetSlotId }
+            .map { it.id }
+
+        if (currentTargetAssignmentIds.isNotEmpty()) {
+            weeklyPlanDao.deleteMealAssignmentsByIds(currentTargetAssignmentIds)
+        }
+    }
+
+    private fun validateReplacement(
+        planning: it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanning,
+        targetSlot: MealSlotEntity,
+        sourceSlot: MealSlotEntity,
+        targetSlotId: String,
+        sourceSlotId: String
+    ) {
+        if (planning.actualSourceByTarget.containsKey(targetSlotId)) {
+            throw IllegalStateException("Questo slot risulta già completato nella settimana corrente.")
         }
 
         if (sourceSlot.plannedMealText.isBlank()) {
@@ -216,8 +273,7 @@ class WeeklyPlanRepository(
         }
 
         val sourceUsedOrReservedByAnotherTarget = planning.usedSourceByTarget.any { usage ->
-            usage.sourceSlotId == sourceSlotId &&
-                    usage.targetSlotId != targetSlotId
+            usage.sourceSlotId == sourceSlotId && usage.targetSlotId != targetSlotId
         }
 
         if (sourceUsedOrReservedByAnotherTarget) {
@@ -225,188 +281,5 @@ class WeeklyPlanRepository(
                 "Il pasto selezionato è già stato usato o assegnato in un altro slot della settimana."
             )
         }
-
-        val currentTargetAssignmentIds = activeWeekAssignments
-            .filter { it.targetSlotId == targetSlotId }
-            .map { it.id }
-
-        if (currentTargetAssignmentIds.isNotEmpty()) {
-            weeklyPlanDao.deleteMealAssignmentsByIds(currentTargetAssignmentIds)
-        }
-
-        val newConsumption = MealConsumptionEntity(
-            id = UUID.randomUUID().toString(),
-            planId = plan.id,
-            targetSlotId = targetSlot.id,
-            sourceSlotId = sourceSlot.id,
-            consumedAtEpochMillis = System.currentTimeMillis()
-        )
-
-        weeklyPlanDao.insertMealConsumptions(
-            consumptions = listOf(newConsumption)
-        )
-    }
-
-    suspend fun getLatestWeeklyPlanSnapshot(): WeeklyPlanSnapshot? {
-        val latestPlan = weeklyPlanDao.getLatestPlan() ?: return null
-        return getWeeklyPlanSnapshot(latestPlan.id)
-    }
-
-    suspend fun getWeeklyPlanSnapshot(planId: String): WeeklyPlanSnapshot? {
-        val planEntity = weeklyPlanDao.getPlanById(planId) ?: return null
-        val slotEntities = weeklyPlanDao.getSlotsForPlan(planId)
-        val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(planId)
-        val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(planId)
-
-        return WeeklyPlanSnapshot(
-            plan = planEntity.toDomain(),
-            slots = slotEntities.map { it.toDomain() }.sortedForWeeklyDisplay(),
-            consumptions = consumptionEntities.map { it.toDomain() },
-            assignments = assignmentEntities.map { it.toDomain() }
-        )
-    }
-
-    private fun WeeklyPlanEntity.toDomain(): WeeklyPlan {
-        return WeeklyPlan(
-            id = id,
-            title = title,
-            sourceFileName = sourceFileName,
-            createdAtEpochMillis = createdAtEpochMillis
-        )
-    }
-
-    private fun MealSlotEntity.toDomain(): MealSlot {
-        return MealSlot(
-            id = id,
-            planId = planId,
-            dayOfWeek = WeekDay.valueOf(dayOfWeek),
-            mealSlotType = MealSlotType.valueOf(mealSlotType),
-            plannedMealText = plannedMealText
-        )
-    }
-
-    private fun MealConsumptionEntity.toDomain(): MealConsumption {
-        return MealConsumption(
-            id = id,
-            planId = planId,
-            targetSlotId = targetSlotId,
-            sourceSlotId = sourceSlotId,
-            consumedAtEpochMillis = consumedAtEpochMillis
-        )
-    }
-
-    private fun MealAssignmentEntity.toDomain(): MealAssignment {
-        return MealAssignment(
-            id = id,
-            planId = planId,
-            targetSlotId = targetSlotId,
-            sourceSlotId = sourceSlotId,
-            assignedAtEpochMillis = assignedAtEpochMillis
-        )
-    }
-
-    private fun normalizeMealText(text: String): String {
-        return text
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
-            .lines()
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .joinToString(separator = "\n")
-    }
-
-    private fun areMealSlotTypesCompatible(
-        targetType: MealSlotType,
-        sourceType: MealSlotType
-    ): Boolean {
-        if (targetType == sourceType) {
-            return true
-        }
-
-        return when (targetType) {
-            MealSlotType.LUNCH -> sourceType == MealSlotType.DINNER
-            MealSlotType.DINNER -> sourceType == MealSlotType.LUNCH
-            MealSlotType.MORNING_SNACK -> sourceType == MealSlotType.AFTERNOON_SNACK
-            MealSlotType.AFTERNOON_SNACK -> sourceType == MealSlotType.MORNING_SNACK
-            MealSlotType.BREAKFAST -> false
-        }
-    }
-
-    private fun isInCurrentWeek(epochMillis: Long): Boolean {
-        val zoneId = ZoneId.systemDefault()
-        val date = Instant.ofEpochMilli(epochMillis).atZone(zoneId).toLocalDate()
-        val today = LocalDate.now(zoneId)
-        val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val nextWeekStart = weekStart.plusWeeks(1)
-
-        return !date.isBefore(weekStart) && date.isBefore(nextWeekStart)
-    }
-
-    private fun buildActiveWeekPlanning(
-        slotEntities: List<MealSlotEntity>,
-        actualConsumptions: List<MealConsumptionEntity>,
-        pendingAssignments: List<MealAssignmentEntity>
-    ): ActiveWeekPlanning {
-        val actualSourceByTarget = linkedMapOf<String, String>()
-        actualConsumptions
-            .sortedBy { it.consumedAtEpochMillis }
-            .forEach { consumption ->
-                actualSourceByTarget[consumption.targetSlotId] = consumption.sourceSlotId
-            }
-
-        val pendingSourceByTarget = linkedMapOf<String, String>()
-        pendingAssignments
-            .sortedBy { it.assignedAtEpochMillis }
-            .forEach { assignment ->
-                if (actualSourceByTarget.containsKey(assignment.targetSlotId)) {
-                    return@forEach
-                }
-
-                val sourceSlot = slotEntities.firstOrNull { it.id == assignment.sourceSlotId }
-                    ?: return@forEach
-
-                if (sourceSlot.plannedMealText.isBlank()) {
-                    return@forEach
-                }
-
-                pendingSourceByTarget[assignment.targetSlotId] = assignment.sourceSlotId
-            }
-
-        val usedSourceByTarget = buildList {
-            actualSourceByTarget.forEach { (targetSlotId, sourceSlotId) ->
-                add(
-                    SourceUsage(
-                        targetSlotId = targetSlotId,
-                        sourceSlotId = sourceSlotId
-                    )
-                )
-            }
-
-            pendingSourceByTarget.forEach { (targetSlotId, sourceSlotId) ->
-                add(
-                    SourceUsage(
-                        targetSlotId = targetSlotId,
-                        sourceSlotId = sourceSlotId
-                    )
-                )
-            }
-        }
-
-        return ActiveWeekPlanning(
-            actualSourceByTarget = actualSourceByTarget,
-            pendingSourceByTarget = pendingSourceByTarget,
-            usedSourceByTarget = usedSourceByTarget
-        )
     }
 }
-
-private data class SourceUsage(
-    val targetSlotId: String,
-    val sourceSlotId: String
-)
-
-private data class ActiveWeekPlanning(
-    val actualSourceByTarget: Map<String, String>,
-    val pendingSourceByTarget: Map<String, String>,
-    val usedSourceByTarget: List<SourceUsage>
-)
