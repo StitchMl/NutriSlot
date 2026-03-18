@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -27,8 +26,7 @@ internal fun LoadingContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
-            .safeDrawingPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 20.dp, vertical = 1.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         CircularProgressIndicator()
@@ -51,8 +49,7 @@ internal fun ErrorContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
-            .safeDrawingPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
@@ -98,8 +95,7 @@ internal fun EmptyContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
-            .safeDrawingPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 20.dp, vertical = 1.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {

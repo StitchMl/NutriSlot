@@ -2,11 +2,11 @@ package it.lagioiaproductions.nutrislot.ui.importpreview
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +29,6 @@ internal fun EmptyPreviewContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
-            .safeDrawingPadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -46,7 +45,8 @@ internal fun EmptyPreviewContent(
 
                 Text(
                     text = "Prima devi selezionare un PDF nella schermata di import.",
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -68,8 +68,8 @@ internal fun AdditionalOptionsSummaryCard(
 
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
                 text = "Opzioni extra dal PDF",
@@ -78,15 +78,22 @@ internal fun AdditionalOptionsSummaryCard(
             )
 
             Text(
-                text = "Queste opzioni non stanno nella griglia settimanale, ma sono state comunque catturate e salvate.",
-                style = MaterialTheme.typography.bodyMedium
+                text = "Queste opzioni non stanno nella griglia settimanale, ma sono state comunque catturate e potranno essere salvate insieme al piano.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            bySlot.entries.sortedBy { it.key.sortOrder }.forEach { (slot, count) ->
-                Text(
-                    text = "• ${slot.displayName}: $count",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                bySlot.entries
+                    .sortedBy { it.key.sortOrder }
+                    .forEach { (slot, count) ->
+                        PreviewStatusBadge(
+                            text = "${slot.displayName}: $count"
+                        )
+                    }
             }
         }
     }
@@ -100,7 +107,7 @@ internal fun AdditionalOptionsCard(
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 text = slotType.displayName,
@@ -115,17 +122,11 @@ internal fun AdditionalOptionsCard(
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val subtitleParts = buildList {
-                            option.title?.takeIf { it.isNotBlank() }?.let { add(it) }
-                            add(option.sourceType.name.replace('_', ' ').lowercase())
-                            option.pageNumber?.let { add("pagina $it") }
-                        }
-
                         Text(
-                            text = subtitleParts.joinToString(" • "),
+                            text = option.sourceType.name.replace('_', ' ').lowercase(),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -136,10 +137,18 @@ internal fun AdditionalOptionsCard(
                         )
 
                         if (option.tags.isNotEmpty()) {
-                            Text(
-                                text = option.tags.joinToString(prefix = "Tag: ", separator = ", "),
-                                style = MaterialTheme.typography.labelMedium
-                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                option.tags.forEach { tag ->
+                                    PreviewStatusBadge(
+                                        text = tag,
+                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -155,7 +164,7 @@ internal fun MealRulesCard(
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 text = "Regole nutrizionali catturate",
@@ -170,8 +179,8 @@ internal fun MealRulesCard(
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
                             text = "${rule.mealSlotType.displayName} • ${rule.label}",
@@ -200,19 +209,27 @@ internal fun ImportWarningsCard(
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
                 text = "Warning del parser",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error
             )
 
             warnings.forEach { warning ->
-                Text(
-                    text = "• $warning",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Text(
+                        text = warning,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
             }
         }
     }
@@ -228,12 +245,13 @@ internal fun EmptyFilteredStateCard() {
             Text(
                 text = "Nessuna cella visibile con i filtri attuali",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold
             )
 
             Text(
                 text = "Prova a cambiare giorno oppure a disattivare il filtro sugli slot valorizzati.",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

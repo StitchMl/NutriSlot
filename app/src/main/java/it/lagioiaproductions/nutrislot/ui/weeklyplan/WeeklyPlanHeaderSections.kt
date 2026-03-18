@@ -2,6 +2,7 @@ package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
@@ -29,24 +30,58 @@ internal fun DietHeroCard(
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = uiState.planTitle ?: "Piano importato",
+                text = "Piano alimentare",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Text(
+                text = uiState.planTitle ?: "Settimana attiva",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold
             )
 
-            uiState.sourceFileName?.let { fileName ->
-                Text(
-                    text = "Origine file: $fileName",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            val subtitle = buildString {
+                append("Gestisci gli slot della settimana e tieni traccia dei pasti già usati.")
+                uiState.sourceFileName?.let { fileName ->
+                    append(" • File: ")
+                    append(fileName)
+                }
             }
 
-            WeeklyStatusBadge(
-                text = "Slot con contenuto: ${uiState.populatedSlotsCount} / ${uiState.slots.size}"
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                WeeklyStatusBadge(
+                    text = "Slot con contenuto: ${uiState.populatedSlotsCount}/${uiState.slots.size}"
+                )
+
+                WeeklyStatusBadge(
+                    text = "Giorno attivo: ${uiState.selectedCalendarDay.displayName}",
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+
+                WeeklyStatusBadge(
+                    text = if (uiState.showConsumedSlotsInCalendar) {
+                        "Completati visibili"
+                    } else {
+                        "Completati nascosti"
+                    },
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
         }
     }
 }
@@ -99,6 +134,12 @@ internal fun DayStripCard(
                 fontWeight = FontWeight.SemiBold
             )
 
+            Text(
+                text = "Scegli il giorno su cui vuoi lavorare.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(orderedDays) { day ->
                     FilterChip(
@@ -133,6 +174,12 @@ internal fun CalendarControlsCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Text(
+                text = "Controlli rapidi",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+
             FilterChip(
                 selected = uiState.showConsumedSlotsInCalendar,
                 onClick = onToggleConsumedSlotsVisibility,
@@ -150,7 +197,8 @@ internal fun CalendarControlsCard(
             if (!uiState.showConsumedSlotsInCalendar && hiddenSelectedDaySlotsCount > 0) {
                 Text(
                     text = "Per ${uiState.selectedCalendarDay.displayName.lowercase()} ho nascosto $hiddenSelectedDaySlotsCount slot già completati nella settimana corrente.",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -191,8 +239,9 @@ internal fun SelectedDayHeroCard(
             )
 
             Text(
-                text = "Slot visibili: $visibleSlotsCount / $totalSlotsCount",
-                style = MaterialTheme.typography.bodyMedium
+                text = "Hai $visibleSlotsCount slot visibili su $totalSlotsCount per questo giorno.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

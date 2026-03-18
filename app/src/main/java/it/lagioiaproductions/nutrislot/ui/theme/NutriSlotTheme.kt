@@ -1,6 +1,5 @@
 package it.lagioiaproductions.nutrislot.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,75 +8,71 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private val NutriSlotLightColors = lightColorScheme(
-    primary = Color(0xFF1A73E8),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD7E3FF),
-    onPrimaryContainer = Color(0xFF001B3F),
-    secondary = Color(0xFF5F6368),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE8EAED),
-    onSecondaryContainer = Color(0xFF1F1F1F),
-    tertiary = Color(0xFF0F9D58),
-    onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFCFF4DE),
-    onTertiaryContainer = Color(0xFF002111),
-    error = Color(0xFFB3261E),
-    onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFF9DEDC),
-    onErrorContainer = Color(0xFF410E0B),
-    background = Color(0xFFF6F8FC),
-    onBackground = Color(0xFF1F1F1F),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1F1F1F),
-    surfaceVariant = Color(0xFFEFF3F9),
-    onSurfaceVariant = Color(0xFF44474E),
-    outline = Color(0xFF747775)
+    primary = NutriAccent,
+    onPrimary = NutriWarmSurface,
+    primaryContainer = NutriAccentSoft,
+    onPrimaryContainer = NutriTextPrimary,
+    secondary = NutriOlive,
+    onSecondary = NutriWarmSurface,
+    secondaryContainer = NutriCard,
+    onSecondaryContainer = NutriTextPrimary,
+    tertiary = NutriOlive,
+    onTertiary = NutriWarmSurface,
+    tertiaryContainer = NutriCard,
+    onTertiaryContainer = NutriTextPrimary,
+    error = NutriError,
+    onError = NutriWarmSurface,
+    errorContainer = NutriAccentSoft,
+    onErrorContainer = NutriTextPrimary,
+    background = NutriCream,
+    onBackground = NutriTextPrimary,
+    surface = NutriWarmSurface,
+    onSurface = NutriTextPrimary,
+    surfaceVariant = NutriCard,
+    onSurfaceVariant = NutriTextSecondary,
+    outline = NutriOutline
 )
 
 private val NutriSlotDarkColors = darkColorScheme(
-    primary = Color(0xFFA8C7FA),
-    onPrimary = Color(0xFF062E6F),
-    primaryContainer = Color(0xFF0842A0),
-    onPrimaryContainer = Color(0xFFD7E3FF),
-    secondary = Color(0xFFC4C7C5),
-    onSecondary = Color(0xFF2B3133),
-    secondaryContainer = Color(0xFF3A4043),
-    onSecondaryContainer = Color(0xFFE8EAED),
-    tertiary = Color(0xFF7EE2A8),
-    onTertiary = Color(0xFF00391D),
-    tertiaryContainer = Color(0xFF00522C),
-    onTertiaryContainer = Color(0xFFCFF4DE),
-    error = Color(0xFFF2B8B5),
-    onError = Color(0xFF601410),
-    errorContainer = Color(0xFF8C1D18),
-    onErrorContainer = Color(0xFFF9DEDC),
-    background = Color(0xFF111318),
-    onBackground = Color(0xFFE3E3E3),
-    surface = Color(0xFF181C22),
-    onSurface = Color(0xFFE3E3E3),
-    surfaceVariant = Color(0xFF2A2F36),
-    onSurfaceVariant = Color(0xFFC4C7D0),
-    outline = Color(0xFF8E9099)
+    primary = NutriDarkAccent,
+    onPrimary = NutriDarkBackground,
+    primaryContainer = NutriDarkCard,
+    onPrimaryContainer = NutriDarkText,
+    secondary = NutriDarkAccent,
+    onSecondary = NutriDarkBackground,
+    secondaryContainer = NutriDarkCard,
+    onSecondaryContainer = NutriDarkText,
+    tertiary = NutriDarkAccent,
+    onTertiary = NutriDarkBackground,
+    tertiaryContainer = NutriDarkCard,
+    onTertiaryContainer = NutriDarkText,
+    error = NutriError,
+    onError = NutriWarmSurface,
+    errorContainer = NutriDarkCard,
+    onErrorContainer = NutriDarkText,
+    background = NutriDarkBackground,
+    onBackground = NutriDarkText,
+    surface = NutriDarkSurface,
+    onSurface = NutriDarkText,
+    surfaceVariant = NutriDarkCard,
+    onSurfaceVariant = NutriDarkSubtleText,
+    outline = NutriDarkOutline
 )
 
 private val NutriSlotTypography = Typography(
     displaySmall = TextStyle(
         fontWeight = FontWeight.SemiBold,
-        fontSize = 36.sp,
-        lineHeight = 42.sp,
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
         letterSpacing = (-0.3).sp
     ),
     headlineSmall = TextStyle(
@@ -104,7 +99,7 @@ private val NutriSlotTypography = Typography(
     bodyMedium = TextStyle(
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 20.sp
+        lineHeight = 21.sp
     ),
     labelLarge = TextStyle(
         fontWeight = FontWeight.SemiBold,
@@ -132,24 +127,16 @@ private val NutriSlotShapes = Shapes(
 )
 
 @Composable
+@Suppress("unused")
 fun NutriSlotTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val context = LocalContext.current
-
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (darkTheme) {
-                dynamicDarkColorScheme(context)
-            } else {
-                dynamicLightColorScheme(context)
-            }
-        }
-
-        darkTheme -> NutriSlotDarkColors
-        else -> NutriSlotLightColors
+    val colorScheme = if (darkTheme) {
+        NutriSlotDarkColors
+    } else {
+        NutriSlotLightColors
     }
 
     MaterialTheme(

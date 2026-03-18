@@ -2,6 +2,7 @@ package it.lagioiaproductions.nutrislot.ui.importpreview
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
@@ -13,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.ImportStatus
@@ -34,7 +36,7 @@ internal fun PreviewHeroCard(
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
                 text = "Controlla e correggi la settimana",
@@ -45,7 +47,8 @@ internal fun PreviewHeroCard(
             uiState.selectedFileName?.let { fileName ->
                 Text(
                     text = "File: $fileName",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -56,12 +59,48 @@ internal fun PreviewHeroCard(
                 )
             }
 
-            PreviewStatusBadge(text = "Stato parsing: $statusText")
-            PreviewStatusBadge(text = "Slot con contenuto: ${uiState.populatedEditableCellsCount} / ${uiState.editableCells.size}")
-            PreviewStatusBadge(text = "Opzioni extra catturate: ${uiState.additionalOptionsCount}")
-            PreviewStatusBadge(text = "Regole nutrizionali catturate: ${uiState.mealRulesCount}")
-            PreviewStatusBadge(text = "Celle modificate: ${uiState.editedCellsCount}")
-            PreviewStatusBadge(text = "Warning: ${uiState.warnings.size}")
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PreviewStatusBadge(
+                    text = "Parsing: $statusText",
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+
+                PreviewStatusBadge(
+                    text = "Slot pieni: ${uiState.populatedEditableCellsCount}/${uiState.editableCells.size}"
+                )
+
+                PreviewStatusBadge(
+                    text = "Opzioni extra: ${uiState.additionalOptionsCount}"
+                )
+
+                PreviewStatusBadge(
+                    text = "Regole: ${uiState.mealRulesCount}"
+                )
+
+                PreviewStatusBadge(
+                    text = "Modifiche: ${uiState.editedCellsCount}",
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+
+                PreviewStatusBadge(
+                    text = "Warning: ${uiState.warnings.size}",
+                    containerColor = if (uiState.warnings.isNotEmpty()) {
+                        MaterialTheme.colorScheme.errorContainer
+                    } else {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    },
+                    contentColor = if (uiState.warnings.isNotEmpty()) {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    }
+                )
+            }
         }
     }
 }
@@ -80,7 +119,13 @@ internal fun PreviewFiltersCard(
             Text(
                 text = "Filtri rapidi",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Text(
+                text = "Riduci il numero di celle visibili prima della revisione.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -128,17 +173,20 @@ internal fun DayHeaderCard(
 
 @Composable
 internal fun PreviewStatusBadge(
-    text: String
+    text: String,
+    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer
 ) {
     Surface(
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.secondaryContainer
+        shape = MaterialTheme.shapes.extraLarge,
+        color = containerColor
     ) {
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            color = contentColor
         )
     }
 }

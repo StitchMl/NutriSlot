@@ -70,9 +70,5 @@ data class WeeklyPlanUiState(
         get() = slots.count { it.originalMealText.isNotBlank() }
 
     val orderedCalendarDays: List<WeekDay>
-        get() {
-            val ordered = WeekDay.orderedValues()
-            val startIndex = ordered.indexOf(currentWeekReferenceDay).coerceAtLeast(0)
-            return ordered.drop(startIndex) + ordered.take(startIndex)
-        }
+        get() = WeekDay.orderedValues()
 }

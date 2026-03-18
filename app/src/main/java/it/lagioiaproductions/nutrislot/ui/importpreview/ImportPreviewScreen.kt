@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -52,9 +51,13 @@ fun ImportPreviewScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .safeDrawingPadding(),
-            contentPadding = PaddingValues(16.dp),
+                .padding(innerPadding),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                top = 12.dp,
+                end = 16.dp,
+                bottom = 16.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -105,6 +108,7 @@ fun ImportPreviewScreen(
                 }
             } else {
                 val grouped = uiState.filteredEditableCells.groupBy { it.dayOfWeek }
+
                 grouped.forEach { (day, cells) ->
                     item(key = "header_${day.name}") {
                         DayHeaderCard(dayDisplayName = day.displayName)
@@ -132,7 +136,13 @@ fun ImportPreviewScreen(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !uiState.isLoading
                     ) {
-                        Text(if (uiState.isLoading) "Salvataggio in corso..." else "Conferma revisione")
+                        Text(
+                            if (uiState.isLoading) {
+                                "Salvataggio in corso..."
+                            } else {
+                                "Conferma revisione"
+                            }
+                        )
                     }
 
                     FilledTonalButton(
@@ -140,7 +150,7 @@ fun ImportPreviewScreen(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !uiState.isLoading
                     ) {
-                        Text("Indietro")
+                        Text("Torna all’import")
                     }
                 }
             }

@@ -3,6 +3,7 @@ package it.lagioiaproductions.nutrislot.ui.weeklyplan
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -43,14 +44,22 @@ internal fun SlotActionDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                    .heightIn(max = 460.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text(
-                    text = "Stato attuale: ${slotStatusLabel(dialogUi.targetDisplayState)}",
-                    style = MaterialTheme.typography.bodyMedium
+                WeeklyStatusBadge(
+                    text = "Stato: ${slotStatusLabel(dialogUi.targetDisplayState)}",
+                    containerColor = slotStatusContainerColor(dialogUi.targetDisplayState),
+                    contentColor = slotStatusContentColor(dialogUi.targetDisplayState)
                 )
+
+                dialogUi.mealRuleSummary?.let { ruleSummary ->
+                    DialogInfoBlock(
+                        title = "Composizione attesa",
+                        body = ruleSummary
+                    )
+                }
 
                 val targetSections = parseMealSections(dialogUi.currentDisplayedMealText)
 
@@ -60,12 +69,7 @@ internal fun SlotActionDialog(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 } else {
-                    Text(
-                        text = "Pasto attualmente assegnato",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
-                    )
-
+                    DialogSectionTitle("Pasto attualmente assegnato")
                     MealTextBlock(sections = targetSections)
                 }
 
@@ -97,148 +101,212 @@ internal fun SlotActionDialog(
                             if (isApplying) {
                                 "Aggiornamento in corso..."
                             } else {
-                                "Segna come completato"
+                                "Segna come consumato"
                             }
                         )
                     }
                 }
 
-                if (!dialogUi.isTargetActuallyCompletedThisWeek) {
-                    Text(
-                        text = "Usa un pasto compatibile da un altro slot",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
-                    )
+                if (dialogUi.replacementOptions.isNotEmpty()) {
+                    DialogSectionTitle("Sostituisci con un pasto già pianificato")
 
-                    if (dialogUi.replacementOptions.isEmpty()) {
-                        Text(
-                            text = "Non ci sono altri pasti compatibili e disponibili da assegnare a questo slot.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    } else {
-                        dialogUi.replacementOptions.forEach { option ->
-                            ReplacementOptionButton(
-                                option = option,
-                                targetDayLabel = dialogUi.targetDayLabel,
-                                targetMealSlotLabel = dialogUi.targetMealSlotLabel,
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dialogUi.replacementOptions.forEach { replacement ->
+                            ReplacementOptionCard(
+                                option = replacement,
                                 enabled = !isApplying,
-                                onClick = { onConsumeReplacement(option.sourceSlotId) }
+                                onClick = {
+                                    onConsumeReplacement(replacement.sourceSlotId)
+                                }
                             )
+                        }
+                    }
+                }
+
+                if (dialogUi.extraCatalogOptions.isNotEmpty()) {
+                    DialogSectionTitle("Opzioni extra dal PDF")
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dialogUi.extraCatalogOptions.take(4).forEach { option ->
+                            ExtraCatalogOptionCard(option = option)
                         }
                     }
                 }
             }
         },
-        confirmButton = {},
-        dismissButton = {
+        confirmButton = {
             TextButton(
                 onClick = onDismiss,
                 enabled = !isApplying
             ) {
                 Text("Chiudi")
             }
-        }
+        },
+        dismissButton = null
     )
 }
 
 @Composable
-private fun ReplacementOptionButton(
+private fun DialogSectionTitle(
+    text: String
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold
+    )
+}
+
+@Composable
+private fun DialogInfoBlock(
+    title: String,
+    body: String
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReplacementOptionCard(
     option: ReplacementMealOptionUi,
-    targetDayLabel: String,
-    targetMealSlotLabel: String,
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    val sections = parseMealSections(option.mealText)
-    val flatLines = sections.flatten()
-    val previewLines = flatLines.take(3)
-    val hiddenLinesCount = (flatLines.size - previewLines.size).coerceAtLeast(0)
-    val extraSectionsCount = (sections.size - 1).coerceAtLeast(0)
-
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f)
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    enabled = enabled,
-                    onClick = onClick
-                )
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 WeeklyStatusBadge(
-                    text = "Da ${option.sourceDayLabel}",
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-
-                WeeklyStatusBadge(
-                    text = option.sourceMealSlotLabel,
+                    text = "${option.sourceDayLabel} • ${option.sourceMealSlotLabel}",
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
 
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface
+            Text(
+                text = option.mealText,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExtraCatalogOptionCard(
+    option: ExtraCatalogMealOptionUi
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = option.mealText,
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "Applica a $targetDayLabel • $targetMealSlotLabel",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                WeeklyStatusBadge(
+                    text = option.sourceLabel,
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+
+                option.tags.take(3).forEach { tag ->
+                    WeeklyStatusBadge(
+                        text = tag,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     )
+                }
+            }
+        }
+    }
+}
 
-                    previewLines.forEach { line ->
-                        Text(
-                            text = "• $line",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
+@Composable
+private fun MealTextBlock(
+    sections: List<List<String>>
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            sections.forEachIndexed { index, section ->
+                if (index > 0) {
+                    SectionSeparatorBadge()
+                }
 
-                    if (extraSectionsCount > 0) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    section.forEach { line ->
                         Text(
-                            text = "Include anche $extraSectionsCount blocchi aggiuntivi",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    if (hiddenLinesCount > 0) {
-                        Text(
-                            text = "+ $hiddenLinesCount dettagli",
-                            style = MaterialTheme.typography.labelSmall
+                            text = line,
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
             }
-
-            Text(
-                text = if (enabled) "Tocca per usare questo pasto" else "Operazione in corso...",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = if (enabled) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-            )
         }
+    }
+}
+
+@Composable
+private fun SectionSeparatorBadge() {
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Text(
+            text = "Dettaglio",
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     }
 }

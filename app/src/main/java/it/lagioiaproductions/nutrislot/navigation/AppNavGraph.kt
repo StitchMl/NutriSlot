@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -29,21 +28,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import it.lagioiaproductions.nutrislot.domain.model.ImportStatus
+import it.lagioiaproductions.nutrislot.ui.calories.CalorieTrackerScreen
 import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileUiState
 import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileViewModel
 import it.lagioiaproductions.nutrislot.ui.importpreview.ImportPreviewScreen
+import it.lagioiaproductions.nutrislot.ui.root.AppRootScaffold
+import it.lagioiaproductions.nutrislot.ui.root.AppTopLevelDestination
+import it.lagioiaproductions.nutrislot.ui.scanner.ScannerScreen
+import it.lagioiaproductions.nutrislot.ui.shared.AppBridgeViewModel
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.ShoppingListScreen
+import it.lagioiaproductions.nutrislot.ui.toolshub.ToolsHubScreen
+import it.lagioiaproductions.nutrislot.ui.water.WaterTrackerScreen
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanScreen
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanViewModel
 
 private object Routes {
-    const val WEEKLY_PLAN = "weekly_plan"
     const val IMPORT_FILE = "import_file"
     const val IMPORT_PREVIEW = "import_preview"
+    const val SCANNER = "scanner"
+    const val CALORIE_TRACKER = "calorie_tracker"
 }
 
 @Composable
@@ -52,59 +62,139 @@ fun AppNavGraph(
 ) {
     val importFileViewModel: ImportFileViewModel = viewModel()
     val weeklyPlanViewModel: WeeklyPlanViewModel = viewModel()
+    val bridgeViewModel: AppBridgeViewModel = viewModel()
 
     val importUiState by importFileViewModel.uiState.collectAsState()
     val weeklyPlanUiState by weeklyPlanViewModel.uiState.collectAsState()
+    val bridgeUiState by bridgeViewModel.uiState.collectAsState()
+
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
 
     LaunchedEffect(Unit) {
         weeklyPlanViewModel.loadLatestPlan()
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = Routes.WEEKLY_PLAN
+    AppRootScaffold(
+        currentDestination = currentDestination,
+        onDestinationSelected = { destination ->
+            navController.navigate(destination.route) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
     ) {
-        composable(Routes.WEEKLY_PLAN) {
-            WeeklyPlanScreen(
-                uiState = weeklyPlanUiState,
-                onImportClick = { navController.navigate(Routes.IMPORT_FILE) },
-                onRefreshClick = weeklyPlanViewModel::loadLatestPlan,
-                onOpenSlotAction = weeklyPlanViewModel::openSlotAction,
-                onDismissSlotAction = weeklyPlanViewModel::dismissSlotAction,
-                onConsumeAsPlanned = weeklyPlanViewModel::consumeAsPlanned,
-                onConsumeReplacement = weeklyPlanViewModel::consumeReplacement,
-                onSelectCalendarDay = weeklyPlanViewModel::selectCalendarDay,
-                onToggleConsumedSlotsVisibility = weeklyPlanViewModel::toggleConsumedSlotsVisibility
-            )
-        }
+        NavHost(
+            navController = navController,
+            startDestination = AppTopLevelDestination.Planner.route
+        ) {
+            composable(AppTopLevelDestination.Planner.route) {
+                WeeklyPlanScreen(
+                    uiState = weeklyPlanUiState,
+                    onImportClick = { navController.navigate(Routes.IMPORT_FILE) },
+                    onRefreshClick = weeklyPlanViewModel::loadLatestPlan,
+                    onOpenSlotAction = weeklyPlanViewModel::openSlotAction,
+                    onDismissSlotAction = weeklyPlanViewModel::dismissSlotAction,
+                    onConsumeAsPlanned = weeklyPlanViewModel::consumeAsPlanned,
+                    onConsumeReplacement = weeklyPlanViewModel::consumeReplacement,
+                    onSelectCalendarDay = weeklyPlanViewModel::selectCalendarDay,
+                    onToggleConsumedSlotsVisibility = weeklyPlanViewModel::toggleConsumedSlotsVisibility
+                )
+            }
 
-        composable(Routes.IMPORT_FILE) {
-            ImportFileScreen(
-                uiState = importUiState,
-                onBackClick = { navController.popBackStack() },
-                onFileSelected = importFileViewModel::importFromUri,
-                onGoToPreviewClick = { navController.navigate(Routes.IMPORT_PREVIEW) }
-            )
-        }
+            composable(AppTopLevelDestination.Grocery.route) {
+                ShoppingListScreen(
+                    onOpenScannerClick = {
+                        navController.navigate(Routes.SCANNER)
+                    },
+                    importedProduct = bridgeUiState.pendingShoppingProduct,
+                    latestScannedProduct = bridgeUiState.latestScannedProduct,
+                    onConsumeImportedProduct = bridgeViewModel::consumePendingShoppingProduct
+                )
+            }
 
-        composable(Routes.IMPORT_PREVIEW) {
-            ImportPreviewScreen(
-                uiState = importUiState,
-                onMealTextChange = importFileViewModel::updateMealText,
-                onClearCellClick = importFileViewModel::clearMealText,
-                onBackClick = { navController.popBackStack() },
-                onConfirmReviewClick = {
-                    importFileViewModel.confirmReviewAndSave {
-                        weeklyPlanViewModel.loadLatestPlan()
-                        navController.popBackStack(
-                            route = Routes.WEEKLY_PLAN,
-                            inclusive = false
-                        )
+            composable(AppTopLevelDestination.Water.route) {
+                WaterTrackerScreen()
+            }
+
+            composable(AppTopLevelDestination.Tools.route) {
+                ToolsHubScreen(
+                    onOpenScannerClick = {
+                        navController.navigate(Routes.SCANNER)
+                    },
+                    onOpenCalorieClick = {
+                        navController.navigate(Routes.CALORIE_TRACKER)
                     }
-                },
-                onTogglePreviewDay = importFileViewModel::togglePreviewDay,
-                onToggleShowOnlyFilledSlots = importFileViewModel::toggleShowOnlyFilledSlots
-            )
+                )
+            }
+
+            composable(Routes.SCANNER) {
+                ScannerScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onAddToShoppingList = { product ->
+                        bridgeViewModel.sendProductToShopping(product)
+                        navController.navigate(AppTopLevelDestination.Grocery.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onSendToCalorieTracker = { product ->
+                        bridgeViewModel.sendProductToCalories(product)
+                        navController.navigate(Routes.CALORIE_TRACKER) {
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+
+            composable(Routes.CALORIE_TRACKER) {
+                CalorieTrackerScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onOpenScannerClick = {
+                        navController.navigate(Routes.SCANNER) {
+                            launchSingleTop = true
+                        }
+                    },
+                    importedProduct = bridgeUiState.pendingCalorieProduct,
+                    latestScannedProduct = bridgeUiState.latestScannedProduct,
+                    onConsumeImportedProduct = bridgeViewModel::consumePendingCalorieProduct
+                )
+            }
+
+            composable(Routes.IMPORT_FILE) {
+                ImportFileScreen(
+                    uiState = importUiState,
+                    onBackClick = { navController.popBackStack() },
+                    onFileSelected = importFileViewModel::importFromUri,
+                    onGoToPreviewClick = { navController.navigate(Routes.IMPORT_PREVIEW) }
+                )
+            }
+
+            composable(Routes.IMPORT_PREVIEW) {
+                ImportPreviewScreen(
+                    uiState = importUiState,
+                    onMealTextChange = importFileViewModel::updateMealText,
+                    onClearCellClick = importFileViewModel::clearMealText,
+                    onBackClick = { navController.popBackStack() },
+                    onConfirmReviewClick = {
+                        importFileViewModel.confirmReviewAndSave {
+                            weeklyPlanViewModel.loadLatestPlan()
+                            navController.popBackStack(
+                                route = AppTopLevelDestination.Planner.route,
+                                inclusive = false
+                            )
+                        }
+                    },
+                    onTogglePreviewDay = importFileViewModel::togglePreviewDay,
+                    onToggleShowOnlyFilledSlots = importFileViewModel::toggleShowOnlyFilledSlots
+                )
+            }
         }
     }
 }
@@ -129,7 +219,7 @@ private fun ImportFileScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text("Importa piano da file")
+                    Text("Importa piano")
                 }
             )
         }
@@ -138,7 +228,6 @@ private fun ImportFileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .safeDrawingPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -148,33 +237,43 @@ private fun ImportFileScreen(
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Import intelligente del piano",
+                        text = "Carica la tua settimana alimentare",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.SemiBold
                     )
 
                     Text(
-                        text = "Seleziona un PDF simile ai tuoi piani alimentari di riferimento. L’app estrae il testo in locale, costruisce una preview e ti lascia correggere tutto prima della conferma.",
-                        style = MaterialTheme.typography.bodyLarge
+                        text = "Seleziona un PDF testuale simile ai tuoi piani. L’app prova a leggere i pasti, costruisce una preview editabile e ti fa correggere tutto prima del salvataggio.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            Button(
-                onClick = { pdfLauncher.launch(arrayOf("application/pdf")) },
+            ElevatedCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Seleziona file PDF")
-            }
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { pdfLauncher.launch(arrayOf("application/pdf")) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Seleziona file PDF")
+                    }
 
-            FilledTonalButton(
-                onClick = onBackClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Torna alla dieta")
+                    FilledTonalButton(
+                        onClick = onBackClick,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Torna al planner")
+                    }
+                }
             }
 
             if (uiState.isLoading) {
@@ -186,8 +285,31 @@ private fun ImportFileScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CircularProgressIndicator()
+
                         Text(
-                            text = "Parsing in corso...",
+                            text = "Import e parsing in corso...",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+
+            uiState.selectedFileName?.let { fileName ->
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "File selezionato",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Text(
+                            text = fileName,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -206,28 +328,6 @@ private fun ImportFileScreen(
                 }
             }
 
-            uiState.selectedFileName?.let { fileName ->
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "File selezionato",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Text(
-                            text = fileName,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-
             uiState.errorMessage?.let { errorMessage ->
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth()
@@ -240,7 +340,7 @@ private fun ImportFileScreen(
                             text = "Errore import",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.SemiBold
                         )
 
                         Text(
@@ -252,72 +352,65 @@ private fun ImportFileScreen(
             }
 
             if (uiState.hasEditableDraft) {
-                ImportDraftSummaryCard(uiState = uiState)
-
-                Button(
-                    onClick = onGoToPreviewClick,
+                ElevatedCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Apri anteprima e correggi")
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Anteprima pronta",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Text(
+                            text = buildDraftSummary(uiState),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        HorizontalDivider()
+
+                        FilledTonalButton(
+                            onClick = onGoToPreviewClick,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Apri anteprima e correggi")
+                        }
+                    }
                 }
             }
-
-            HorizontalDivider()
         }
     }
 }
 
-@Composable
-private fun ImportDraftSummaryCard(
-    uiState: ImportFileUiState
-) {
-    val statusLabel = when (uiState.importStatus) {
-        ImportStatus.SUCCESS -> "Successo"
-        ImportStatus.PARTIAL -> "Parziale"
-        ImportStatus.UNSUPPORTED -> "Non supportato"
-        ImportStatus.FAILED -> "Fallito"
-        null -> "N/D"
-    }
+private fun buildDraftSummary(uiState: ImportFileUiState): String {
+    val slotCount = uiState.editableCells.count { it.mealText.isNotBlank() }
+    val warningCount = uiState.warnings.size
 
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Riepilogo parsing",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
+    return buildString {
+        append("Celle con contenuto: ")
+        append(slotCount)
 
-            uiState.selectedFileName?.let { fileName ->
-                Text(
-                    text = "File: $fileName",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Text(
-                text = "Stato: $statusLabel",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Text(
-                text = "Slot con contenuto: ${uiState.populatedEditableCellsCount} / ${uiState.editableCells.size}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Text(
-                text = "Celle modificate manualmente: ${uiState.editedCellsCount}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Text(
-                text = "Warning: ${uiState.warnings.size}",
-                style = MaterialTheme.typography.bodyMedium
-            )
+        if (warningCount > 0) {
+            append(" • Warning: ")
+            append(warningCount)
         }
+
+        uiState.importStatus?.let { status ->
+            append(" • Stato: ")
+            append(status.toReadableLabel())
+        }
+    }
+}
+
+private fun ImportStatus.toReadableLabel(): String {
+    return when (this) {
+        ImportStatus.SUCCESS -> "Import completo"
+        ImportStatus.PARTIAL -> "Import parziale"
+        ImportStatus.UNSUPPORTED -> "Formato non supportato"
+        ImportStatus.FAILED -> "Import fallito"
     }
 }
