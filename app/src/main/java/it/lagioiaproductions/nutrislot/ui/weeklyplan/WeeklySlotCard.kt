@@ -1,17 +1,26 @@
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -24,14 +33,9 @@ import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
 internal fun WeeklySlotCard(
     modifier: Modifier = Modifier,
     slotUi: WeeklySlotUi,
-    onManageClick: () -> Unit
+    onManageClick: () -> Unit,
+    onAddToShoppingClick: () -> Unit
 ) {
-    val palette = calendarEventPalette(
-        slotType = slotUi.mealSlotType,
-        displayState = slotUi.displayState,
-        isCompleted = slotUi.isActuallyCompletedThisWeek
-    )
-
     val flattenedLines = remember(slotUi.displayedMealText) {
         parseMealSections(slotUi.displayedMealText)
             .flatten()
@@ -40,18 +44,24 @@ internal fun WeeklySlotCard(
     }
 
     val title = remember(flattenedLines, slotUi.mealSlotType) {
-        flattenedLines.firstOrNull()
-            ?: slotUi.mealSlotType.displayName
+        flattenedLines.firstOrNull() ?: slotUi.mealSlotType.displayName
     }
 
     val description = remember(flattenedLines) {
         flattenedLines.drop(1).joinToString(" • ")
     }
 
-    val emoji = remember(slotUi.displayedMealText, slotUi.mealSlotType) {
-        mealEmojiForSlot(
+    val visualStyle = remember(
+        slotUi.displayedMealText,
+        slotUi.mealSlotType,
+        slotUi.displayState,
+        slotUi.isActuallyCompletedThisWeek
+    ) {
+        foodVisualStyleForMeal(
             mealText = slotUi.displayedMealText,
-            slotType = slotUi.mealSlotType
+            slotType = slotUi.mealSlotType,
+            displayState = slotUi.displayState,
+            isCompleted = slotUi.isActuallyCompletedThisWeek
         )
     }
 
@@ -76,139 +86,239 @@ internal fun WeeklySlotCard(
         onClick = onManageClick,
         modifier = modifier.border(
             width = 1.dp,
-            color = palette.border,
+            color = visualStyle.border,
             shape = cardShape
         ),
         shape = cardShape,
         colors = CardDefaults.elevatedCardColors(
-            containerColor = palette.container
+            containerColor = visualStyle.container
         )
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Row(
+            modifier = Modifier.fillMaxSize()
         ) {
-            Text(
-                text = "$emoji  $timeLabel",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = palette.meta
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(6.dp)
+                    .background(visualStyle.accent)
             )
 
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = palette.title,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = buildString {
+                            visualStyle.emoji?.let {
+                                append(it)
+                                append("  ")
+                            }
+                            append(timeLabel)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = visualStyle.meta
+                    )
 
-            if (description.isNotBlank()) {
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = visualStyle.accent.copy(alpha = 0.14f),
+                        modifier = Modifier.clickable(onClick = onAddToShoppingClick)
+                    ) {
+                        Text(
+                            text = "🛒",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+
                 Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = palette.body,
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = visualStyle.title,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
 
-            Spacer(modifier = Modifier.weight(1f))
+                if (description.isNotBlank()) {
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = visualStyle.body,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
-            footerNote?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = palette.meta,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Spacer(modifier = Modifier.weight(1f))
+
+                footerNote?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = visualStyle.meta,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
 }
 
-private data class CalendarEventPalette(
+private data class FoodVisualStyle(
     val container: Color,
     val border: Color,
+    val accent: Color,
     val title: Color,
     val body: Color,
-    val meta: Color
+    val meta: Color,
+    val emoji: String?
 )
 
-@Composable
-private fun calendarEventPalette(
+private fun foodVisualStyleForMeal(
+    mealText: String,
     slotType: MealSlotType,
     displayState: SlotDisplayState,
     isCompleted: Boolean
-): CalendarEventPalette {
-    val baseContainer = when (slotType) {
-        MealSlotType.BREAKFAST -> MaterialTheme.colorScheme.tertiaryContainer
-        MealSlotType.MORNING_SNACK -> MaterialTheme.colorScheme.secondaryContainer
-        MealSlotType.LUNCH -> MaterialTheme.colorScheme.primaryContainer
-        MealSlotType.AFTERNOON_SNACK -> MaterialTheme.colorScheme.secondaryContainer
-        MealSlotType.DINNER -> MaterialTheme.colorScheme.errorContainer
+): FoodVisualStyle {
+    val normalized = mealText.lowercase()
+
+    val base = when {
+        "pasta" in normalized || "spaghetti" in normalized || "penne" in normalized || "gnocchi" in normalized ->
+            baseFoodStyle(Color(0xFFFFD8B0), Color(0xFFF08A24), Color(0xFFF08A24), "🍝")
+
+        "riso" in normalized || "risotto" in normalized ->
+            baseFoodStyle(Color(0xFFFFEEAE), Color(0xFFD6A400), Color(0xFFD6A400), "🍚")
+
+        "pollo" in normalized || "tacchino" in normalized || "carne" in normalized || "hamburger" in normalized ->
+            baseFoodStyle(Color(0xFFFFCDC7), Color(0xFFE96A5F), Color(0xFFE96A5F), "🍗")
+
+        "salmone" in normalized || "tonno" in normalized || "pesce" in normalized || "orata" in normalized ->
+            baseFoodStyle(Color(0xFFCDEBFF), Color(0xFF4DA3FF), Color(0xFF4DA3FF), "🐟")
+
+        "uovo" in normalized || "uova" in normalized ->
+            baseFoodStyle(Color(0xFFFFF2BA), Color(0xFFE0B400), Color(0xFFE0B400), "🥚")
+
+        "yogurt" in normalized || "latte" in normalized || "fiocchi di latte" in normalized ->
+            baseFoodStyle(Color(0xFFE1F0FF), Color(0xFF6BA4FF), Color(0xFF6BA4FF), "🥛")
+
+        "frutta" in normalized || "mela" in normalized || "banana" in normalized || "pera" in normalized || "kiwi" in normalized ->
+            baseFoodStyle(Color(0xFFFFD4E1), Color(0xFFFF5C8A), Color(0xFFFF5C8A), "🍎")
+
+        "verdure" in normalized || "insalata" in normalized || "zucchine" in normalized || "broccoli" in normalized ->
+            baseFoodStyle(Color(0xFFD5F5D9), Color(0xFF54B868), Color(0xFF54B868), "🥗")
+
+        "pane" in normalized || "toast" in normalized || "fette biscottate" in normalized ->
+            baseFoodStyle(Color(0xFFF2DFC7), Color(0xFFC78A48), Color(0xFFC78A48), "🍞")
+
+        "legumi" in normalized || "lenticchie" in normalized || "ceci" in normalized || "fagioli" in normalized ->
+            baseFoodStyle(Color(0xFFE0D3FF), Color(0xFF8D63FF), Color(0xFF8D63FF), "🫘")
+
+        "patate" in normalized ->
+            baseFoodStyle(Color(0xFFF5E2B9), Color(0xFFD29A31), Color(0xFFD29A31), "🥔")
+
+        "zuppa" in normalized || "minestra" in normalized || "vellutata" in normalized ->
+            baseFoodStyle(Color(0xFFFFE2B8), Color(0xFFF59E0B), Color(0xFFF59E0B), "🍲")
+
+        "pizza" in normalized ->
+            baseFoodStyle(Color(0xFFFFD6BF), Color(0xFFFF7A45), Color(0xFFFF7A45), "🍕")
+
+        else -> fallbackStyleForSlot(slotType)
     }
 
-    val baseContent = when (slotType) {
-        MealSlotType.BREAKFAST -> MaterialTheme.colorScheme.onTertiaryContainer
-        MealSlotType.MORNING_SNACK -> MaterialTheme.colorScheme.onSecondaryContainer
-        MealSlotType.LUNCH -> MaterialTheme.colorScheme.onPrimaryContainer
-        MealSlotType.AFTERNOON_SNACK -> MaterialTheme.colorScheme.onSecondaryContainer
-        MealSlotType.DINNER -> MaterialTheme.colorScheme.onErrorContainer
+    if (displayState == SlotDisplayState.OriginalMealAlreadyUsedElsewhere) {
+        return FoodVisualStyle(
+            container = Color(0xFFE9E6EC),
+            border = Color(0xFFAAA2B1),
+            accent = Color(0xFFAAA2B1),
+            title = Color(0xFF3A3440),
+            body = Color(0xFF4A4351),
+            meta = Color(0xFF6A6271),
+            emoji = base.emoji
+        )
     }
 
-    val adjustedContainer = when {
-        isCompleted -> baseContainer.copy(alpha = 0.62f)
-        displayState == SlotDisplayState.OriginalMealAlreadyUsedElsewhere ->
-            MaterialTheme.colorScheme.surfaceVariant
-        else -> baseContainer
+    if (isCompleted) {
+        return base.copy(
+            container = base.container.copy(alpha = 0.78f),
+            border = base.border.copy(alpha = 0.75f),
+            accent = base.accent.copy(alpha = 0.78f),
+            meta = base.meta.copy(alpha = 0.85f)
+        )
     }
 
-    val adjustedBorder = when (displayState) {
-        SlotDisplayState.Empty -> MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-        SlotDisplayState.PlannedAvailable -> baseContent.copy(alpha = 0.18f)
-        SlotDisplayState.ConsumedAsPlanned -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f)
-        is SlotDisplayState.ConsumedWithReplacement -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)
-        SlotDisplayState.OriginalMealAlreadyUsedElsewhere -> MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)
-    }
+    return base
+}
 
-    return CalendarEventPalette(
-        container = adjustedContainer,
-        border = adjustedBorder,
-        title = baseContent,
-        body = baseContent.copy(alpha = 0.92f),
-        meta = baseContent.copy(alpha = 0.76f)
+private fun baseFoodStyle(
+    container: Color,
+    border: Color,
+    accent: Color,
+    emoji: String?
+): FoodVisualStyle {
+    val title = Color(0xFF1F1A1A)
+    val body = Color(0xFF2F2727)
+    val meta = Color(0xFF5A4C4C)
+
+    return FoodVisualStyle(
+        container = container,
+        border = border,
+        accent = accent,
+        title = title,
+        body = body,
+        meta = meta,
+        emoji = emoji
     )
 }
 
-private fun mealEmojiForSlot(
-    mealText: String,
+private fun fallbackStyleForSlot(
     slotType: MealSlotType
-): String {
-    val normalized = mealText.lowercase()
+): FoodVisualStyle {
+    return when (slotType) {
+        MealSlotType.BREAKFAST -> baseFoodStyle(
+            Color(0xFFFFE6D5),
+            Color(0xFFFFA36C),
+            Color(0xFFFFA36C),
+            null
+        )
 
-    return when {
-        "pollo" in normalized || "tacchino" in normalized -> "🍗"
-        "salmone" in normalized || "tonno" in normalized || "pesce" in normalized -> "🐟"
-        "riso" in normalized -> "🍚"
-        "pasta" in normalized || "spaghetti" in normalized -> "🍝"
-        "uova" in normalized || "uovo" in normalized -> "🥚"
-        "yogurt" in normalized || "latte" in normalized -> "🥛"
-        "frutta" in normalized || "mela" in normalized || "banana" in normalized -> "🍎"
-        "verdure" in normalized || "insalata" in normalized -> "🥗"
-        "pane" in normalized || "toast" in normalized -> "🍞"
-        "legumi" in normalized -> "🫘"
-        "patate" in normalized -> "🥔"
-        else -> when (slotType) {
-            MealSlotType.BREAKFAST -> "🥣"
-            MealSlotType.MORNING_SNACK -> "🍏"
-            MealSlotType.LUNCH -> "🍽️"
-            MealSlotType.AFTERNOON_SNACK -> "☕"
-            MealSlotType.DINNER -> "🌙"
-        }
+        MealSlotType.MORNING_SNACK -> baseFoodStyle(
+            Color(0xFFE4F7E7),
+            Color(0xFF6BCB77),
+            Color(0xFF6BCB77),
+            null
+        )
+
+        MealSlotType.LUNCH -> baseFoodStyle(
+            Color(0xFFDDF0FF),
+            Color(0xFF5AA9FF),
+            Color(0xFF5AA9FF),
+            null
+        )
+
+        MealSlotType.AFTERNOON_SNACK -> baseFoodStyle(
+            Color(0xFFFFE8C7),
+            Color(0xFFFFB84D),
+            Color(0xFFFFB84D),
+            null
+        )
+
+        MealSlotType.DINNER -> baseFoodStyle(
+            Color(0xFFE7E0FF),
+            Color(0xFF8B7CFF),
+            Color(0xFF8B7CFF),
+            null
+        )
     }
 }

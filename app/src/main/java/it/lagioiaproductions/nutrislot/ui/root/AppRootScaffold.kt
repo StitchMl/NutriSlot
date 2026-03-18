@@ -46,6 +46,9 @@ fun AppRootScaffold(
             currentDestination?.route == destination.route
         }
 
+    val isPlannerScreen =
+        currentDestination?.route == AppTopLevelDestination.Planner.route
+
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
@@ -57,9 +60,13 @@ fun AppRootScaffold(
         }
     ) { innerPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier = if (isPlannerScreen) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            }
         ) {
             content()
         }

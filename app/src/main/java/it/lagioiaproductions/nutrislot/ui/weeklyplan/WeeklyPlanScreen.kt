@@ -1,7 +1,11 @@
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,23 +19,35 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.ui.shared.ShoppingFeedbackUi
+import kotlinx.coroutines.delay
 
 private val CalendarSlotOrder = listOf(
     MealSlotType.BREAKFAST,
@@ -41,10 +57,16 @@ private val CalendarSlotOrder = listOf(
     MealSlotType.DINNER
 )
 
+private data class PlannerFeedbackTokenUi(
+    val id: Long,
+    val message: String
+)
+
 private val TimeRailWidth = 72.dp
 private val DayColumnWidth = 170.dp
 private val DayHeaderHeight = 78.dp
 private val TimeBandHeight = 106.dp
+private val CalendarBottomScrollPadding = 81.dp
 
 @Composable
 fun WeeklyPlanScreen(
@@ -56,8 +78,93 @@ fun WeeklyPlanScreen(
     onConsumeAsPlanned: () -> Unit,
     onConsumeReplacement: (sourceSlotId: String) -> Unit,
     onSelectCalendarDay: (WeekDay) -> Unit,
-    onToggleConsumedSlotsVisibility: () -> Unit
+    onToggleConsumedSlotsVisibility: () -> Unit,
+    onAddMealToShopping: (List<String>) -> Unit,
+    onAddDayToShopping: (List<String>) -> Unit,
+    onAddWeekToShopping: (List<String>) -> Unit,
+    shoppingFeedback: ShoppingFeedbackUi?,
+    onConsumeShoppingFeedback: () -> Unit
 ) {
+    val hasLoadedPlan = uiState.planId != null || uiState.slots.isNotEmpty()
+
+    var plannerFeedback by remember { mutableStateOf<PlannerFeedbackTokenUi?>(null) }
+    var nextPlannerFeedbackId by remember { mutableLongStateOf(1L) }
+
+    LaunchedEffect(plannerFeedback?.id) {
+        val activeId = plannerFeedback?.id ?: return@LaunchedEffect
+        delay(2200)
+        if (plannerFeedback?.id == activeId) {
+            plannerFeedback = null
+        }
+    }
+
+    LaunchedEffect(shoppingFeedback?.id) {
+        shoppingFeedback?.let { feedback ->
+            plannerFeedback = PlannerFeedbackTokenUi(
+                id = nextPlannerFeedbackId++,
+                message = feedback.message
+            )
+            onConsumeShoppingFeedback()
+        }
+    }
+
+    fun dispatchPlannerShoppingFeedback(
+        rawItems: List<String>,
+        submit: (List<String>) -> Unit,
+        singleLabel: String,
+        pluralLabel: String
+    ) {
+        val cleanedItems = rawItems
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinctBy { it.lowercase() }
+
+        if (cleanedItems.isEmpty()) {
+            plannerFeedback = PlannerFeedbackTokenUi(
+                id = nextPlannerFeedbackId++,
+                message = "Nessun elemento valido da aggiungere alla lista della spesa."
+            )
+            return
+        }
+
+        submit(cleanedItems)
+
+        plannerFeedback = PlannerFeedbackTokenUi(
+            id = nextPlannerFeedbackId++,
+            message = when (cleanedItems.size) {
+                1 -> "$singleLabel aggiunto alla lista della spesa."
+                else -> "${cleanedItems.size} $pluralLabel aggiunti alla lista della spesa."
+            }
+        )
+    }
+
+    val addMealWithFeedback: (List<String>) -> Unit = { items ->
+        dispatchPlannerShoppingFeedback(
+            rawItems = items,
+            submit = onAddMealToShopping,
+            singleLabel = "Pasto",
+            pluralLabel = "articoli del pasto"
+        )
+    }
+
+    val addDayWithFeedback: (List<String>) -> Unit = { items ->
+        dispatchPlannerShoppingFeedback(
+            rawItems = items,
+            submit = onAddDayToShopping,
+            singleLabel = "Giorno",
+            pluralLabel = "articoli del giorno"
+        )
+    }
+
+    val addWeekWithFeedback: (List<String>) -> Unit = { items ->
+        dispatchPlannerShoppingFeedback(
+            rawItems = items,
+            submit = onAddWeekToShopping,
+            singleLabel = "Settimana",
+            pluralLabel = "articoli della settimana"
+        )
+    }
+
     Scaffold { innerPadding ->
         when {
             uiState.isLoading -> {
@@ -73,8 +180,8 @@ fun WeeklyPlanScreen(
                 )
             }
 
-            uiState.isEmpty -> {
-                EmptyContent(
+            !hasLoadedPlan -> {
+                ImportOnlyContent(
                     innerPadding = innerPadding,
                     onImportClick = onImportClick
                 )
@@ -88,7 +195,11 @@ fun WeeklyPlanScreen(
                     onRefreshClick = onRefreshClick,
                     onOpenSlotAction = onOpenSlotAction,
                     onSelectCalendarDay = onSelectCalendarDay,
-                    onToggleConsumedSlotsVisibility = onToggleConsumedSlotsVisibility
+                    onToggleConsumedSlotsVisibility = onToggleConsumedSlotsVisibility,
+                    onAddMealToShopping = addMealWithFeedback,
+                    onAddDayToShopping = addDayWithFeedback,
+                    onAddWeekToShopping = addWeekWithFeedback,
+                    plannerFeedbackMessage = plannerFeedback?.message
                 )
             }
         }
@@ -106,6 +217,23 @@ fun WeeklyPlanScreen(
 }
 
 @Composable
+private fun ImportOnlyContent(
+    innerPadding: PaddingValues,
+    onImportClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding),
+        contentAlignment = Alignment.Center
+    ) {
+        Button(onClick = onImportClick) {
+            Text("Importa piano")
+        }
+    }
+}
+
+@Composable
 private fun WeeklyCalendarGridContent(
     innerPadding: PaddingValues,
     uiState: WeeklyPlanUiState,
@@ -113,7 +241,11 @@ private fun WeeklyCalendarGridContent(
     onRefreshClick: () -> Unit,
     onOpenSlotAction: (slotId: String) -> Unit,
     onSelectCalendarDay: (WeekDay) -> Unit,
-    onToggleConsumedSlotsVisibility: () -> Unit
+    onToggleConsumedSlotsVisibility: () -> Unit,
+    onAddMealToShopping: (List<String>) -> Unit,
+    onAddDayToShopping: (List<String>) -> Unit,
+    onAddWeekToShopping: (List<String>) -> Unit,
+    plannerFeedbackMessage: String?
 ) {
     val visibleSlots = remember(
         uiState.slots,
@@ -136,6 +268,20 @@ private fun WeeklyCalendarGridContent(
         }
     }
 
+    val allSlotsByDay = remember(uiState.slots, uiState.orderedCalendarDays) {
+        uiState.orderedCalendarDays.associateWith { day ->
+            uiState.slots
+                .filter { it.dayOfWeek == day }
+                .sortedBy { it.mealSlotType.sortOrder }
+        }
+    }
+
+    val weekShoppingItems = remember(allSlotsByDay, uiState.orderedCalendarDays) {
+        uiState.orderedCalendarDays
+            .flatMap { day -> extractShoppingItemsFromSlots(allSlotsByDay[day].orEmpty()) }
+            .distinct()
+    }
+
     val horizontalScroll = rememberScrollState()
     val verticalScroll = rememberScrollState()
 
@@ -143,29 +289,29 @@ private fun WeeklyCalendarGridContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        CompactCalendarTopBar(
-            uiState = uiState,
+        LoadedPlanTopBar(
+            title = uiState.planTitle?.takeIf { it.isNotBlank() } ?: "Weekly plan",
             onImportClick = onImportClick,
             onRefreshClick = onRefreshClick,
-            onToggleConsumedSlotsVisibility = onToggleConsumedSlotsVisibility
+            onToggleConsumedSlotsVisibility = onToggleConsumedSlotsVisibility,
+            showConsumedSlots = uiState.showConsumedSlotsInCalendar,
+            onAddWeekToShopping = {
+                onAddWeekToShopping(weekShoppingItems)
+            }
         )
 
-        uiState.actionMessage?.let { message ->
-            FeedbackCard(
-                title = "Aggiornamento completato",
-                message = message,
-                isError = false
-            )
-        }
-
-        uiState.actionErrorMessage?.let { message ->
-            FeedbackCard(
-                title = "Operazione non riuscita",
-                message = message,
-                isError = true
+        AnimatedVisibility(
+            visible = !plannerFeedbackMessage.isNullOrBlank(),
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            PlannerFeedbackToken(
+                message = plannerFeedbackMessage.orEmpty(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 8.dp)
             )
         }
 
@@ -173,7 +319,7 @@ private fun WeeklyCalendarGridContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            shape = MaterialTheme.shapes.large,
+            shape = RectangleShape,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
         ) {
@@ -183,28 +329,35 @@ private fun WeeklyCalendarGridContent(
                     .horizontalScroll(horizontalScroll)
                     .verticalScroll(verticalScroll)
             ) {
-                Row(
+                Column(
                     modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
-                    TimeRailColumn(
-                        slotOrder = CalendarSlotOrder,
-                        headerHeight = DayHeaderHeight,
-                        bandHeight = TimeBandHeight
-                    )
-
-                    uiState.orderedCalendarDays.forEach { day ->
-                        DayTimelineColumn(
-                            day = day,
-                            selectedDay = uiState.selectedCalendarDay,
-                            currentDay = uiState.currentWeekReferenceDay,
-                            dayWidth = DayColumnWidth,
+                    Row {
+                        TimeRailColumn(
+                            slotOrder = CalendarSlotOrder,
                             headerHeight = DayHeaderHeight,
-                            bandHeight = TimeBandHeight,
-                            slotsForDay = slotsByDayAndType[day].orEmpty(),
-                            onSelectDay = { onSelectCalendarDay(day) },
-                            onOpenSlotAction = onOpenSlotAction
+                            bandHeight = TimeBandHeight
                         )
+
+                        uiState.orderedCalendarDays.forEach { day ->
+                            DayTimelineColumn(
+                                day = day,
+                                selectedDay = uiState.selectedCalendarDay,
+                                currentDay = uiState.currentWeekReferenceDay,
+                                dayWidth = DayColumnWidth,
+                                headerHeight = DayHeaderHeight,
+                                bandHeight = TimeBandHeight,
+                                slotsForDay = slotsByDayAndType[day].orEmpty(),
+                                allSlotsForDay = allSlotsByDay[day].orEmpty(),
+                                onSelectDay = { onSelectCalendarDay(day) },
+                                onOpenSlotAction = onOpenSlotAction,
+                                onAddMealToShopping = onAddMealToShopping,
+                                onAddDayToShopping = onAddDayToShopping
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(CalendarBottomScrollPadding))
                 }
             }
         }
@@ -212,67 +365,83 @@ private fun WeeklyCalendarGridContent(
 }
 
 @Composable
-private fun CompactCalendarTopBar(
-    uiState: WeeklyPlanUiState,
+private fun LoadedPlanTopBar(
+    title: String,
     onImportClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onToggleConsumedSlotsVisibility: () -> Unit
+    onToggleConsumedSlotsVisibility: () -> Unit,
+    showConsumedSlots: Boolean,
+    onAddWeekToShopping: () -> Unit
 ) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "Weekly plan",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
 
+        Box {
+            IconButton(onClick = { menuExpanded = true }) {
                 Text(
-                    text = uiState.planTitle?.takeIf { it.isNotBlank() }
-                        ?: "Calendario pasti settimanale",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "⚙",
+                    style = MaterialTheme.typography.titleLarge
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
             ) {
-                Button(
-                    onClick = onImportClick,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Importa")
-                }
+                DropdownMenuItem(
+                    text = { Text("Aggiungi settimana alla spesa") },
+                    onClick = {
+                        menuExpanded = false
+                        onAddWeekToShopping()
+                    }
+                )
 
-                OutlinedButton(
-                    onClick = onRefreshClick,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Aggiorna")
-                }
+                DropdownMenuItem(
+                    text = { Text("Importa nuovo piano") },
+                    onClick = {
+                        menuExpanded = false
+                        onImportClick()
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = { Text("Aggiorna") },
+                    onClick = {
+                        menuExpanded = false
+                        onRefreshClick()
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            if (showConsumedSlots) {
+                                "Nascondi completati"
+                            } else {
+                                "Mostra completati"
+                            }
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onToggleConsumedSlotsVisibility()
+                    }
+                )
             }
-
-            FilterChip(
-                selected = uiState.showConsumedSlotsInCalendar,
-                onClick = onToggleConsumedSlotsVisibility,
-                label = {
-                    Text(
-                        if (uiState.showConsumedSlotsInCalendar) {
-                            "Mostra completati"
-                        } else {
-                            "Nascondi completati"
-                        }
-                    )
-                }
-            )
         }
     }
 }
@@ -344,8 +513,11 @@ private fun DayTimelineColumn(
     headerHeight: Dp,
     bandHeight: Dp,
     slotsForDay: Map<MealSlotType, WeeklySlotUi?>,
+    allSlotsForDay: List<WeeklySlotUi>,
     onSelectDay: () -> Unit,
-    onOpenSlotAction: (slotId: String) -> Unit
+    onOpenSlotAction: (slotId: String) -> Unit,
+    onAddMealToShopping: (List<String>) -> Unit,
+    onAddDayToShopping: (List<String>) -> Unit
 ) {
     val isSelected = day == selectedDay
     val isToday = day == currentDay
@@ -353,6 +525,10 @@ private fun DayTimelineColumn(
         isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
         isToday -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f)
         else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+    }
+
+    val dayShoppingItems = remember(allSlotsForDay) {
+        extractShoppingItemsFromSlots(allSlotsForDay)
     }
 
     Column(
@@ -366,14 +542,18 @@ private fun DayTimelineColumn(
             isToday = isToday,
             visibleEventsCount = slotsForDay.values.count { it != null },
             headerHeight = headerHeight,
-            onClick = onSelectDay
+            onClick = onSelectDay,
+            onAddDayToShopping = {
+                onAddDayToShopping(dayShoppingItems)
+            }
         )
 
         CalendarSlotOrder.forEach { slotType ->
             CalendarGridCell(
                 slotUi = slotsForDay[slotType],
                 bandHeight = bandHeight,
-                onOpenSlotAction = onOpenSlotAction
+                onOpenSlotAction = onOpenSlotAction,
+                onAddMealToShopping = onAddMealToShopping
             )
         }
     }
@@ -386,7 +566,8 @@ private fun DayHeaderCell(
     isToday: Boolean,
     visibleEventsCount: Int,
     headerHeight: Dp,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onAddDayToShopping: () -> Unit
 ) {
     val backgroundColor = when {
         isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
@@ -409,19 +590,37 @@ private fun DayHeaderCell(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = day.displayName.take(3).uppercase(),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = day.displayName.take(3).uppercase(),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
 
-                Text(
-                    text = day.displayName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                    Text(
+                        text = day.displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Surface(
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    modifier = Modifier.clickable(onClick = onAddDayToShopping)
+                ) {
+                    Text(
+                        text = "🛒",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
             }
 
             Text(
@@ -440,7 +639,8 @@ private fun DayHeaderCell(
 private fun CalendarGridCell(
     slotUi: WeeklySlotUi?,
     bandHeight: Dp,
-    onOpenSlotAction: (slotId: String) -> Unit
+    onOpenSlotAction: (slotId: String) -> Unit,
+    onAddMealToShopping: (List<String>) -> Unit
 ) {
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
 
@@ -455,7 +655,12 @@ private fun CalendarGridCell(
             WeeklySlotCard(
                 modifier = Modifier.fillMaxSize(),
                 slotUi = slotUi,
-                onManageClick = { onOpenSlotAction(slotUi.slotId) }
+                onManageClick = { onOpenSlotAction(slotUi.slotId) },
+                onAddToShoppingClick = {
+                    onAddMealToShopping(
+                        extractShoppingItemsFromMealText(slotUi.displayedMealText)
+                    )
+                }
             )
         }
     }
@@ -468,5 +673,46 @@ fun slotTimeLabel(slotType: MealSlotType): String {
         MealSlotType.LUNCH -> "13:00"
         MealSlotType.AFTERNOON_SNACK -> "16:30"
         MealSlotType.DINNER -> "20:00"
+    }
+}
+
+private fun extractShoppingItemsFromSlots(slots: List<WeeklySlotUi>): List<String> {
+    return slots
+        .flatMap { extractShoppingItemsFromMealText(it.displayedMealText) }
+        .distinct()
+}
+
+private fun extractShoppingItemsFromMealText(mealText: String): List<String> {
+    return parseMealSections(mealText)
+        .flatten()
+        .map { line ->
+            line
+                .replace(Regex("^[-•\\s]+"), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+                .removeSuffix(".")
+        }
+        .filter { it.isNotBlank() }
+        .distinct()
+}
+
+@Composable
+private fun PlannerFeedbackToken(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        tonalElevation = 2.dp
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     }
 }

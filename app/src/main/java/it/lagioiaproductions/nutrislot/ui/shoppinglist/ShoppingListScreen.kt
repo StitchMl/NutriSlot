@@ -23,92 +23,31 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
-
-private data class ShoppingItemUi(
-    val id: Int,
-    val name: String,
-    val isPurchased: Boolean = false
-)
+import it.lagioiaproductions.nutrislot.ui.shared.ShoppingListItemUi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingListScreen(
     onOpenScannerClick: () -> Unit,
-    importedProduct: LinkedScannedProductUi?,
+    shoppingItems: List<ShoppingListItemUi>,
     latestScannedProduct: LinkedScannedProductUi?,
-    onConsumeImportedProduct: () -> Unit
+    onAddManualItem: (String) -> Unit,
+    onTogglePurchased: (Long) -> Unit,
+    onRemoveItem: (Long) -> Unit
 ) {
-    val items = remember {
-        mutableStateListOf(
-            ShoppingItemUi(1, "Pane fresco"),
-            ShoppingItemUi(2, "Latte intero"),
-            ShoppingItemUi(3, "Pomodori"),
-            ShoppingItemUi(4, "Frutta di stagione"),
-            ShoppingItemUi(5, "Uova"),
-            ShoppingItemUi(6, "Parmigiano"),
-            ShoppingItemUi(7, "Pasta"),
-            ShoppingItemUi(8, "Avocado")
-        )
-    }
-
-    var nextId by remember { mutableIntStateOf(9) }
     var draftText by remember { mutableStateOf("") }
 
-    val purchasedCount = items.count { it.isPurchased }
-
-    fun addItemFromText(text: String) {
-        val normalized = text.trim()
-        if (normalized.isBlank()) return
-
-        items.add(
-            0,
-            ShoppingItemUi(
-                id = nextId,
-                name = normalized
-            )
-        )
-        nextId += 1
-    }
-
-    fun addItem() {
-        addItemFromText(draftText)
-        draftText = ""
-    }
-
-    fun togglePurchased(itemId: Int) {
-        val index = items.indexOfFirst { it.id == itemId }
-        if (index == -1) return
-
-        val current = items[index]
-        items[index] = current.copy(isPurchased = !current.isPurchased)
-    }
-
-    fun removeItem(itemId: Int) {
-        val index = items.indexOfFirst { it.id == itemId }
-        if (index != -1) {
-            items.removeAt(index)
-        }
-    }
-
-    LaunchedEffect(importedProduct?.barcode, importedProduct?.name) {
-        importedProduct?.let { product ->
-            addItemFromText(product.name)
-            onConsumeImportedProduct()
-        }
-    }
+    val purchasedCount = shoppingItems.count { it.isPurchased }
 
     Scaffold(
         topBar = {
@@ -139,7 +78,7 @@ fun ShoppingListScreen(
                     )
 
                     Text(
-                        text = "Puoi aggiungere articoli manualmente e usare lo scanner per cercare prodotti da portare qui.",
+                        text = "Gli articoli aggiunti dal planner e dallo scanner restano disponibili finché l'app rimane aperta.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -148,12 +87,12 @@ fun ShoppingListScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        ShoppingBadge(text = "Totale: ${items.size}")
+                        ShoppingBadge(text = "Totale: ${shoppingItems.size}")
                         ShoppingBadge(text = "Acquistati: $purchasedCount")
                         ShoppingBadge(
-                            text = "Scanner pronto",
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            text = "Planner collegato",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
@@ -211,7 +150,10 @@ fun ShoppingListScreen(
                     )
 
                     Button(
-                        onClick = ::addItem,
+                        onClick = {
+                            onAddManualItem(draftText)
+                            draftText = ""
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = draftText.isNotBlank()
                     ) {
@@ -240,21 +182,21 @@ fun ShoppingListScreen(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    if (items.isEmpty()) {
+                    if (shoppingItems.isEmpty()) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.medium,
                             color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
-                                text = "La lista è vuota. Aggiungi il primo articolo qui sopra.",
+                                text = "La lista è vuota. Aggiungi il primo articolo dal planner, dallo scanner o manualmente.",
                                 modifier = Modifier.padding(14.dp),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     } else {
-                        items.forEachIndexed { index, item ->
+                        shoppingItems.forEachIndexed { index, item ->
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = MaterialTheme.shapes.medium,
@@ -269,7 +211,7 @@ fun ShoppingListScreen(
                                 ) {
                                     Checkbox(
                                         checked = item.isPurchased,
-                                        onCheckedChange = { togglePurchased(item.id) }
+                                        onCheckedChange = { onTogglePurchased(item.id) }
                                     )
 
                                     Column(
@@ -302,14 +244,14 @@ fun ShoppingListScreen(
                                     }
 
                                     TextButton(
-                                        onClick = { removeItem(item.id) }
+                                        onClick = { onRemoveItem(item.id) }
                                     ) {
                                         Text("Rimuovi")
                                     }
                                 }
                             }
 
-                            if (index != items.lastIndex) {
+                            if (index != shoppingItems.lastIndex) {
                                 HorizontalDivider()
                             }
                         }

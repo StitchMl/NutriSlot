@@ -34,7 +34,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import it.lagioiaproductions.nutrislot.domain.model.ImportStatus
 import it.lagioiaproductions.nutrislot.ui.calories.CalorieTrackerScreen
 import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileUiState
 import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileViewModel
@@ -101,7 +100,12 @@ fun AppNavGraph(
                     onConsumeAsPlanned = weeklyPlanViewModel::consumeAsPlanned,
                     onConsumeReplacement = weeklyPlanViewModel::consumeReplacement,
                     onSelectCalendarDay = weeklyPlanViewModel::selectCalendarDay,
-                    onToggleConsumedSlotsVisibility = weeklyPlanViewModel::toggleConsumedSlotsVisibility
+                    onToggleConsumedSlotsVisibility = weeklyPlanViewModel::toggleConsumedSlotsVisibility,
+                    onAddMealToShopping = bridgeViewModel::addShoppingItemsFromTexts,
+                    onAddDayToShopping = bridgeViewModel::addShoppingItemsFromTexts,
+                    onAddWeekToShopping = bridgeViewModel::addShoppingItemsFromTexts,
+                    shoppingFeedback = bridgeUiState.shoppingFeedback,
+                    onConsumeShoppingFeedback = bridgeViewModel::clearShoppingFeedback
                 )
             }
 
@@ -110,9 +114,11 @@ fun AppNavGraph(
                     onOpenScannerClick = {
                         navController.navigate(Routes.SCANNER)
                     },
-                    importedProduct = bridgeUiState.pendingShoppingProduct,
+                    shoppingItems = bridgeUiState.shoppingItems,
                     latestScannedProduct = bridgeUiState.latestScannedProduct,
-                    onConsumeImportedProduct = bridgeViewModel::consumePendingShoppingProduct
+                    onAddManualItem = bridgeViewModel::addManualShoppingItem,
+                    onTogglePurchased = bridgeViewModel::toggleShoppingItemPurchased,
+                    onRemoveItem = bridgeViewModel::removeShoppingItem
                 )
             }
 
@@ -237,29 +243,20 @@ private fun ImportFileScreen(
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Carica la tua settimana alimentare",
+                        text = "Carica un PDF del piano settimanale",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.SemiBold
                     )
 
                     Text(
-                        text = "Seleziona un PDF testuale simile ai tuoi piani. L’app prova a leggere i pasti, costruisce una preview editabile e ti fa correggere tutto prima del salvataggio.",
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = "Il parser è pensato per PDF testuali e strutturati simili a quelli di riferimento. Se il file è molto diverso, servirà revisione manuale.",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-            }
 
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
                     Button(
                         onClick = { pdfLauncher.launch(arrayOf("application/pdf")) },
                         modifier = Modifier.fillMaxWidth()
@@ -373,12 +370,9 @@ private fun ImportFileScreen(
 
                         HorizontalDivider()
 
-                        FilledTonalButton(
-                            onClick = onGoToPreviewClick,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Apri anteprima e correggi")
-                        }
+                        TextButtonSection(
+                            onBackClick = onBackClick
+                        )
                     }
                 }
             }
@@ -391,26 +385,24 @@ private fun buildDraftSummary(uiState: ImportFileUiState): String {
     val warningCount = uiState.warnings.size
 
     return buildString {
-        append("Celle con contenuto: ")
+        append("Pasti estratti: ")
         append(slotCount)
 
         if (warningCount > 0) {
             append(" • Warning: ")
             append(warningCount)
         }
-
-        uiState.importStatus?.let { status ->
-            append(" • Stato: ")
-            append(status.toReadableLabel())
-        }
     }
 }
 
-private fun ImportStatus.toReadableLabel(): String {
-    return when (this) {
-        ImportStatus.SUCCESS -> "Import completo"
-        ImportStatus.PARTIAL -> "Import parziale"
-        ImportStatus.UNSUPPORTED -> "Formato non supportato"
-        ImportStatus.FAILED -> "Import fallito"
+@Composable
+private fun TextButtonSection(
+    onBackClick: () -> Unit
+) {
+    FilledTonalButton(
+        onClick = onBackClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Torna indietro")
     }
 }
