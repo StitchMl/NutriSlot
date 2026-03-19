@@ -10,12 +10,15 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -57,16 +60,16 @@ private val CalendarSlotOrder = listOf(
     MealSlotType.DINNER
 )
 
+private val TimeRailWidth = 78.dp
+private val DayColumnWidth = 196.dp
+private val DayHeaderHeight = 88.dp
+private val MinTimeBandHeight = 132.dp
+private val CalendarBottomScrollPadding = 104.dp
+
 private data class PlannerFeedbackTokenUi(
     val id: Long,
     val message: String
 )
-
-private val TimeRailWidth = 72.dp
-private val DayColumnWidth = 170.dp
-private val DayHeaderHeight = 78.dp
-private val TimeBandHeight = 106.dp
-private val CalendarBottomScrollPadding = 81.dp
 
 @Composable
 fun WeeklyPlanScreen(
@@ -332,34 +335,96 @@ private fun WeeklyCalendarGridContent(
                 Column(
                     modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
-                    Row {
-                        TimeRailColumn(
-                            slotOrder = CalendarSlotOrder,
-                            headerHeight = DayHeaderHeight,
-                            bandHeight = TimeBandHeight
-                        )
+                    CalendarHeaderRow(
+                        orderedDays = uiState.orderedCalendarDays,
+                        selectedDay = uiState.selectedCalendarDay,
+                        currentDay = uiState.currentWeekReferenceDay,
+                        allSlotsByDay = allSlotsByDay,
+                        onSelectCalendarDay = onSelectCalendarDay,
+                        onAddDayToShopping = onAddDayToShopping
+                    )
 
-                        uiState.orderedCalendarDays.forEach { day ->
-                            DayTimelineColumn(
-                                day = day,
-                                selectedDay = uiState.selectedCalendarDay,
-                                currentDay = uiState.currentWeekReferenceDay,
-                                dayWidth = DayColumnWidth,
-                                headerHeight = DayHeaderHeight,
-                                bandHeight = TimeBandHeight,
-                                slotsForDay = slotsByDayAndType[day].orEmpty(),
-                                allSlotsForDay = allSlotsByDay[day].orEmpty(),
-                                onSelectDay = { onSelectCalendarDay(day) },
-                                onOpenSlotAction = onOpenSlotAction,
-                                onAddMealToShopping = onAddMealToShopping,
-                                onAddDayToShopping = onAddDayToShopping
-                            )
-                        }
+                    CalendarSlotOrder.forEach { slotType ->
+                        CalendarSlotRow(
+                            slotType = slotType,
+                            orderedDays = uiState.orderedCalendarDays,
+                            slotsByDayAndType = slotsByDayAndType,
+                            onOpenSlotAction = onOpenSlotAction,
+                            onAddMealToShopping = onAddMealToShopping
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(CalendarBottomScrollPadding))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CalendarHeaderRow(
+    orderedDays: List<WeekDay>,
+    selectedDay: WeekDay,
+    currentDay: WeekDay,
+    allSlotsByDay: Map<WeekDay, List<WeeklySlotUi>>,
+    onSelectCalendarDay: (WeekDay) -> Unit,
+    onAddDayToShopping: (List<String>) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(DayHeaderHeight)
+    ) {
+        Spacer(
+            modifier = Modifier
+                .width(TimeRailWidth)
+                .fillMaxHeight()
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
+        )
+
+        orderedDays.forEach { day ->
+            DayHeaderCell(
+                day = day,
+                isSelected = day == selectedDay,
+                isToday = day == currentDay,
+                visibleEventsCount = allSlotsByDay[day].orEmpty().size,
+                headerHeight = DayHeaderHeight,
+                dayWidth = DayColumnWidth,
+                onClick = { onSelectCalendarDay(day) },
+                onAddDayToShopping = {
+                    onAddDayToShopping(extractShoppingItemsFromSlots(allSlotsByDay[day].orEmpty()))
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CalendarSlotRow(
+    slotType: MealSlotType,
+    orderedDays: List<WeekDay>,
+    slotsByDayAndType: Map<WeekDay, Map<MealSlotType, WeeklySlotUi?>>,
+    onOpenSlotAction: (slotId: String) -> Unit,
+    onAddMealToShopping: (List<String>) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .heightIn(min = MinTimeBandHeight)
+    ) {
+        TimeRailCell(
+            timeLabel = slotTimeLabel(slotType),
+            slotLabel = slotType.displayName
+        )
+
+        orderedDays.forEach { day ->
+            CalendarGridCell(
+                slotUi = slotsByDayAndType[day]?.get(slotType),
+                dayWidth = DayColumnWidth,
+                onOpenSlotAction = onOpenSlotAction,
+                onAddMealToShopping = onAddMealToShopping
+            )
         }
     }
 }
@@ -447,44 +512,16 @@ private fun LoadedPlanTopBar(
 }
 
 @Composable
-private fun TimeRailColumn(
-    slotOrder: List<MealSlotType>,
-    headerHeight: Dp,
-    bandHeight: Dp
-) {
-    Column(
-        modifier = Modifier
-            .width(TimeRailWidth)
-            .background(MaterialTheme.colorScheme.surface)
-    ) {
-        Spacer(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(headerHeight)
-        )
-
-        slotOrder.forEach { slotType ->
-            TimeRailCell(
-                timeLabel = slotTimeLabel(slotType),
-                slotLabel = slotType.displayName,
-                bandHeight = bandHeight
-            )
-        }
-    }
-}
-
-@Composable
 private fun TimeRailCell(
     timeLabel: String,
-    slotLabel: String,
-    bandHeight: Dp
+    slotLabel: String
 ) {
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(bandHeight)
+            .width(TimeRailWidth)
+            .fillMaxHeight()
             .border(1.dp, borderColor)
             .padding(horizontal = 8.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.Top
@@ -505,67 +542,13 @@ private fun TimeRailCell(
 }
 
 @Composable
-private fun DayTimelineColumn(
-    day: WeekDay,
-    selectedDay: WeekDay,
-    currentDay: WeekDay,
-    dayWidth: Dp,
-    headerHeight: Dp,
-    bandHeight: Dp,
-    slotsForDay: Map<MealSlotType, WeeklySlotUi?>,
-    allSlotsForDay: List<WeeklySlotUi>,
-    onSelectDay: () -> Unit,
-    onOpenSlotAction: (slotId: String) -> Unit,
-    onAddMealToShopping: (List<String>) -> Unit,
-    onAddDayToShopping: (List<String>) -> Unit
-) {
-    val isSelected = day == selectedDay
-    val isToday = day == currentDay
-    val columnBorderColor = when {
-        isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
-        isToday -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
-    }
-
-    val dayShoppingItems = remember(allSlotsForDay) {
-        extractShoppingItemsFromSlots(allSlotsForDay)
-    }
-
-    Column(
-        modifier = Modifier
-            .width(dayWidth)
-            .border(1.dp, columnBorderColor)
-    ) {
-        DayHeaderCell(
-            day = day,
-            isSelected = isSelected,
-            isToday = isToday,
-            visibleEventsCount = slotsForDay.values.count { it != null },
-            headerHeight = headerHeight,
-            onClick = onSelectDay,
-            onAddDayToShopping = {
-                onAddDayToShopping(dayShoppingItems)
-            }
-        )
-
-        CalendarSlotOrder.forEach { slotType ->
-            CalendarGridCell(
-                slotUi = slotsForDay[slotType],
-                bandHeight = bandHeight,
-                onOpenSlotAction = onOpenSlotAction,
-                onAddMealToShopping = onAddMealToShopping
-            )
-        }
-    }
-}
-
-@Composable
 private fun DayHeaderCell(
     day: WeekDay,
     isSelected: Boolean,
     isToday: Boolean,
     visibleEventsCount: Int,
     headerHeight: Dp,
+    dayWidth: Dp,
     onClick: () -> Unit,
     onAddDayToShopping: () -> Unit
 ) {
@@ -575,62 +558,69 @@ private fun DayHeaderCell(
         else -> MaterialTheme.colorScheme.surface
     }
 
-    ElevatedCard(
-        onClick = onClick,
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(headerHeight)
-            .padding(4.dp),
-        shape = MaterialTheme.shapes.medium
+            .width(dayWidth)
+            .fillMaxHeight()
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
+            .padding(4.dp)
     ) {
-        Column(
+        ElevatedCard(
+            onClick = onClick,
             modifier = Modifier
                 .fillMaxSize()
-                .background(backgroundColor)
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .height(headerHeight),
+            shape = MaterialTheme.shapes.medium
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundColor)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = day.displayName.take(3).uppercase(),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    Text(
-                        text = day.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    modifier = Modifier.clickable(onClick = onAddDayToShopping)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "🛒",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-            }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = day.displayName.take(3).uppercase(),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
 
-            Text(
-                text = buildString {
-                    if (isToday) append("Oggi • ")
-                    append("$visibleEventsCount eventi")
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                        Text(
+                            text = day.displayName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        modifier = Modifier.clickable(onClick = onAddDayToShopping)
+                    ) {
+                        Text(
+                            text = "🛒",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+
+                Text(
+                    text = buildString {
+                        if (isToday) append("Oggi • ")
+                        append("$visibleEventsCount eventi")
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -638,7 +628,7 @@ private fun DayHeaderCell(
 @Composable
 private fun CalendarGridCell(
     slotUi: WeeklySlotUi?,
-    bandHeight: Dp,
+    dayWidth: Dp,
     onOpenSlotAction: (slotId: String) -> Unit,
     onAddMealToShopping: (List<String>) -> Unit
 ) {
@@ -646,8 +636,9 @@ private fun CalendarGridCell(
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(bandHeight)
+            .width(dayWidth)
+            .fillMaxHeight()
+            .heightIn(min = MinTimeBandHeight)
             .border(1.dp, borderColor)
             .padding(4.dp)
     ) {
@@ -664,36 +655,6 @@ private fun CalendarGridCell(
             )
         }
     }
-}
-
-fun slotTimeLabel(slotType: MealSlotType): String {
-    return when (slotType) {
-        MealSlotType.BREAKFAST -> "07:30"
-        MealSlotType.MORNING_SNACK -> "10:30"
-        MealSlotType.LUNCH -> "13:00"
-        MealSlotType.AFTERNOON_SNACK -> "16:30"
-        MealSlotType.DINNER -> "20:00"
-    }
-}
-
-private fun extractShoppingItemsFromSlots(slots: List<WeeklySlotUi>): List<String> {
-    return slots
-        .flatMap { extractShoppingItemsFromMealText(it.displayedMealText) }
-        .distinct()
-}
-
-private fun extractShoppingItemsFromMealText(mealText: String): List<String> {
-    return parseMealSections(mealText)
-        .flatten()
-        .map { line ->
-            line
-                .replace(Regex("^[-•\\s]+"), "")
-                .replace(Regex("\\s+"), " ")
-                .trim()
-                .removeSuffix(".")
-        }
-        .filter { it.isNotBlank() }
-        .distinct()
 }
 
 @Composable
@@ -715,4 +676,37 @@ private fun PlannerFeedbackToken(
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
+}
+
+fun slotTimeLabel(slotType: MealSlotType): String {
+    return when (slotType) {
+        MealSlotType.BREAKFAST -> "07:30"
+        MealSlotType.MORNING_SNACK -> "10:30"
+        MealSlotType.LUNCH -> "13:00"
+        MealSlotType.AFTERNOON_SNACK -> "16:30"
+        MealSlotType.DINNER -> "20:00"
+    }
+}
+
+private fun extractShoppingItemsFromSlots(slots: List<WeeklySlotUi>): List<String> {
+    return slots
+        .flatMap { extractShoppingItemsFromMealText(it.displayedMealText) }
+        .distinct()
+}
+
+private fun extractShoppingItemsFromMealText(mealText: String): List<String> {
+    return mealText
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("•", "\n")
+        .lines()
+        .map { line ->
+            line
+                .replace(Regex("^[-+•\\s]+"), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+                .removeSuffix(".")
+        }
+        .filter { it.isNotBlank() }
+        .distinct()
 }

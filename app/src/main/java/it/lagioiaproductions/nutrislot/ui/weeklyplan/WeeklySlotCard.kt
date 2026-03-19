@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
@@ -36,19 +34,11 @@ internal fun WeeklySlotCard(
     onManageClick: () -> Unit,
     onAddToShoppingClick: () -> Unit
 ) {
-    val flattenedLines = remember(slotUi.displayedMealText) {
-        parseMealSections(slotUi.displayedMealText)
-            .flatten()
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-    }
-
-    val title = remember(flattenedLines, slotUi.mealSlotType) {
-        flattenedLines.firstOrNull() ?: slotUi.mealSlotType.displayName
-    }
-
-    val description = remember(flattenedLines) {
-        flattenedLines.drop(1).joinToString(" • ")
+    val preview = remember(slotUi.displayedMealText, slotUi.mealSlotType) {
+        buildMealPreview(
+            rawMealText = slotUi.displayedMealText,
+            fallbackTitle = slotUi.mealSlotType.displayName
+        )
     }
 
     val visualStyle = remember(
@@ -100,19 +90,19 @@ internal fun WeeklySlotCard(
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(6.dp)
+                    .width(7.dp)
                     .background(visualStyle.accent)
             )
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
@@ -142,38 +132,156 @@ internal fun WeeklySlotCard(
                 }
 
                 Text(
-                    text = title,
+                    text = preview.title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = visualStyle.title,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    color = visualStyle.title
                 )
 
-                if (description.isNotBlank()) {
+                preview.supportingLines.forEachIndexed { index, line ->
                     Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = visualStyle.body,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        text = line,
+                        style = if (index == 0) {
+                            MaterialTheme.typography.bodyMedium
+                        } else {
+                            MaterialTheme.typography.bodySmall
+                        },
+                        fontWeight = if (index == 0) FontWeight.Medium else FontWeight.Normal,
+                        color = if (index == 0) visualStyle.body else visualStyle.meta
                     )
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
-                footerNote?.let {
+                if (preview.supportingLines.isEmpty() && footerNote != null) {
                     Text(
-                        text = it,
+                        text = footerNote,
                         style = MaterialTheme.typography.labelSmall,
-                        color = visualStyle.meta,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = visualStyle.meta
                     )
                 }
             }
         }
     }
+}
+
+private data class MealPreviewUi(
+    val title: String,
+    val supportingLines: List<String>
+)
+
+private fun buildMealPreview(
+    rawMealText: String,
+    fallbackTitle: String
+): MealPreviewUi {
+    val rawLines = tokenizeMealPreviewLines(rawMealText)
+    if (rawLines.isEmpty()) {
+        return MealPreviewUi(
+            title = fallbackTitle,
+            supportingLines = emptyList()
+        )
+    }
+
+    val firstLineSplit = splitPrimaryLine(rawLines.first())
+    val title = firstLineSplit.title.ifBlank { fallbackTitle }
+
+    val candidateSupportLines = buildList {
+        firstLineSplit.remainder?.let { add(it) }
+        addAll(rawLines.drop(1))
+    }
+        .map(::normalizePreviewLine)
+        .filter { it.isNotBlank() }
+        .distinctBy { it.lowercase() }
+
+    val quantityLines = candidateSupportLines.filter(::containsQuantityOrPortionHint)
+    val detailLines = candidateSupportLines.filterNot(::containsQuantityOrPortionHint)
+
+    return MealPreviewUi(
+        title = title,
+        supportingLines = (quantityLines + detailLines)
+            .distinctBy { it.lowercase() }
+            .take(4)
+    )
+}
+
+private data class PrimaryLineSplit(
+    val title: String,
+    val remainder: String?
+)
+
+private fun splitPrimaryLine(line: String): PrimaryLineSplit {
+    val normalized = normalizePreviewLine(line)
+    if (normalized.isBlank()) {
+        return PrimaryLineSplit("", null)
+    }
+
+    val markers = listOf(" oppure ", " + ")
+    val splitIndex = markers
+        .map { marker -> normalized.indexOf(marker) }
+        .filter { it > 28 }
+        .minOrNull()
+
+    if (splitIndex == null) {
+        return PrimaryLineSplit(normalized, null)
+    }
+
+    val title = normalized.substring(0, splitIndex).trim().let {
+        if (it.endsWith("…")) it else "$it…"
+    }
+    val remainder = normalized.substring(splitIndex)
+        .removePrefix("oppure")
+        .removePrefix("+")
+        .trim()
+
+    return PrimaryLineSplit(
+        title = title.ifBlank { normalized },
+        remainder = remainder.ifBlank { null }
+    )
+}
+
+private fun tokenizeMealPreviewLines(text: String): List<String> {
+    return text
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("•", "\n")
+        .lines()
+        .flatMap { rawLine ->
+            val trimmed = rawLine.trim()
+            when {
+                trimmed.isBlank() -> emptyList()
+                trimmed.startsWith("+") -> listOf(trimmed.removePrefix("+").trim())
+                else -> listOf(trimmed)
+            }
+        }
+        .map(::normalizePreviewLine)
+        .filter { it.isNotBlank() }
+}
+
+private fun normalizePreviewLine(line: String): String {
+    return line
+        .removePrefix("•")
+        .removePrefix("-")
+        .removePrefix("–")
+        .removePrefix("—")
+        .trim()
+        .replace(Regex("\\s+"), " ")
+        .removeSuffix(".")
+        .trim()
+}
+
+private fun containsQuantityOrPortionHint(text: String): Boolean {
+    val lower = text.lowercase()
+    return Regex("""\d""").containsMatchIn(lower) ||
+            " g" in lower ||
+            "kg" in lower ||
+            "ml" in lower ||
+            "grammi" in lower ||
+            "grammo" in lower ||
+            "porzione" in lower ||
+            "porzioni" in lower ||
+            "fetta" in lower ||
+            "fette" in lower ||
+            "cucchiaio" in lower ||
+            "cucchiai" in lower ||
+            "n." in lower
 }
 
 private data class FoodVisualStyle(
