@@ -1,5 +1,6 @@
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
+import it.lagioiaproductions.nutrislot.data.repository.mapper.areMealSlotTypesCompatible
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
 
@@ -104,6 +105,7 @@ internal fun buildSlotActionDialog(
     val targetSlot = snapshot.slots.first { it.id == targetUi.slotId }
     val targetIsActuallyCompleted = planning.actualSourceByTarget.containsKey(targetUi.slotId)
     val pendingAssignedSourceSlotId = planning.pendingSourceByTarget[targetUi.slotId]
+    val weeklySlotUiById = buildWeeklySlotUis(snapshot).associateBy { it.slotId }
 
     val currentAssignedSourceSlotId = when {
         targetIsActuallyCompleted -> null
@@ -119,25 +121,26 @@ internal fun buildSlotActionDialog(
     } else {
         snapshot.slots
             .filter { candidateSourceSlot ->
-                candidateSourceSlot.id != currentAssignedSourceSlotId &&
+                candidateSourceSlot.id != targetUi.slotId &&
                         candidateSourceSlot.plannedMealText.isNotBlank() &&
+                        !planning.actualSourceByTarget.containsKey(candidateSourceSlot.id) &&
                         areMealSlotTypesCompatible(
                             targetType = targetSlot.mealSlotType,
                             sourceType = candidateSourceSlot.mealSlotType
-                        ) &&
-                        isSourceAvailableForTarget(
-                            snapshot = snapshot,
-                            targetSlotId = targetSlot.id,
-                            candidateSourceSlotId = candidateSourceSlot.id
                         )
             }
             .sortedWith(compareBy({ it.dayOfWeek.sortOrder }, { it.mealSlotType.sortOrder }))
             .map { sourceSlot ->
+                val displayedCandidateText = weeklySlotUiById[sourceSlot.id]
+                    ?.displayedMealText
+                    ?.takeIf { it.isNotBlank() }
+                    ?: sourceSlot.plannedMealText
+
                 ReplacementMealOptionUi(
                     sourceSlotId = sourceSlot.id,
                     sourceDayLabel = sourceSlot.dayOfWeek.displayName,
                     sourceMealSlotLabel = sourceSlot.mealSlotType.displayName,
-                    mealText = sourceSlot.plannedMealText
+                    mealText = displayedCandidateText
                 )
             }
     }
@@ -188,7 +191,6 @@ private fun buildExtraCatalogOptions(
         .sortedWith(
             compareBy(
                 { it.mealSlotType.sortOrder },
-                { it.pageNumber ?: Int.MAX_VALUE },
                 { it.title ?: "" },
                 { it.mealText }
             )
@@ -201,11 +203,10 @@ private fun buildExtraCatalogOptions(
                 sourceLabel = option.sourceType.name
                     .replace('_', ' ')
                     .lowercase(),
-                pageNumber = option.pageNumber,
                 tags = option.tags
             )
         }
         .distinctBy { option ->
-            "${option.title}|${option.mealText}|${option.sourceLabel}|${option.pageNumber}"
+            "${option.title}|${option.mealText}"
         }
 }

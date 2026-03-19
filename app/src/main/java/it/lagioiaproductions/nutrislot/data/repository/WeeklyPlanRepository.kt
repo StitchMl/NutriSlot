@@ -14,6 +14,7 @@ import it.lagioiaproductions.nutrislot.data.repository.mapper.toDomain
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealCell
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealOption
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealRule
+import it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanning
 import it.lagioiaproductions.nutrislot.data.repository.planning.WeeklyPlanningCalculator
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
@@ -106,20 +107,25 @@ class WeeklyPlanRepository(
         val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(plan.id)
         val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(plan.id)
 
+        val activeAssignments = assignmentEntities.filter { assignment ->
+            WeeklyPlanningCalculator.isInCurrentWeek(assignment.assignedAtEpochMillis)
+        }
+        val activeConsumptions = consumptionEntities.filter { consumption ->
+            WeeklyPlanningCalculator.isInCurrentWeek(consumption.consumedAtEpochMillis)
+        }
+
         val planning = WeeklyPlanningCalculator.buildActiveWeekPlanning(
             slotEntities = slotEntities,
-            actualConsumptions = consumptionEntities.filter { consumption ->
-                WeeklyPlanningCalculator.isInCurrentWeek(consumption.consumedAtEpochMillis)
-            },
-            pendingAssignments = assignmentEntities.filter { assignment ->
-                WeeklyPlanningCalculator.isInCurrentWeek(assignment.assignedAtEpochMillis)
-            }
+            actualConsumptions = activeConsumptions,
+            pendingAssignments = activeAssignments
         )
 
-        val targetSlot = slotEntities.firstOrNull { it.id == targetSlotId }
+        val slotById = slotEntities.associateBy { it.id }
+
+        val targetSlot = slotById[targetSlotId]
             ?: throw IllegalStateException("Slot target non trovato.")
 
-        val sourceSlot = slotEntities.firstOrNull { it.id == sourceSlotId }
+        val sourceSlot = slotById[sourceSlotId]
             ?: throw IllegalStateException("Slot sorgente non trovato.")
 
         validateReplacement(
@@ -130,20 +136,67 @@ class WeeklyPlanRepository(
             sourceSlotId = sourceSlotId
         )
 
-        deleteCurrentAssignmentsForTarget(
-            targetSlotId = targetSlotId,
+        val targetCurrentSourceSlotId = currentEffectiveSourceSlotId(
+            planning = planning,
+            targetSlotId = targetSlotId
+        )
+        val sourceCurrentSourceSlotId = currentEffectiveSourceSlotId(
+            planning = planning,
+            targetSlotId = sourceSlotId
+        )
+
+        val targetCurrentSourceSlot = slotById[targetCurrentSourceSlotId]
+            ?: throw IllegalStateException("Pasto corrente del target non trovato.")
+        val sourceCurrentSourceSlot = slotById[sourceCurrentSourceSlotId]
+            ?: throw IllegalStateException("Pasto corrente della sorgente non trovato.")
+
+        validateSwitchCompatibility(
+            targetSlot = targetSlot,
+            sourceSlot = sourceSlot,
+            targetCurrentSourceSlot = targetCurrentSourceSlot,
+            sourceCurrentSourceSlot = sourceCurrentSourceSlot
+        )
+
+        deleteCurrentAssignmentsForTargets(
+            targetSlotIds = setOf(targetSlotId, sourceSlotId),
             assignments = assignmentEntities
         )
 
-        val newAssignment = MealAssignmentEntity(
-            id = UUID.randomUUID().toString(),
-            planId = plan.id,
-            targetSlotId = targetSlot.id,
-            sourceSlotId = sourceSlot.id,
-            assignedAtEpochMillis = System.currentTimeMillis()
-        )
+        val newAssignments = buildList {
+            if (
+                sourceCurrentSourceSlotId != targetSlotId &&
+                sourceCurrentSourceSlot.plannedMealText.isNotBlank()
+            ) {
+                add(
+                    MealAssignmentEntity(
+                        id = UUID.randomUUID().toString(),
+                        planId = plan.id,
+                        targetSlotId = targetSlotId,
+                        sourceSlotId = sourceCurrentSourceSlotId,
+                        assignedAtEpochMillis = System.currentTimeMillis()
+                    )
+                )
+            }
 
-        weeklyPlanDao.insertMealAssignments(assignments = listOf(newAssignment))
+            if (
+                targetCurrentSourceSlotId != sourceSlotId &&
+                targetCurrentSourceSlot.plannedMealText.isNotBlank()
+            ) {
+                add(
+                    MealAssignmentEntity(
+                        id = UUID.randomUUID().toString(),
+                        planId = plan.id,
+                        targetSlotId = sourceSlotId,
+                        sourceSlotId = targetCurrentSourceSlotId,
+                        assignedAtEpochMillis = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+
+        if (newAssignments.isNotEmpty()) {
+            weeklyPlanDao.insertMealAssignments(assignments = newAssignments)
+        }
     }
 
     suspend fun assignCatalogOptionToSlot(
@@ -182,8 +235,8 @@ class WeeklyPlanRepository(
             targetSlotId = targetSlotId
         )
 
-        deleteCurrentAssignmentsForTarget(
-            targetSlotId = targetSlotId,
+        deleteCurrentAssignmentsForTargets(
+            targetSlotIds = setOf(targetSlotId),
             assignments = assignmentEntities
         )
 
@@ -250,8 +303,8 @@ class WeeklyPlanRepository(
             sourceSlotId = sourceSlotId
         )
 
-        deleteCurrentAssignmentsForTarget(
-            targetSlotId = targetSlotId,
+        deleteCurrentAssignmentsForTargets(
+            targetSlotIds = setOf(targetSlotId),
             assignments = activeAssignments
         )
 
@@ -289,12 +342,19 @@ class WeeklyPlanRepository(
         )
     }
 
-    private suspend fun deleteCurrentAssignmentsForTarget(
-        targetSlotId: String,
+    private fun currentEffectiveSourceSlotId(
+        planning: ActiveWeekPlanning,
+        targetSlotId: String
+    ): String {
+        return planning.pendingSourceByTarget[targetSlotId] ?: targetSlotId
+    }
+
+    private suspend fun deleteCurrentAssignmentsForTargets(
+        targetSlotIds: Set<String>,
         assignments: List<MealAssignmentEntity>
     ) {
         val currentTargetAssignmentIds = assignments
-            .filter { it.targetSlotId == targetSlotId }
+            .filter { it.targetSlotId in targetSlotIds }
             .map { it.id }
 
         if (currentTargetAssignmentIds.isNotEmpty()) {
@@ -303,7 +363,7 @@ class WeeklyPlanRepository(
     }
 
     private fun validateCatalogOptionAssignment(
-        planning: it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanning,
+        planning: ActiveWeekPlanning,
         targetSlot: MealSlotEntity,
         selectedOption: MealOptionEntity,
         targetSlotId: String
@@ -326,8 +386,31 @@ class WeeklyPlanRepository(
         }
     }
 
+    private fun validateSwitchCompatibility(
+        targetSlot: MealSlotEntity,
+        sourceSlot: MealSlotEntity,
+        targetCurrentSourceSlot: MealSlotEntity,
+        sourceCurrentSourceSlot: MealSlotEntity
+    ) {
+        val targetType = MealSlotType.valueOf(targetSlot.mealSlotType)
+        val sourceType = MealSlotType.valueOf(sourceSlot.mealSlotType)
+        val targetCurrentSourceType = MealSlotType.valueOf(targetCurrentSourceSlot.mealSlotType)
+        val sourceCurrentSourceType = MealSlotType.valueOf(sourceCurrentSourceSlot.mealSlotType)
+
+        if (!areMealSlotTypesCompatible(targetType = targetType, sourceType = sourceCurrentSourceType)) {
+            throw IllegalStateException("Il pasto selezionato non è compatibile con lo slot target.")
+        }
+
+        if (
+            targetCurrentSourceSlot.plannedMealText.isNotBlank() &&
+            !areMealSlotTypesCompatible(targetType = sourceType, sourceType = targetCurrentSourceType)
+        ) {
+            throw IllegalStateException("Lo switch non è compatibile con il tipo dello slot sorgente.")
+        }
+    }
+
     private fun validateReplacement(
-        planning: it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanning,
+        planning: ActiveWeekPlanning,
         targetSlot: MealSlotEntity,
         sourceSlot: MealSlotEntity,
         targetSlotId: String,
@@ -335,6 +418,10 @@ class WeeklyPlanRepository(
     ) {
         if (planning.actualSourceByTarget.containsKey(targetSlotId)) {
             throw IllegalStateException("Questo slot risulta già completato nella settimana corrente.")
+        }
+
+        if (planning.actualSourceByTarget.containsKey(sourceSlotId)) {
+            throw IllegalStateException("Il pasto selezionato è già stato consumato nella settimana corrente.")
         }
 
         if (sourceSlot.plannedMealText.isBlank()) {
@@ -349,16 +436,6 @@ class WeeklyPlanRepository(
         ) {
             throw IllegalStateException(
                 "Sostituzione non consentita tra ${targetSlot.mealSlotType} e ${sourceSlot.mealSlotType}."
-            )
-        }
-
-        val sourceUsedOrReservedByAnotherTarget = planning.usedSourceByTarget.any { usage ->
-            usage.sourceSlotId == sourceSlotId && usage.targetSlotId != targetSlotId
-        }
-
-        if (sourceUsedOrReservedByAnotherTarget) {
-            throw IllegalStateException(
-                "Il pasto selezionato è già stato usato o assegnato in un altro slot della settimana."
             )
         }
     }

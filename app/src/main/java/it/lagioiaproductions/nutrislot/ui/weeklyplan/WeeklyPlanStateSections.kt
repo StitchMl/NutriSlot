@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 
 @Composable
 internal fun LoadingContent(
@@ -86,71 +85,3 @@ internal fun ErrorContent(
     }
 }
 
-@Composable
-internal fun EmptyContent(
-    innerPadding: PaddingValues,
-    onImportClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
-            .padding(horizontal = 20.dp, vertical = 1.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Nessuna dieta salvata",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Text(
-                    text = "Importa un PDF simile ai tuoi piani alimentari, controlla l’anteprima e poi torna qui per vedere la settimana in una vista più chiara e dinamica.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-        }
-
-        Button(
-            onClick = onImportClick,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Importa piano da file")
-        }
-    }
-}
-
-@Composable
-internal fun EmptySelectedDayStateCard(
-    selectedDay: WeekDay,
-    hiddenSelectedDaySlotsCount: Int,
-    isShowingConsumed: Boolean
-) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Nessun slot da mostrare per ${selectedDay.displayName}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Text(
-                text = when {
-                    !isShowingConsumed && hiddenSelectedDaySlotsCount > 0 ->
-                        "Gli slot di questa giornata risultano già completati. Puoi mostrarli di nuovo attivando il filtro sui completati."
-                    else ->
-                        "Per questa giornata non ci sono slot visibili nel filtro attuale."
-                },
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-    }
-}

@@ -1,3 +1,4 @@
+@file:Suppress("SameParameterValue")
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import androidx.compose.animation.AnimatedVisibility

@@ -45,14 +45,11 @@ internal class PdfAdditionalContentExtractor {
                     id = "extra_p${scan.pageNumber}_${slotType.name}_$index",
                     mealSlotType = slotType,
                     title = buildOptionTitle(
-                        slotType = slotType,
-                        pageNumber = scan.pageNumber,
-                        index = index + 1
+                        slotType = slotType
                     ),
                     rawText = optionText,
                     normalizedText = PdfImportTextNormalization.normalizeMealText(optionText),
-                    sourceType = sourceType,
-                    pageNumber = scan.pageNumber
+                    sourceType = sourceType
                 )
             }
         }
@@ -65,7 +62,7 @@ internal class PdfAdditionalContentExtractor {
     fun extractMealRules(
         pageScans: List<PageScan>
     ): List<ImportedMealRule> {
-        val referencePage = pageScans.firstOrNull { scan ->
+        pageScans.firstOrNull { scan ->
             scan.normalizedFullText.contains("schema di riferimento per la costruzione dei pasti")
         } ?: return emptyList()
 
@@ -100,11 +97,10 @@ internal class PdfAdditionalContentExtractor {
             }
 
             rules += ImportedMealRule(
-                id = "rule_${slot.name.lowercase()}_page_${referencePage.pageNumber}",
+                id = slot.name.lowercase(),
                 mealSlotType = slot,
                 label = "Schema di riferimento ${slot.displayName}",
-                requiredComponents = components,
-                pageNumber = referencePage.pageNumber
+                requiredComponents = components
             )
         }
 
@@ -157,10 +153,8 @@ internal class PdfAdditionalContentExtractor {
     }
 
     private fun buildOptionTitle(
-        slotType: MealSlotType,
-        pageNumber: Int,
-        index: Int
+        slotType: MealSlotType
     ): String {
-        return "${slotType.displayName} extra • pag. $pageNumber • opzione $index"
+        return "${slotType.displayName} extra"
     }
 }

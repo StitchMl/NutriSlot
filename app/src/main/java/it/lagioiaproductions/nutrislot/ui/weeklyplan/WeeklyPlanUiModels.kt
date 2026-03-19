@@ -28,7 +28,6 @@ data class ExtraCatalogMealOptionUi(
     val title: String?,
     val mealText: String,
     val sourceLabel: String,
-    val pageNumber: Int?,
     val tags: List<String>
 )
 
@@ -66,9 +65,6 @@ data class WeeklyPlanUiState(
 ) {
     val isEmpty: Boolean
         get() = hasLoadedOnce && slots.isEmpty() && errorMessage == null
-
-    val populatedSlotsCount: Int
-        get() = slots.count { it.originalMealText.isNotBlank() }
 
     val orderedCalendarDays: List<WeekDay>
         get() = WeekDay.orderedValues()

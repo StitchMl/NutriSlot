@@ -5,7 +5,6 @@ package it.lagioiaproductions.nutrislot.ui.weeklyplan
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -262,25 +261,6 @@ private fun ExtraCatalogOptionCard(
                 text = option.mealText,
                 style = MaterialTheme.typography.bodyMedium
             )
-
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                WeeklyStatusBadge(
-                    text = option.sourceLabel,
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                )
-
-                option.pageNumber?.let { page ->
-                    WeeklyStatusBadge(
-                        text = "Pag. $page",
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
         }
     }
 }

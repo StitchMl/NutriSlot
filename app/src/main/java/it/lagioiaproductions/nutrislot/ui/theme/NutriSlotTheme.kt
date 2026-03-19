@@ -127,10 +127,8 @@ private val NutriSlotShapes = Shapes(
 )
 
 @Composable
-@Suppress("unused")
 fun NutriSlotTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) {

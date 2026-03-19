@@ -44,7 +44,7 @@ import it.lagioiaproductions.nutrislot.ui.scanner.ScannerScreen
 import it.lagioiaproductions.nutrislot.ui.shared.AppBridgeViewModel
 import it.lagioiaproductions.nutrislot.ui.shoppinglist.ShoppingListScreen
 import it.lagioiaproductions.nutrislot.ui.toolshub.ToolsHubScreen
-import it.lagioiaproductions.nutrislot.ui.water.WaterTrackerScreen
+import it.lagioiaproductions.nutrislot.ui.water.WaterTrackerRoute
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanScreen
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanViewModel
 
@@ -124,7 +124,7 @@ fun AppNavGraph(
             }
 
             composable(AppTopLevelDestination.Water.route) {
-                WaterTrackerScreen()
+                WaterTrackerRoute()
             }
 
             composable(AppTopLevelDestination.Tools.route) {
@@ -208,7 +208,6 @@ fun AppNavGraph(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Suppress("unused")
 private fun ImportFileScreen(
     uiState: ImportFileUiState,
     onBackClick: () -> Unit,
@@ -372,7 +371,8 @@ private fun ImportFileScreen(
 
                         HorizontalDivider()
 
-                        TextButtonSection(
+                        PreviewActionSection(
+                            onGoToPreviewClick = onGoToPreviewClick,
                             onBackClick = onBackClick
                         )
                     }
@@ -398,13 +398,25 @@ private fun buildDraftSummary(uiState: ImportFileUiState): String {
 }
 
 @Composable
-private fun TextButtonSection(
+private fun PreviewActionSection(
+    onGoToPreviewClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
-    FilledTonalButton(
-        onClick = onBackClick,
-        modifier = Modifier.fillMaxWidth()
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Torna indietro")
+        Button(
+            onClick = onGoToPreviewClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Apri anteprima")
+        }
+
+        FilledTonalButton(
+            onClick = onBackClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Torna indietro")
+        }
     }
 }

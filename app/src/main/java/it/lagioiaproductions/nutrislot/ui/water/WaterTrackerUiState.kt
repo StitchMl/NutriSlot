@@ -2,14 +2,19 @@ package it.lagioiaproductions.nutrislot.ui.water
 
 import kotlin.math.roundToInt
 
+@Suppress("unused")
 data class WaterTrackerUiState(
-    val targetMl: Int,
-    val consumedMl: Int,
-    val remindersEnabled: Boolean,
-    val reminderIntervalMinutes: Int
+    val targetMl: Int = 2000,
+    val consumedMl: Int = 0,
+    val remindersEnabled: Boolean = false,
+    val reminderIntervalMinutes: Int = 90,
+    val containerPresets: List<Int> = listOf(250, 500, 600)
 ) {
+    val isGoalConfigured: Boolean
+        get() = targetMl > 0
+
     val progressRaw: Float
-        get() = if (targetMl <= 0) 0f else consumedMl.toFloat() / targetMl.toFloat()
+        get() = if (!isGoalConfigured) 0f else consumedMl.toFloat() / targetMl.toFloat()
 
     val progressVisual: Float
         get() = progressRaw.coerceIn(0f, 1f)
@@ -18,21 +23,28 @@ data class WaterTrackerUiState(
         get() = (progressRaw * 100f).roundToInt().coerceAtLeast(0)
 
     val remainingMl: Int
-        get() = (targetMl - consumedMl).coerceAtLeast(0)
+        get() = if (!isGoalConfigured) 0 else (targetMl - consumedMl).coerceAtLeast(0)
 
     val isGoalReached: Boolean
-        get() = targetMl in 1..consumedMl
+        get() = isGoalConfigured && consumedMl >= targetMl
 
-    val hydrationStatus: HydrationStatus
+    val hydrationStatusLabel: String
         get() = when {
-            progressRaw < 0.35f -> HydrationStatus.Low
-            progressRaw < 0.8f -> HydrationStatus.Normal
-            else -> HydrationStatus.Great
+            !isGoalConfigured -> "Goal non impostato"
+            progressRaw < 0.35f -> "Low"
+            progressRaw < 0.8f -> "Normal"
+            else -> "Great"
         }
+
+    val mainPresetMl: Int
+        get() = containerPresets.lastOrNull() ?: 600
 }
 
-enum class HydrationStatus(val label: String) {
-    Low("Low"),
-    Normal("Normal"),
-    Great("Great")
+fun formatWaterAmount(amountMl: Int): String {
+    val normalized = amountMl.coerceAtLeast(0)
+    return if (normalized >= 1000 && normalized % 1000 == 0) {
+        "${normalized / 1000} L"
+    } else {
+        "$normalized ml"
+    }
 }

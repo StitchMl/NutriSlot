@@ -6,65 +6,45 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun WaterTrackerScreen() {
-    var targetMl by rememberSaveable { mutableIntStateOf(2000) }
-    var consumedMl by rememberSaveable { mutableIntStateOf(1200) }
-
-    var remindersEnabled by rememberSaveable { mutableStateOf(false) }
-    var reminderIntervalMinutes by rememberSaveable { mutableIntStateOf(90) }
-
+fun WaterTrackerScreen(
+    uiState: WaterTrackerUiState,
+    onAddWater: (Int, Boolean) -> Unit,
+    onResetWater: () -> Unit,
+    onUpdateGoal: (Int) -> Unit,
+    onClearGoal: () -> Unit,
+    onUpdateReminder: (Boolean, Int) -> Unit,
+    onAddContainerPreset: (Int) -> Unit,
+    onRemoveContainerPreset: (Int) -> Unit
+) {
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var showGoalDialog by rememberSaveable { mutableStateOf(false) }
     var showReminderDialog by rememberSaveable { mutableStateOf(false) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
-
-    val uiState = WaterTrackerUiState(
-        targetMl = targetMl,
-        consumedMl = consumedMl,
-        remindersEnabled = remindersEnabled,
-        reminderIntervalMinutes = reminderIntervalMinutes
-    )
-
-    val topTextColor = if (uiState.isGoalReached) {
-        WaterTrackerColors.TextOnBlue
-    } else {
-        WaterTrackerColors.HeaderText
-    }
-
-    val topValueColor = if (uiState.isGoalReached) {
-        WaterTrackerColors.TextOnBlue
-    } else {
-        WaterTrackerColors.HeaderValue
-    }
+    var showClearGoalDialog by rememberSaveable { mutableStateOf(false) }
+    var showPresetsDialog by rememberSaveable { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(if (uiState.isGoalReached) WaterTrackerColors.GoalReachedBottom else WaterTrackerColors.Background)
     ) {
         AnimatedWaterBackground(
             progress = uiState.progressVisual,
@@ -76,99 +56,40 @@ fun WaterTrackerScreen() {
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 22.dp, vertical = 18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column {
-                Text(
-                    text = "Water Reminder",
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = topTextColor
-                )
+            Spacer(modifier = Modifier.height(4.dp))
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 26.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    WaterTopMetric(
-                        title = "Daily Goal",
-                        value = "${uiState.targetMl} ml",
-                        titleColor = topTextColor,
-                        valueColor = topValueColor
-                    )
+            WaterHeaderTipCard(
+                message = "Do not drink cold water or water with ice"
+            )
 
-                    WaterTopMetric(
-                        title = "Complete",
-                        value = "${uiState.consumedMl} ml",
-                        alignEnd = true,
-                        titleColor = topTextColor,
-                        valueColor = topValueColor
-                    )
+            WaterGoalMeter(
+                uiState = uiState,
+                onPrimaryPresetClick = { amount ->
+                    onAddWater(amount, false)
                 }
+            )
 
-                Text(
-                    text = uiState.hydrationStatus.label,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 14.dp),
-                    textAlign = TextAlign.End,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = topTextColor
-                )
-            }
+            WaterContainerPresetsSection(
+                presets = uiState.containerPresets,
+                onPresetClick = { amount -> onAddWater(amount, false) },
+                onCustomAddClick = { showAddDialog = true },
+                onManagePresetsClick = { showPresetsDialog = true }
+            )
 
-            WaterCenterBubble(uiState = uiState)
+            WaterActionsPanel(
+                onGoalClick = { showGoalDialog = true },
+                onResetDayClick = { showResetDialog = true },
+                onReminderClick = { showReminderDialog = true }
+            )
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                WaterGlassCard(
-                    uiState = uiState,
-                    onUndoLast = {
-                        consumedMl = (consumedMl - 250).coerceAtLeast(0)
-                    },
-                    onResetAll = {
-                        showResetDialog = true
-                    }
-                )
+            WaterRecordsCard(uiState = uiState)
 
-                Spacer(modifier = Modifier.height(18.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    WaterActionWithLabel(
-                        symbol = "⏰",
-                        label = "Reminder",
-                        onClick = { showReminderDialog = true },
-                        isPrimary = false
-                    )
-
-                    WaterActionWithLabel(
-                        symbol = "+",
-                        label = "Add",
-                        onClick = { showAddDialog = true },
-                        isPrimary = true
-                    )
-
-                    WaterActionWithLabel(
-                        symbol = "ml",
-                        label = "Goal",
-                        onClick = { showGoalDialog = true },
-                        isPrimary = false
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 
@@ -177,12 +98,12 @@ fun WaterTrackerScreen() {
             title = "Add water",
             currentValueMl = uiState.consumedMl,
             confirmLabel = "Add",
-            presets = listOf(150, 250, 500, 750, 1000),
+            presets = uiState.containerPresets.ifEmpty { listOf(250, 500, 600) },
             initialInput = "",
-            helperText = "Insert ml to add to the current amount.",
+            helperText = "If the amount is new, it will also be saved as a quick container.",
             onDismiss = { showAddDialog = false },
             onConfirm = { ml ->
-                consumedMl += ml
+                onAddWater(ml, true)
                 showAddDialog = false
             }
         )
@@ -190,15 +111,15 @@ fun WaterTrackerScreen() {
 
     if (showGoalDialog) {
         AmountDialog(
-            title = "Change daily goal",
+            title = "Change goal",
             currentValueMl = uiState.targetMl,
             confirmLabel = "Save",
-            presets = listOf(2000, 2500, 3000, 3500, 4000),
-            initialInput = uiState.targetMl.toString(),
+            presets = listOf(1500, 2000, 2500, 3000, 3500, 4000),
+            initialInput = if (uiState.targetMl > 0) uiState.targetMl.toString() else "",
             helperText = "Set the daily hydration target in ml.",
             onDismiss = { showGoalDialog = false },
             onConfirm = { ml ->
-                targetMl = ml.coerceAtLeast(250)
+                onUpdateGoal(ml)
                 showGoalDialog = false
             }
         )
@@ -210,8 +131,7 @@ fun WaterTrackerScreen() {
             intervalMinutes = uiState.reminderIntervalMinutes,
             onDismiss = { showReminderDialog = false },
             onConfirm = { enabled, interval ->
-                remindersEnabled = enabled
-                reminderIntervalMinutes = interval
+                onUpdateReminder(enabled, interval)
                 showReminderDialog = false
             }
         )
@@ -219,11 +139,36 @@ fun WaterTrackerScreen() {
 
     if (showResetDialog) {
         ResetWaterDialog(
+            title = "Reset day",
+            description = "This resets only the water consumed today.",
+            confirmLabel = "Reset day",
             onDismiss = { showResetDialog = false },
             onConfirm = {
-                consumedMl = 0
+                onResetWater()
                 showResetDialog = false
             }
+        )
+    }
+
+    if (showClearGoalDialog) {
+        ResetWaterDialog(
+            title = "Clear goal",
+            description = "This removes the daily target but keeps your saved bottle sizes.",
+            confirmLabel = "Clear goal",
+            onDismiss = { showClearGoalDialog = false },
+            onConfirm = {
+                onClearGoal()
+                showClearGoalDialog = false
+            }
+        )
+    }
+
+    if (showPresetsDialog) {
+        ContainerPresetsDialog(
+            presets = uiState.containerPresets,
+            onDismiss = { showPresetsDialog = false },
+            onAddPreset = onAddContainerPreset,
+            onRemovePreset = onRemoveContainerPreset
         )
     }
 }

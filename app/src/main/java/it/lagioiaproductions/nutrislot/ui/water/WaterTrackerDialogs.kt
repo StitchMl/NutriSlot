@@ -2,6 +2,8 @@ package it.lagioiaproductions.nutrislot.ui.water
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -40,13 +42,9 @@ fun AmountDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(text = title)
-        },
+        title = { Text(title) },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     text = "Current: $currentValueMl ml",
                     style = MaterialTheme.typography.bodyMedium
@@ -72,9 +70,7 @@ fun AmountDialog(
 
                 OutlinedTextField(
                     value = input,
-                    onValueChange = { newValue ->
-                        input = newValue.filter { it.isDigit() }
-                    },
+                    onValueChange = { input = it.filter(Char::isDigit) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     label = { Text("ml") },
@@ -86,7 +82,7 @@ fun AmountDialog(
             TextButton(
                 onClick = {
                     val parsed = input.toIntOrNull()
-                    if (parsed != null && parsed > 0) {
+                    if (parsed != null && parsed >= 0) {
                         onConfirm(parsed)
                     }
                 }
@@ -114,13 +110,9 @@ fun ReminderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("Water reminders")
-        },
+        title = { Text("Water reminders") },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -136,12 +128,6 @@ fun ReminderDialog(
                     )
                 }
 
-                Text(
-                    text = "Choose how often you want to be reminded.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
                 PresetRow(
                     values = listOf(30, 60, 90),
                     suffix = "min",
@@ -156,9 +142,7 @@ fun ReminderDialog(
 
                 OutlinedTextField(
                     value = localIntervalText,
-                    onValueChange = { value ->
-                        localIntervalText = value.filter { it.isDigit() }
-                    },
+                    onValueChange = { localIntervalText = it.filter(Char::isDigit) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     label = { Text("Reminder interval (minutes)") },
@@ -186,20 +170,19 @@ fun ReminderDialog(
 
 @Composable
 fun ResetWaterDialog(
+    title: String,
+    description: String,
+    confirmLabel: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("Reset daily water")
-        },
-        text = {
-            Text("This will reset the consumed amount to 0 ml.")
-        },
+        title = { Text(title) },
+        text = { Text(description) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Reset")
+                Text(confirmLabel)
             }
         },
         dismissButton = {
@@ -210,15 +193,85 @@ fun ResetWaterDialog(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ContainerPresetsDialog(
+    presets: List<Int>,
+    onDismiss: () -> Unit,
+    onAddPreset: (Int) -> Unit,
+    onRemovePreset: (Int) -> Unit
+) {
+    var input by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Manage bottles") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    text = "Massimo 3 tagli salvati. Se ne aggiungi un quarto, esce il più vecchio.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    presets.forEach { amount ->
+                        Surface(
+                            onClick = { onRemovePreset(amount) },
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = "${formatWaterAmount(amount)} ×",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it.filter(Char::isDigit) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("New bottle size (ml)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+
+                TextButton(
+                    onClick = {
+                        val parsed = input.toIntOrNull()
+                        if (parsed != null && parsed > 0) {
+                            onAddPreset(parsed)
+                            input = ""
+                        }
+                    }
+                ) {
+                    Text("Save this bottle")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Done")
+            }
+        },
+        dismissButton = null
+    )
+}
+
 @Composable
 private fun PresetRow(
     values: List<Int>,
     suffix: String = "ml",
     onSelected: (Int) -> Unit
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         values.forEach { value ->
             Surface(
                 onClick = { onSelected(value) },

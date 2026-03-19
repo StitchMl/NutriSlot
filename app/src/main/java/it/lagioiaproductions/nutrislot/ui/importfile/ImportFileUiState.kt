@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package it.lagioiaproductions.nutrislot.ui.importfile
 
 import it.lagioiaproductions.nutrislot.domain.model.CellRecognitionState

@@ -1,3 +1,5 @@
+@file:Suppress("SameParameterValue", "SameParameterValue")
+
 package it.lagioiaproductions.nutrislot.ui.calories
 
 import androidx.compose.foundation.layout.Arrangement
