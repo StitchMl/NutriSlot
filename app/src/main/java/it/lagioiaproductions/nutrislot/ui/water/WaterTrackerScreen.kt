@@ -1,272 +1,229 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package it.lagioiaproductions.nutrislot.ui.water
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 
-private data class QuickWaterOption(
-    val label: String,
-    val amountMl: Int
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WaterTrackerScreen() {
-    var targetMl by remember { mutableIntStateOf(2000) }
-    var consumedMl by remember { mutableIntStateOf(0) }
+    var targetMl by rememberSaveable { mutableIntStateOf(2000) }
+    var consumedMl by rememberSaveable { mutableIntStateOf(1200) }
 
-    val quickOptions = listOf(
-        QuickWaterOption("250 ml", 250),
-        QuickWaterOption("500 ml", 500),
-        QuickWaterOption("1 L", 1000)
+    var remindersEnabled by rememberSaveable { mutableStateOf(false) }
+    var reminderIntervalMinutes by rememberSaveable { mutableIntStateOf(90) }
+
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    var showGoalDialog by rememberSaveable { mutableStateOf(false) }
+    var showReminderDialog by rememberSaveable { mutableStateOf(false) }
+    var showResetDialog by rememberSaveable { mutableStateOf(false) }
+
+    val uiState = WaterTrackerUiState(
+        targetMl = targetMl,
+        consumedMl = consumedMl,
+        remindersEnabled = remindersEnabled,
+        reminderIntervalMinutes = reminderIntervalMinutes
     )
 
-    val progressPercent = if (targetMl <= 0) {
-        0
+    val topTextColor = if (uiState.isGoalReached) {
+        WaterTrackerColors.TextOnBlue
     } else {
-        ((consumedMl.toFloat() / targetMl.toFloat()) * 100f)
-            .coerceIn(0f, 999f)
-            .roundToInt()
+        WaterTrackerColors.HeaderText
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Acqua") }
-            )
-        }
-    ) { innerPadding ->
+    val topValueColor = if (uiState.isGoalReached) {
+        WaterTrackerColors.TextOnBlue
+    } else {
+        WaterTrackerColors.HeaderValue
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        AnimatedWaterBackground(
+            progress = uiState.progressVisual,
+            isGoalReached = uiState.isGoalReached
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 22.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Idratazione giornaliera",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Surface(
-                        modifier = Modifier.size(220.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = "$consumedMl / $targetMl",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-
-                                Text(
-                                    text = "ml",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    }
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        WaterBadge(
-                            text = "Progress: $progressPercent%"
-                        )
-                        WaterBadge(
-                            text = "Mancano: ${(targetMl - consumedMl).coerceAtLeast(0)} ml",
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    }
-                }
-            }
-
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "Aggiungi acqua",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    quickOptions.forEach { option ->
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        text = option.label,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-
-                                    Text(
-                                        text = "Usalo come aggiunta rapida oppure come target.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                Button(
-                                    onClick = { consumedMl += option.amountMl }
-                                ) {
-                                    Text("+")
-                                }
-
-                                FilledTonalButton(
-                                    onClick = { targetMl = option.amountMl }
-                                ) {
-                                    Text("Imposta")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "Controlli rapidi",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Button(
-                        onClick = { consumedMl = (consumedMl - 250).coerceAtLeast(0) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Rimuovi 250 ml")
-                    }
-
-                    FilledTonalButton(
-                        onClick = { consumedMl = 0 },
-                        modifier = Modifier.fillMaxWidth()
-                ) {
-                Text("Reset consumo giornaliero")
-            }
-
-                TextButton(
-                    onClick = {
-                        targetMl = 2000
-                        consumedMl = 0
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Ripristina valori base")
-                }
-            }
-        }
-
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(72.dp)
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
+            Column {
                 Text(
-                    text = "In uno step successivo possiamo salvare il target e lo storico giornaliero.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "Water Reminder",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = topTextColor
                 )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 26.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    WaterTopMetric(
+                        title = "Daily Goal",
+                        value = "${uiState.targetMl} ml",
+                        titleColor = topTextColor,
+                        valueColor = topValueColor
+                    )
+
+                    WaterTopMetric(
+                        title = "Complete",
+                        value = "${uiState.consumedMl} ml",
+                        alignEnd = true,
+                        titleColor = topTextColor,
+                        valueColor = topValueColor
+                    )
+                }
+
+                Text(
+                    text = uiState.hydrationStatus.label,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 14.dp),
+                    textAlign = TextAlign.End,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = topTextColor
+                )
+            }
+
+            WaterCenterBubble(uiState = uiState)
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                WaterGlassCard(
+                    uiState = uiState,
+                    onUndoLast = {
+                        consumedMl = (consumedMl - 250).coerceAtLeast(0)
+                    },
+                    onResetAll = {
+                        showResetDialog = true
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    WaterActionWithLabel(
+                        symbol = "⏰",
+                        label = "Reminder",
+                        onClick = { showReminderDialog = true },
+                        isPrimary = false
+                    )
+
+                    WaterActionWithLabel(
+                        symbol = "+",
+                        label = "Add",
+                        onClick = { showAddDialog = true },
+                        isPrimary = true
+                    )
+
+                    WaterActionWithLabel(
+                        symbol = "ml",
+                        label = "Goal",
+                        onClick = { showGoalDialog = true },
+                        isPrimary = false
+                    )
+                }
             }
         }
     }
-}
-}
 
-@Composable
-private fun WaterBadge(
-    text: String,
-    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.secondaryContainer,
-    contentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSecondaryContainer
-) {
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = containerColor
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
-            color = contentColor
+    if (showAddDialog) {
+        AmountDialog(
+            title = "Add water",
+            currentValueMl = uiState.consumedMl,
+            confirmLabel = "Add",
+            presets = listOf(150, 250, 500, 750, 1000),
+            initialInput = "",
+            helperText = "Insert ml to add to the current amount.",
+            onDismiss = { showAddDialog = false },
+            onConfirm = { ml ->
+                consumedMl += ml
+                showAddDialog = false
+            }
+        )
+    }
+
+    if (showGoalDialog) {
+        AmountDialog(
+            title = "Change daily goal",
+            currentValueMl = uiState.targetMl,
+            confirmLabel = "Save",
+            presets = listOf(2000, 2500, 3000, 3500, 4000),
+            initialInput = uiState.targetMl.toString(),
+            helperText = "Set the daily hydration target in ml.",
+            onDismiss = { showGoalDialog = false },
+            onConfirm = { ml ->
+                targetMl = ml.coerceAtLeast(250)
+                showGoalDialog = false
+            }
+        )
+    }
+
+    if (showReminderDialog) {
+        ReminderDialog(
+            enabled = uiState.remindersEnabled,
+            intervalMinutes = uiState.reminderIntervalMinutes,
+            onDismiss = { showReminderDialog = false },
+            onConfirm = { enabled, interval ->
+                remindersEnabled = enabled
+                reminderIntervalMinutes = interval
+                showReminderDialog = false
+            }
+        )
+    }
+
+    if (showResetDialog) {
+        ResetWaterDialog(
+            onDismiss = { showResetDialog = false },
+            onConfirm = {
+                consumedMl = 0
+                showResetDialog = false
+            }
         )
     }
 }

@@ -62,6 +62,7 @@ dependencies {
 
     implementation(libs.pdfbox.android)
     implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.runtime.saveable)
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
