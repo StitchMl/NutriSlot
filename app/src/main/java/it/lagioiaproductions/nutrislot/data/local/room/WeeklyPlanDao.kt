@@ -63,4 +63,7 @@ interface WeeklyPlanDao {
 
     @Query("DELETE FROM meal_assignments WHERE id IN (:assignmentIds)")
     suspend fun deleteMealAssignmentsByIds(assignmentIds: List<String>)
+
+    @Query("DELETE FROM meal_consumptions WHERE id IN (:consumptionIds)")
+    suspend fun deleteMealConsumptionsByIds(consumptionIds: List<String>)
 }

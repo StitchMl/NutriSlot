@@ -31,7 +31,8 @@ internal fun SlotActionDialog(
     onDismiss: () -> Unit,
     onConsumeAsPlanned: () -> Unit,
     onConsumeReplacement: (sourceSlotId: String) -> Unit,
-    onSelectExtraCatalogOption: (optionId: String) -> Unit
+    onSelectExtraCatalogOption: (optionId: String) -> Unit,
+    onUndoCompletedMeal: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = {
@@ -93,7 +94,21 @@ internal fun SlotActionDialog(
                     }
                 }
 
-                if (dialogUi.canConsumeAsPlanned) {
+                if (dialogUi.isTargetActuallyCompletedThisWeek) {
+                    Button(
+                        onClick = onUndoCompletedMeal,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isApplying
+                    ) {
+                        Text(
+                            if (isApplying) {
+                                "Aggiornamento in corso..."
+                            } else {
+                                "Annulla completamento"
+                            }
+                        )
+                    }
+                } else if (dialogUi.canConsumeAsPlanned) {
                     Button(
                         onClick = onConsumeAsPlanned,
                         modifier = Modifier.fillMaxWidth(),

@@ -439,4 +439,48 @@ class WeeklyPlanRepository(
             )
         }
     }
+
+    suspend fun undoMealConsumption(
+        planId: String,
+        targetSlotId: String
+    ) {
+        val plan = weeklyPlanDao.getPlanById(planId)
+            ?: throw IllegalStateException("Piano non trovato.")
+
+        val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(plan.id)
+        val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(plan.id)
+
+        val currentWeekConsumptionsForTarget = consumptionEntities
+            .filter { consumption ->
+                consumption.targetSlotId == targetSlotId &&
+                        WeeklyPlanningCalculator.isInCurrentWeek(consumption.consumedAtEpochMillis)
+            }
+            .sortedByDescending { it.consumedAtEpochMillis }
+
+        val latestConsumption = currentWeekConsumptionsForTarget.firstOrNull()
+            ?: throw IllegalStateException("Questo slot non risulta completato nella settimana corrente.")
+
+        weeklyPlanDao.deleteMealConsumptionsByIds(
+            consumptionIds = listOf(latestConsumption.id)
+        )
+
+        deleteCurrentAssignmentsForTargets(
+            targetSlotIds = setOf(targetSlotId),
+            assignments = assignmentEntities
+        )
+
+        if (latestConsumption.sourceSlotId != targetSlotId) {
+            val restoredAssignment = MealAssignmentEntity(
+                id = UUID.randomUUID().toString(),
+                planId = plan.id,
+                targetSlotId = targetSlotId,
+                sourceSlotId = latestConsumption.sourceSlotId,
+                assignedAtEpochMillis = System.currentTimeMillis()
+            )
+
+            weeklyPlanDao.insertMealAssignments(
+                assignments = listOf(restoredAssignment)
+            )
+        }
+    }
 }
