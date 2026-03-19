@@ -105,6 +105,7 @@ fun AppNavGraph(
                     onAddDayToShopping = bridgeViewModel::addShoppingItemsFromTexts,
                     onAddWeekToShopping = bridgeViewModel::addShoppingItemsFromTexts,
                     shoppingFeedback = bridgeUiState.shoppingFeedback,
+                    onSelectExtraCatalogOption = weeklyPlanViewModel::selectExtraCatalogOption,
                     onConsumeShoppingFeedback = bridgeViewModel::clearShoppingFeedback
                 )
             }

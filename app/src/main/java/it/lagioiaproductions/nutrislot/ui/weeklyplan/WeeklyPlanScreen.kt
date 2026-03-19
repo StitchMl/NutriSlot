@@ -86,6 +86,7 @@ fun WeeklyPlanScreen(
     onAddDayToShopping: (List<String>) -> Unit,
     onAddWeekToShopping: (List<String>) -> Unit,
     shoppingFeedback: ShoppingFeedbackUi?,
+    onSelectExtraCatalogOption: (String) -> Unit,
     onConsumeShoppingFeedback: () -> Unit
 ) {
     val hasLoadedPlan = uiState.planId != null || uiState.slots.isNotEmpty()
@@ -213,7 +214,8 @@ fun WeeklyPlanScreen(
                 isApplying = uiState.isApplyingSlotAction,
                 onDismiss = onDismissSlotAction,
                 onConsumeAsPlanned = onConsumeAsPlanned,
-                onConsumeReplacement = onConsumeReplacement
+                onConsumeReplacement = onConsumeReplacement,
+                onSelectExtraCatalogOption = onSelectExtraCatalogOption
             )
         }
     }

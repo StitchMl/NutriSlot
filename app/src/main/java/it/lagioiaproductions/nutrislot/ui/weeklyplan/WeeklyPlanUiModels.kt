@@ -24,6 +24,7 @@ data class ReplacementMealOptionUi(
 )
 
 data class ExtraCatalogMealOptionUi(
+    val optionId: String,
     val title: String?,
     val mealText: String,
     val sourceLabel: String,

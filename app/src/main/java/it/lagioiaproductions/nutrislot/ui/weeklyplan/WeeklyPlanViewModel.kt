@@ -162,6 +162,18 @@ class WeeklyPlanViewModel(
         )
     }
 
+    fun selectExtraCatalogOption(optionId: String) {
+        val snapshot = currentSnapshot ?: return
+        val dialog = _uiState.value.slotActionDialog ?: return
+
+        applyCatalogOptionAssignment(
+            planId = snapshot.plan.id,
+            targetSlotId = dialog.targetSlotId,
+            optionId = optionId,
+            successMessage = "Opzione extra assegnata allo slot."
+        )
+    }
+
     private fun applyReplacementAssignment(
         planId: String,
         targetSlotId: String,
@@ -256,6 +268,58 @@ class WeeklyPlanViewModel(
                         isApplyingSlotAction = false,
                         actionErrorMessage = throwable.message
                             ?: "Errore sconosciuto durante l'aggiornamento dello slot."
+                    )
+                }
+            }
+        }
+    }
+
+    private fun applyCatalogOptionAssignment(
+        planId: String,
+        targetSlotId: String,
+        optionId: String,
+        successMessage: String
+    ) {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    isApplyingSlotAction = true,
+                    actionErrorMessage = null,
+                    actionMessage = null
+                )
+            }
+
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    repository.assignCatalogOptionToSlot(
+                        planId = planId,
+                        targetSlotId = targetSlotId,
+                        optionId = optionId
+                    )
+
+                    repository.getWeeklyPlanSnapshot(planId)
+                        ?: throw IllegalStateException(
+                            "Impossibile ricaricare il piano dopo l'aggiornamento."
+                        )
+                }
+            }.onSuccess { updatedSnapshot ->
+                currentSnapshot = updatedSnapshot
+
+                _uiState.value = updatedSnapshot.toUiState(
+                    actionMessage = successMessage,
+                    actionErrorMessage = null,
+                    isApplyingSlotAction = false,
+                    slotActionDialog = null,
+                    currentWeekReferenceDay = _uiState.value.currentWeekReferenceDay,
+                    selectedCalendarDay = _uiState.value.selectedCalendarDay,
+                    showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
+                )
+            }.onFailure { throwable ->
+                _uiState.update { state ->
+                    state.copy(
+                        isApplyingSlotAction = false,
+                        actionErrorMessage = throwable.message
+                            ?: "Errore sconosciuto durante l'assegnazione dell'opzione extra."
                     )
                 }
             }

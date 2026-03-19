@@ -1,3 +1,5 @@
+@file:Suppress("SameParameterValue")
+
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import androidx.compose.foundation.clickable
@@ -29,7 +31,8 @@ internal fun SlotActionDialog(
     isApplying: Boolean,
     onDismiss: () -> Unit,
     onConsumeAsPlanned: () -> Unit,
-    onConsumeReplacement: (sourceSlotId: String) -> Unit
+    onConsumeReplacement: (sourceSlotId: String) -> Unit,
+    onSelectExtraCatalogOption: (optionId: String) -> Unit
 ) {
     AlertDialog(
         onDismissRequest = {
@@ -128,7 +131,13 @@ internal fun SlotActionDialog(
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         dialogUi.extraCatalogOptions.take(4).forEach { option ->
-                            ExtraCatalogOptionCard(option = option)
+                            ExtraCatalogOptionCard(
+                                option = option,
+                                enabled = !isApplying,
+                                onClick = {
+                                    onSelectExtraCatalogOption(option.optionId)
+                                }
+                            )
                         }
                     }
                 }
@@ -224,11 +233,16 @@ private fun ReplacementOptionCard(
 
 @Composable
 private fun ExtraCatalogOptionCard(
-    option: ExtraCatalogMealOptionUi
+    option: ExtraCatalogMealOptionUi,
+    enabled: Boolean,
+    onClick: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
     ) {
         Column(
             modifier = Modifier
@@ -236,6 +250,14 @@ private fun ExtraCatalogOptionCard(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            option.title?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
             Text(
                 text = option.mealText,
                 style = MaterialTheme.typography.bodyMedium
@@ -251,9 +273,9 @@ private fun ExtraCatalogOptionCard(
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                 )
 
-                option.tags.take(3).forEach { tag ->
+                option.pageNumber?.let { page ->
                     WeeklyStatusBadge(
-                        text = tag,
+                        text = "Pag. $page",
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     )

@@ -130,7 +130,10 @@ class WeeklyPlanRepository(
             sourceSlotId = sourceSlotId
         )
 
-        deleteCurrentAssignmentsForTarget(targetSlotId = targetSlotId, assignments = assignmentEntities)
+        deleteCurrentAssignmentsForTarget(
+            targetSlotId = targetSlotId,
+            assignments = assignmentEntities
+        )
 
         val newAssignment = MealAssignmentEntity(
             id = UUID.randomUUID().toString(),
@@ -141,6 +144,56 @@ class WeeklyPlanRepository(
         )
 
         weeklyPlanDao.insertMealAssignments(assignments = listOf(newAssignment))
+    }
+
+    suspend fun assignCatalogOptionToSlot(
+        planId: String,
+        targetSlotId: String,
+        optionId: String
+    ) {
+        val plan = weeklyPlanDao.getPlanById(planId)
+            ?: throw IllegalStateException("Piano non trovato.")
+
+        val slotEntities = weeklyPlanDao.getSlotsForPlan(plan.id)
+        val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(plan.id)
+        val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(plan.id)
+        val optionEntities = weeklyPlanDao.getMealOptionsForPlan(plan.id)
+
+        val planning = WeeklyPlanningCalculator.buildActiveWeekPlanning(
+            slotEntities = slotEntities,
+            actualConsumptions = consumptionEntities.filter { consumption ->
+                WeeklyPlanningCalculator.isInCurrentWeek(consumption.consumedAtEpochMillis)
+            },
+            pendingAssignments = assignmentEntities.filter { assignment ->
+                WeeklyPlanningCalculator.isInCurrentWeek(assignment.assignedAtEpochMillis)
+            }
+        )
+
+        val targetSlot = slotEntities.firstOrNull { it.id == targetSlotId }
+            ?: throw IllegalStateException("Slot target non trovato.")
+
+        val selectedOption = optionEntities.firstOrNull { it.id == optionId }
+            ?: throw IllegalStateException("Opzione extra non trovata.")
+
+        validateCatalogOptionAssignment(
+            planning = planning,
+            targetSlot = targetSlot,
+            selectedOption = selectedOption,
+            targetSlotId = targetSlotId
+        )
+
+        deleteCurrentAssignmentsForTarget(
+            targetSlotId = targetSlotId,
+            assignments = assignmentEntities
+        )
+
+        val updatedTargetSlot = targetSlot.copy(
+            plannedMealText = normalizeMealText(selectedOption.mealText)
+        )
+
+        weeklyPlanDao.insertMealSlots(
+            slots = listOf(updatedTargetSlot)
+        )
     }
 
     suspend fun recordMealConsumption(
@@ -197,7 +250,10 @@ class WeeklyPlanRepository(
             sourceSlotId = sourceSlotId
         )
 
-        deleteCurrentAssignmentsForTarget(targetSlotId = targetSlotId, assignments = activeAssignments)
+        deleteCurrentAssignmentsForTarget(
+            targetSlotId = targetSlotId,
+            assignments = activeAssignments
+        )
 
         val newConsumption = MealConsumptionEntity(
             id = UUID.randomUUID().toString(),
@@ -243,6 +299,30 @@ class WeeklyPlanRepository(
 
         if (currentTargetAssignmentIds.isNotEmpty()) {
             weeklyPlanDao.deleteMealAssignmentsByIds(currentTargetAssignmentIds)
+        }
+    }
+
+    private fun validateCatalogOptionAssignment(
+        planning: it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanning,
+        targetSlot: MealSlotEntity,
+        selectedOption: MealOptionEntity,
+        targetSlotId: String
+    ) {
+        if (planning.actualSourceByTarget.containsKey(targetSlotId)) {
+            throw IllegalStateException("Questo slot risulta già completato nella settimana corrente.")
+        }
+
+        val targetType = MealSlotType.valueOf(targetSlot.mealSlotType)
+        val optionType = MealSlotType.valueOf(selectedOption.mealSlotType)
+
+        if (!areMealSlotTypesCompatible(targetType = targetType, sourceType = optionType)) {
+            throw IllegalStateException(
+                "Questa opzione extra non è compatibile con lo slot ${targetSlot.mealSlotType.lowercase()}."
+            )
+        }
+
+        if (selectedOption.mealText.isBlank()) {
+            throw IllegalStateException("L'opzione extra selezionata non contiene un pasto valido.")
         }
     }
 

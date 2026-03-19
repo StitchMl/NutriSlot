@@ -195,6 +195,7 @@ private fun buildExtraCatalogOptions(
         )
         .map { option ->
             ExtraCatalogMealOptionUi(
+                optionId = option.id,
                 title = option.title,
                 mealText = option.mealText,
                 sourceLabel = option.sourceType.name
