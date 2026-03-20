@@ -12,7 +12,6 @@ import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import it.lagioiaproductions.nutrislot.MainActivity
-import it.lagioiaproductions.nutrislot.R
 
 class WaterReminderWorker(
     appContext: android.content.Context,
@@ -47,7 +46,7 @@ class WaterReminderWorker(
             applicationContext,
             WaterReminderNotificationManager.CHANNEL_ID
         )
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(it.lagioiaproductions.nutrislot.R.drawable.outline_cleaning_bucket_24)
             .setContentTitle("Time to drink water")
             .setContentText("Open NutriSlot and log your next glass.")
             .setContentIntent(pendingIntent)
