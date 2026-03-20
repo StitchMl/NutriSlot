@@ -5,11 +5,18 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -17,6 +24,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,12 +58,14 @@ import it.lagioiaproductions.nutrislot.ui.toolshub.ToolsHubScreen
 import it.lagioiaproductions.nutrislot.ui.water.WaterTrackerRoute
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanScreen
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanViewModel
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistScreen
 
 private object Routes {
     const val IMPORT_FILE = "import_file"
     const val IMPORT_PREVIEW = "import_preview"
     const val SCANNER = "scanner"
     const val CALORIE_TRACKER = "calorie_tracker"
+    const val WEEKLY_QUANTITY_CHECKLIST = "weekly_quantity_checklist"
 }
 
 @Composable
@@ -146,6 +156,11 @@ fun AppNavGraph(
                     onAddMealToShopping = bridgeViewModel::addShoppingItemsFromTexts,
                     onAddDayToShopping = bridgeViewModel::addShoppingItemsFromTexts,
                     onAddWeekToShopping = bridgeViewModel::addShoppingItemsFromTexts,
+                    onOpenWeeklyQuantityChecklist = {
+                        navController.navigate(Routes.WEEKLY_QUANTITY_CHECKLIST) {
+                            launchSingleTop = true
+                        }
+                    },
                     shoppingFeedback = bridgeUiState.shoppingFeedback,
                     onSelectExtraCatalogOption = weeklyPlanViewModel::selectExtraCatalogOption,
                     onUndoCompletedMeal = weeklyPlanViewModel::undoCompletedMeal,
@@ -153,6 +168,13 @@ fun AppNavGraph(
                     onSaveSlotEdit = weeklyPlanViewModel::saveEditSlot,
                     onDismissSlotEdit = weeklyPlanViewModel::dismissEditSlot,
                     onResetSlotEdit = weeklyPlanViewModel::resetEditSlot
+                )
+            }
+
+            composable(Routes.WEEKLY_QUANTITY_CHECKLIST) {
+                WeeklyQuantityChecklistScreen(
+                    items = weeklyPlanUiState.weeklyQuantityChecklist,
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 
@@ -314,6 +336,12 @@ private fun ImportFileScreen(
                         onClick = { pdfLauncher.launch(arrayOf("application/pdf")) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.FileOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
                         Text("Seleziona file PDF")
                     }
 
@@ -461,6 +489,12 @@ private fun PreviewActionSection(
             onClick = onGoToPreviewClick,
             modifier = Modifier.fillMaxWidth()
         ) {
+            Icon(
+                imageVector = Icons.Default.Visibility,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
             Text("Apri anteprima")
         }
 
@@ -468,6 +502,12 @@ private fun PreviewActionSection(
             onClick = onBackClick,
             modifier = Modifier.fillMaxWidth()
         ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
             Text("Torna indietro")
         }
     }

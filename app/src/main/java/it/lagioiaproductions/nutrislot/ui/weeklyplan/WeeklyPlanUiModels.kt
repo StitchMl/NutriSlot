@@ -57,6 +57,17 @@ data class EditSlotDialogUi(
     val nutritionText: String
 )
 
+data class WeeklyQuantityChecklistItemUi(
+    val id: String,
+    val title: String,
+    val portionText: String?,
+    val targetTimes: Int,
+    val consumedTimes: Int
+) {
+    val isCompleted: Boolean
+        get() = targetTimes in 1..consumedTimes
+}
+
 data class WeeklyPlanCalorieSyncUi(
     val id: Long,
     val consumptionId: String,
@@ -79,6 +90,7 @@ data class WeeklyPlanUiState(
     val selectedCalendarDay: WeekDay = currentWeekDay(),
     val showConsumedSlotsInCalendar: Boolean = false,
     val slots: List<WeeklySlotUi> = emptyList(),
+    val weeklyQuantityChecklist: List<WeeklyQuantityChecklistItemUi> = emptyList(),
     val slotActionDialog: SlotActionDialogUi? = null,
     val editSlotDialog: EditSlotDialogUi? = null,
     val isApplyingSlotAction: Boolean = false,

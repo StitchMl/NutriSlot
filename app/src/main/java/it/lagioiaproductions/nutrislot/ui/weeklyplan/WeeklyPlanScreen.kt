@@ -95,6 +95,7 @@ fun WeeklyPlanScreen(
     onAddMealToShopping: (List<String>) -> Unit,
     onAddDayToShopping: (List<String>) -> Unit,
     onAddWeekToShopping: (List<String>) -> Unit,
+    onOpenWeeklyQuantityChecklist: () -> Unit,
     shoppingFeedback: ShoppingFeedbackUi?,
     onSelectExtraCatalogOption: (String) -> Unit,
     onUndoCompletedMeal: () -> Unit,
@@ -218,6 +219,7 @@ fun WeeklyPlanScreen(
                     onAddMealToShopping = addMealWithFeedback,
                     onAddDayToShopping = addDayWithFeedback,
                     onAddWeekToShopping = addWeekWithFeedback,
+                    onOpenWeeklyQuantityChecklist = onOpenWeeklyQuantityChecklist,
                     plannerFeedbackMessage = plannerFeedback?.message
                 )
             }
@@ -276,6 +278,7 @@ private fun WeeklyCalendarGridContent(
     onAddMealToShopping: (List<String>) -> Unit,
     onAddDayToShopping: (List<String>) -> Unit,
     onAddWeekToShopping: (List<String>) -> Unit,
+    onOpenWeeklyQuantityChecklist: () -> Unit,
     plannerFeedbackMessage: String?
 ) {
     val visibleSlots = remember(
@@ -329,7 +332,8 @@ private fun WeeklyCalendarGridContent(
             showConsumedSlots = uiState.showConsumedSlotsInCalendar,
             onAddWeekToShopping = {
                 onAddWeekToShopping(weekShoppingItems)
-            }
+            },
+            onOpenWeeklyQuantityChecklist = onOpenWeeklyQuantityChecklist
         )
 
         AnimatedVisibility(
@@ -467,7 +471,8 @@ private fun LoadedPlanTopBar(
     onRefreshClick: () -> Unit,
     onToggleConsumedSlotsVisibility: () -> Unit,
     showConsumedSlots: Boolean,
-    onAddWeekToShopping: () -> Unit
+    onAddWeekToShopping: () -> Unit,
+    onOpenWeeklyQuantityChecklist: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -520,6 +525,14 @@ private fun LoadedPlanTopBar(
                     onClick = {
                         menuExpanded = false
                         onRefreshClick()
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = { Text("Controllo quantità settimanali") },
+                    onClick = {
+                        menuExpanded = false
+                        onOpenWeeklyQuantityChecklist()
                     }
                 )
 
