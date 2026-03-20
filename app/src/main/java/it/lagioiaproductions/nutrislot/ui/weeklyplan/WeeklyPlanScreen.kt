@@ -1,4 +1,4 @@
-@file:Suppress("SameParameterValue")
+@file:Suppress("SameParameterValue", "unused")
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import androidx.compose.animation.AnimatedVisibility
@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,16 +20,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -78,6 +86,7 @@ fun WeeklyPlanScreen(
     onImportClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onOpenSlotAction: (slotId: String) -> Unit,
+    onOpenSlotEdit: (slotId: String) -> Unit,
     onDismissSlotAction: () -> Unit,
     onConsumeAsPlanned: () -> Unit,
     onConsumeReplacement: (sourceSlotId: String) -> Unit,
@@ -89,7 +98,10 @@ fun WeeklyPlanScreen(
     shoppingFeedback: ShoppingFeedbackUi?,
     onSelectExtraCatalogOption: (String) -> Unit,
     onUndoCompletedMeal: () -> Unit,
-    onConsumeShoppingFeedback: () -> Unit
+    onConsumeShoppingFeedback: () -> Unit,
+    onSaveSlotEdit: (mealText: String, nutritionText: String) -> Unit,
+    onDismissSlotEdit: () -> Unit,
+    onResetSlotEdit: () -> Unit
 ) {
     val hasLoadedPlan = uiState.planId != null || uiState.slots.isNotEmpty()
 
@@ -200,6 +212,7 @@ fun WeeklyPlanScreen(
                     onImportClick = onImportClick,
                     onRefreshClick = onRefreshClick,
                     onOpenSlotAction = onOpenSlotAction,
+                    onOpenSlotEdit = onOpenSlotEdit,
                     onSelectCalendarDay = onSelectCalendarDay,
                     onToggleConsumedSlotsVisibility = onToggleConsumedSlotsVisibility,
                     onAddMealToShopping = addMealWithFeedback,
@@ -219,6 +232,15 @@ fun WeeklyPlanScreen(
                 onConsumeReplacement = onConsumeReplacement,
                 onSelectExtraCatalogOption = onSelectExtraCatalogOption,
                 onUndoCompletedMeal = onUndoCompletedMeal
+            )
+        }
+
+        uiState.editSlotDialog?.let { dialogUi ->
+            EditSlotDialog(
+                dialogUi = dialogUi,
+                onDismiss = onDismissSlotEdit,
+                onSave = onSaveSlotEdit,
+                onReset = onResetSlotEdit
             )
         }
     }
@@ -248,6 +270,7 @@ private fun WeeklyCalendarGridContent(
     onImportClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onOpenSlotAction: (slotId: String) -> Unit,
+    onOpenSlotEdit: (slotId: String) -> Unit,
     onSelectCalendarDay: (WeekDay) -> Unit,
     onToggleConsumedSlotsVisibility: () -> Unit,
     onAddMealToShopping: (List<String>) -> Unit,
@@ -355,6 +378,7 @@ private fun WeeklyCalendarGridContent(
                             orderedDays = uiState.orderedCalendarDays,
                             slotsByDayAndType = slotsByDayAndType,
                             onOpenSlotAction = onOpenSlotAction,
+                            onOpenSlotEdit = onOpenSlotEdit,
                             onAddMealToShopping = onAddMealToShopping
                         )
                     }
@@ -410,6 +434,7 @@ private fun CalendarSlotRow(
     orderedDays: List<WeekDay>,
     slotsByDayAndType: Map<WeekDay, Map<MealSlotType, WeeklySlotUi?>>,
     onOpenSlotAction: (slotId: String) -> Unit,
+    onOpenSlotEdit: (slotId: String) -> Unit,
     onAddMealToShopping: (List<String>) -> Unit
 ) {
     Row(
@@ -428,6 +453,7 @@ private fun CalendarSlotRow(
                 slotUi = slotsByDayAndType[day]?.get(slotType),
                 dayWidth = DayColumnWidth,
                 onOpenSlotAction = onOpenSlotAction,
+                onOpenSlotEdit = onOpenSlotEdit,
                 onAddMealToShopping = onAddMealToShopping
             )
         }
@@ -462,9 +488,10 @@ private fun LoadedPlanTopBar(
 
         Box {
             IconButton(onClick = { menuExpanded = true }) {
-                Text(
-                    text = "⚙",
-                    style = MaterialTheme.typography.titleLarge
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Impostazioni piano",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -604,15 +631,15 @@ private fun DayHeaderCell(
                         )
                     }
 
-                    Surface(
-                        shape = MaterialTheme.shapes.extraLarge,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        modifier = Modifier.clickable(onClick = onAddDayToShopping)
+                    IconButton(
+                        onClick = onAddDayToShopping,
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        Text(
-                            text = "🛒",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelMedium
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Aggiungi giorno alla spesa",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -635,6 +662,7 @@ private fun CalendarGridCell(
     slotUi: WeeklySlotUi?,
     dayWidth: Dp,
     onOpenSlotAction: (slotId: String) -> Unit,
+    onOpenSlotEdit: (slotId: String) -> Unit,
     onAddMealToShopping: (List<String>) -> Unit
 ) {
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
@@ -652,6 +680,7 @@ private fun CalendarGridCell(
                 modifier = Modifier.fillMaxSize(),
                 slotUi = slotUi,
                 onManageClick = { onOpenSlotAction(slotUi.slotId) },
+                onEditClick = { onOpenSlotEdit(slotUi.slotId) },
                 onAddToShoppingClick = {
                     onAddMealToShopping(
                         extractShoppingItemsFromMealText(slotUi.displayedMealText)
@@ -714,4 +743,50 @@ private fun extractShoppingItemsFromMealText(mealText: String): List<String> {
         }
         .filter { it.isNotBlank() }
         .distinct()
+}
+
+@Composable
+private fun EditSlotDialog(
+    dialogUi: EditSlotDialogUi,
+    onDismiss: () -> Unit,
+    onSave: (mealText: String, nutritionText: String) -> Unit,
+    onReset: () -> Unit
+) {
+    var mealText by remember(dialogUi.slotId) { mutableStateOf(dialogUi.mealText) }
+    var nutritionText by remember(dialogUi.slotId) { mutableStateOf(dialogUi.nutritionText) }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("${dialogUi.dayLabel} • ${dialogUi.mealSlotLabel}")
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = mealText,
+                    onValueChange = { mealText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Cose consumate") },
+                    minLines = 4
+                )
+            }
+        },
+        confirmButton = {
+            IconButton(onClick = { onSave(mealText, nutritionText) }) {
+                Icon(Icons.Default.Check, contentDescription = "Salva", tint = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(onClick = onReset) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Ripristina")
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Chiudi")
+                }
+            }
+        }
+    )
 }

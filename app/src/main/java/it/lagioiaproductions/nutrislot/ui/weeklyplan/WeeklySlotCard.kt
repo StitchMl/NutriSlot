@@ -2,7 +2,6 @@ package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +10,15 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,6 +37,7 @@ internal fun WeeklySlotCard(
     modifier: Modifier = Modifier,
     slotUi: WeeklySlotUi,
     onManageClick: () -> Unit,
+    onEditClick: () -> Unit,
     onAddToShoppingClick: () -> Unit
 ) {
     val preview = remember(slotUi.displayedMealText, slotUi.mealSlotType) {
@@ -105,28 +111,38 @@ internal fun WeeklySlotCard(
                     verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = buildString {
-                            visualStyle.emoji?.let {
-                                append(it)
-                                append("  ")
-                            }
-                            append(timeLabel)
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = visualStyle.meta
-                    )
-
-                    Surface(
-                        shape = MaterialTheme.shapes.extraLarge,
-                        color = visualStyle.accent.copy(alpha = 0.14f),
-                        modifier = Modifier.clickable(onClick = onAddToShoppingClick)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        IconButton(onClick = onEditClick) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Modifica slot",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
                         Text(
-                            text = "🛒",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelMedium
+                            text = buildString {
+                                visualStyle.emoji?.let {
+                                    append(it)
+                                    append("  ")
+                                }
+                                append(timeLabel)
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = visualStyle.meta
+                        )
+                    }
+
+                    IconButton(onClick = onAddToShoppingClick) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Aggiungi alla spesa",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -151,11 +167,43 @@ internal fun WeeklySlotCard(
                     )
                 }
 
+                slotUi.nutritionSummary
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { nutritionSummary ->
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = visualStyle.accent.copy(alpha = 0.10f)
+                        ) {
+                            Text(
+                                text = "Nutrienti: $nutritionSummary",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = visualStyle.meta,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
                 if (preview.supportingLines.isEmpty() && footerNote != null) {
                     Text(
                         text = footerNote,
                         style = MaterialTheme.typography.labelSmall,
                         color = visualStyle.meta
+                    )
+                } else if (footerNote != null) {
+                    Text(
+                        text = footerNote,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = visualStyle.meta
+                    )
+                }
+
+                if (slotUi.hasCustomizations) {
+                    Text(
+                        text = "Personalizzato",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = visualStyle.meta,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }

@@ -137,6 +137,7 @@ fun AppNavGraph(
                     onImportClick = { navController.navigate(Routes.IMPORT_FILE) },
                     onRefreshClick = weeklyPlanViewModel::loadLatestPlan,
                     onOpenSlotAction = weeklyPlanViewModel::openSlotAction,
+                    onOpenSlotEdit = weeklyPlanViewModel::openEditSlot,
                     onDismissSlotAction = weeklyPlanViewModel::dismissSlotAction,
                     onConsumeAsPlanned = weeklyPlanViewModel::consumeAsPlanned,
                     onConsumeReplacement = weeklyPlanViewModel::consumeReplacement,
@@ -148,7 +149,10 @@ fun AppNavGraph(
                     shoppingFeedback = bridgeUiState.shoppingFeedback,
                     onSelectExtraCatalogOption = weeklyPlanViewModel::selectExtraCatalogOption,
                     onUndoCompletedMeal = weeklyPlanViewModel::undoCompletedMeal,
-                    onConsumeShoppingFeedback = bridgeViewModel::clearShoppingFeedback
+                    onConsumeShoppingFeedback = bridgeViewModel::clearShoppingFeedback,
+                    onSaveSlotEdit = weeklyPlanViewModel::saveEditSlot,
+                    onDismissSlotEdit = weeklyPlanViewModel::dismissEditSlot,
+                    onResetSlotEdit = weeklyPlanViewModel::resetEditSlot
                 )
             }
 

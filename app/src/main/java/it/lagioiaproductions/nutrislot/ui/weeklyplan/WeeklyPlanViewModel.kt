@@ -3,6 +3,7 @@
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.core.content.edit
 
 class WeeklyPlanViewModel(
     application: Application
@@ -27,6 +29,11 @@ class WeeklyPlanViewModel(
             .weeklyPlanDao()
     )
 
+    private val preferences = application.getSharedPreferences(
+        PREFERENCES_NAME,
+        Context.MODE_PRIVATE
+    )
+
     private var currentSnapshot: WeeklyPlanSnapshot? = null
     private var nextCalorieSyncEventId: Long = 1L
     private var nextCalorieUndoEventId: Long = 1L
@@ -34,6 +41,10 @@ class WeeklyPlanViewModel(
     private val _uiState = MutableStateFlow(
         WeeklyPlanUiState(
             isLoading = true,
+            showConsumedSlotsInCalendar = preferences.getBoolean(
+                PREF_SHOW_CONSUMED_SLOTS,
+                false
+            ),
             pendingCalorieUndoEvent = null
         )
     )
@@ -44,7 +55,8 @@ class WeeklyPlanViewModel(
             _uiState.update {
                 it.copy(
                     isLoading = true,
-                    errorMessage = null
+                    errorMessage = null,
+                    editSlotDialog = null
                 )
             }
 
@@ -72,7 +84,7 @@ class WeeklyPlanViewModel(
                         pendingCalorieUndoEvent = null
                     )
                 } else {
-                    _uiState.value = snapshot.toUiState(
+                    val baseState = snapshot.toUiState(
                         actionMessage = null,
                         actionErrorMessage = null,
                         isApplyingSlotAction = false,
@@ -81,7 +93,13 @@ class WeeklyPlanViewModel(
                         selectedCalendarDay = currentSelectedDay,
                         showConsumedSlotsInCalendar = currentShowConsumed
                     ).copy(
-                        pendingCalorieSyncEvent = null
+                        pendingCalorieSyncEvent = null,
+                        editSlotDialog = null
+                    )
+
+                    _uiState.value = applyManualDecorations(
+                        snapshot = snapshot,
+                        state = baseState
                     )
                 }
             }.onFailure { throwable ->
@@ -117,16 +135,21 @@ class WeeklyPlanViewModel(
 
     fun toggleConsumedSlotsVisibility() {
         _uiState.update { state ->
-            state.copy(
-                showConsumedSlotsInCalendar = !state.showConsumedSlotsInCalendar
-            )
+            val nextValue = !state.showConsumedSlotsInCalendar
+            preferences.edit {
+                putBoolean(PREF_SHOW_CONSUMED_SLOTS, nextValue)
+            }
+
+            state.copy(showConsumedSlotsInCalendar = nextValue)
         }
     }
 
     fun openSlotAction(slotId: String) {
         val snapshot = currentSnapshot ?: return
-        val targetUi = buildWeeklySlotUis(snapshot)
+        val targetUi = _uiState.value.slots
             .firstOrNull { it.slotId == slotId }
+            ?: buildWeeklySlotUis(snapshot)
+                .firstOrNull { it.slotId == slotId }
             ?: return
 
         val dialog = buildSlotActionDialog(
@@ -137,6 +160,7 @@ class WeeklyPlanViewModel(
         _uiState.update { state ->
             state.copy(
                 slotActionDialog = dialog,
+                editSlotDialog = null,
                 actionMessage = null,
                 actionErrorMessage = null
             )
@@ -148,6 +172,76 @@ class WeeklyPlanViewModel(
             state.copy(
                 slotActionDialog = null,
                 isApplyingSlotAction = false
+            )
+        }
+    }
+
+    fun openEditSlot(slotId: String) {
+        val slotUi = _uiState.value.slots.firstOrNull { it.slotId == slotId } ?: return
+
+        _uiState.update { state ->
+            state.copy(
+                slotActionDialog = null,
+                editSlotDialog = EditSlotDialogUi(
+                    slotId = slotUi.slotId,
+                    dayLabel = slotUi.dayOfWeek.displayName,
+                    mealSlotLabel = slotUi.mealSlotType.displayName,
+                    mealText = slotUi.displayedMealText,
+                    nutritionText = slotUi.nutritionSummary.orEmpty()
+                )
+            )
+        }
+    }
+
+    fun dismissEditSlot() {
+        _uiState.update { state ->
+            state.copy(editSlotDialog = null)
+        }
+    }
+
+    fun saveEditSlot(
+        mealText: String,
+        nutritionText: String
+    ) {
+        val snapshot = currentSnapshot ?: return
+        val dialog = _uiState.value.editSlotDialog ?: return
+        val planId = snapshot.plan.id
+
+        preferences.edit {
+            putString(slotMealPreferenceKey(planId, dialog.slotId), mealText.trim())
+                .putString(slotNutritionPreferenceKey(planId, dialog.slotId), nutritionText.trim())
+        }
+
+        _uiState.update { state ->
+            applyManualDecorations(
+                snapshot = snapshot,
+                state = state.copy(
+                    editSlotDialog = null,
+                    actionMessage = "Box aggiornato.",
+                    actionErrorMessage = null
+                )
+            )
+        }
+    }
+
+    fun resetEditSlot() {
+        val snapshot = currentSnapshot ?: return
+        val dialog = _uiState.value.editSlotDialog ?: return
+        val planId = snapshot.plan.id
+
+        preferences.edit {
+            remove(slotMealPreferenceKey(planId, dialog.slotId))
+                .remove(slotNutritionPreferenceKey(planId, dialog.slotId))
+        }
+
+        _uiState.update { state ->
+            applyManualDecorations(
+                snapshot = snapshot,
+                state = state.copy(
+                    editSlotDialog = null,
+                    actionMessage = "Personalizzazione rimossa.",
+                    actionErrorMessage = null
+                )
             )
         }
     }
@@ -221,7 +315,7 @@ class WeeklyPlanViewModel(
             }.onSuccess { (removedConsumptionId, updatedSnapshot) ->
                 currentSnapshot = updatedSnapshot
 
-                _uiState.value = updatedSnapshot.toUiState(
+                val baseState = updatedSnapshot.toUiState(
                     actionMessage = "Consumo annullato con successo.",
                     actionErrorMessage = null,
                     isApplyingSlotAction = false,
@@ -234,7 +328,13 @@ class WeeklyPlanViewModel(
                     pendingCalorieUndoEvent = WeeklyPlanCalorieUndoUi(
                         id = nextCalorieUndoEventId++,
                         consumptionId = removedConsumptionId
-                    )
+                    ),
+                    editSlotDialog = null
+                )
+
+                _uiState.value = applyManualDecorations(
+                    snapshot = updatedSnapshot,
+                    state = baseState
                 )
             }.onFailure { throwable ->
                 _uiState.update { state ->
@@ -283,7 +383,7 @@ class WeeklyPlanViewModel(
             }.onSuccess { updatedSnapshot ->
                 currentSnapshot = updatedSnapshot
 
-                _uiState.value = updatedSnapshot.toUiState(
+                val baseState = updatedSnapshot.toUiState(
                     actionMessage = successMessage,
                     actionErrorMessage = null,
                     isApplyingSlotAction = false,
@@ -292,7 +392,13 @@ class WeeklyPlanViewModel(
                     selectedCalendarDay = _uiState.value.selectedCalendarDay,
                     showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
                 ).copy(
-                    pendingCalorieSyncEvent = null
+                    pendingCalorieSyncEvent = null,
+                    editSlotDialog = null
+                )
+
+                _uiState.value = applyManualDecorations(
+                    snapshot = updatedSnapshot,
+                    state = baseState
                 )
             }.onFailure { throwable ->
                 _uiState.update { state ->
@@ -339,7 +445,7 @@ class WeeklyPlanViewModel(
             }.onSuccess { (newConsumption, updatedSnapshot) ->
                 currentSnapshot = updatedSnapshot
 
-                _uiState.value = updatedSnapshot.toUiState(
+                val baseState = updatedSnapshot.toUiState(
                     actionMessage = successMessage,
                     actionErrorMessage = null,
                     isApplyingSlotAction = false,
@@ -354,7 +460,13 @@ class WeeklyPlanViewModel(
                         mealText = consumedMealText,
                         mealSlotLabel = consumedMealSlotLabel
                     ),
-                    pendingCalorieUndoEvent = null
+                    pendingCalorieUndoEvent = null,
+                    editSlotDialog = null
+                )
+
+                _uiState.value = applyManualDecorations(
+                    snapshot = updatedSnapshot,
+                    state = baseState
                 )
             }.onFailure { throwable ->
                 _uiState.update { state ->
@@ -399,7 +511,7 @@ class WeeklyPlanViewModel(
             }.onSuccess { updatedSnapshot ->
                 currentSnapshot = updatedSnapshot
 
-                _uiState.value = updatedSnapshot.toUiState(
+                val baseState = updatedSnapshot.toUiState(
                     actionMessage = successMessage,
                     actionErrorMessage = null,
                     isApplyingSlotAction = false,
@@ -408,7 +520,13 @@ class WeeklyPlanViewModel(
                     selectedCalendarDay = _uiState.value.selectedCalendarDay,
                     showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
                 ).copy(
-                    pendingCalorieSyncEvent = null
+                    pendingCalorieSyncEvent = null,
+                    editSlotDialog = null
+                )
+
+                _uiState.value = applyManualDecorations(
+                    snapshot = updatedSnapshot,
+                    state = baseState
                 )
             }.onFailure { throwable ->
                 _uiState.update { state ->
@@ -420,5 +538,66 @@ class WeeklyPlanViewModel(
                 }
             }
         }
+    }
+
+    private fun applyManualDecorations(
+        snapshot: WeeklyPlanSnapshot,
+        state: WeeklyPlanUiState
+    ): WeeklyPlanUiState {
+        val nutritionSummaryBySlotType = snapshot.mealRules
+            .groupBy { it.mealSlotType }
+            .mapValues { (_, rules) ->
+                rules.firstOrNull()
+                    ?.requiredComponents
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.joinToString(separator = " + ")
+            }
+
+        val decoratedSlots = state.slots.map { slot ->
+            val customMealText = readStoredPreference(
+                key = slotMealPreferenceKey(snapshot.plan.id, slot.slotId)
+            )
+            val customNutritionText = readStoredPreference(
+                key = slotNutritionPreferenceKey(snapshot.plan.id, slot.slotId)
+            )
+
+            slot.copy(
+                displayedMealText = customMealText ?: slot.displayedMealText,
+                nutritionSummary = customNutritionText
+                    ?: nutritionSummaryBySlotType[slot.mealSlotType],
+                hasCustomizations = customMealText != null || customNutritionText != null
+            )
+        }
+
+        return state.copy(slots = decoratedSlots)
+    }
+
+    private fun readStoredPreference(key: String): String? {
+        return if (preferences.contains(key)) {
+            preferences.getString(key, "") ?: ""
+        } else {
+            null
+        }
+    }
+
+    private fun slotMealPreferenceKey(
+        planId: String,
+        slotId: String
+    ): String {
+        return "${PREF_SLOT_MEAL_PREFIX}_${planId}_$slotId"
+    }
+
+    private fun slotNutritionPreferenceKey(
+        planId: String,
+        slotId: String
+    ): String {
+        return "${PREF_SLOT_NUTRITION_PREFIX}_${planId}_$slotId"
+    }
+
+    private companion object {
+        const val PREFERENCES_NAME = "weekly_plan_preferences"
+        const val PREF_SHOW_CONSUMED_SLOTS = "show_consumed_slots_in_calendar"
+        const val PREF_SLOT_MEAL_PREFIX = "slot_custom_meal"
+        const val PREF_SLOT_NUTRITION_PREFIX = "slot_custom_nutrition"
     }
 }

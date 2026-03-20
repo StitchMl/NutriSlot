@@ -13,7 +13,9 @@ data class WeeklySlotUi(
     val displayState: SlotDisplayState,
     val isActuallyCompletedThisWeek: Boolean,
     val reassignedFromDayLabel: String? = null,
-    val reassignedFromMealSlotLabel: String? = null
+    val reassignedFromMealSlotLabel: String? = null,
+    val nutritionSummary: String? = null,
+    val hasCustomizations: Boolean = false
 )
 
 data class ReplacementMealOptionUi(
@@ -47,6 +49,14 @@ data class SlotActionDialogUi(
     val mealRuleSummary: String? = null
 )
 
+data class EditSlotDialogUi(
+    val slotId: String,
+    val dayLabel: String,
+    val mealSlotLabel: String,
+    val mealText: String,
+    val nutritionText: String
+)
+
 data class WeeklyPlanCalorieSyncUi(
     val id: Long,
     val consumptionId: String,
@@ -58,6 +68,7 @@ data class WeeklyPlanCalorieUndoUi(
     val id: Long,
     val consumptionId: String
 )
+
 data class WeeklyPlanUiState(
     val isLoading: Boolean = false,
     val hasLoadedOnce: Boolean = false,
@@ -69,6 +80,7 @@ data class WeeklyPlanUiState(
     val showConsumedSlotsInCalendar: Boolean = false,
     val slots: List<WeeklySlotUi> = emptyList(),
     val slotActionDialog: SlotActionDialogUi? = null,
+    val editSlotDialog: EditSlotDialogUi? = null,
     val isApplyingSlotAction: Boolean = false,
     val actionMessage: String? = null,
     val actionErrorMessage: String? = null,
