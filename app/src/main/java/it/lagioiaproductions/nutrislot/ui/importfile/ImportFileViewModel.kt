@@ -8,14 +8,13 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import it.lagioiaproductions.nutrislot.data.ai.GeminiNutritionEstimator
 import it.lagioiaproductions.nutrislot.data.importer.PdfMealPlanImporter
 import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
+import it.lagioiaproductions.nutrislot.data.work.NutritionEnrichmentWorker
 import it.lagioiaproductions.nutrislot.data.repository.WeeklyPlanRepository
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealCell
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealOption
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealRule
-import it.lagioiaproductions.nutrislot.domain.model.ImportedMealNutrition
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,16 +22,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import it.lagioiaproductions.nutrislot.BuildConfig
 
 class ImportFileViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
     private val importer = PdfMealPlanImporter()
-    private val nutritionEstimator = GeminiNutritionEstimator(
-        apiKey = BuildConfig.GEMINI_API_KEY
-    )
 
     private val repository = WeeklyPlanRepository(
         weeklyPlanDao = NutriSlotDatabase
@@ -93,10 +88,7 @@ class ImportFileViewModel(
         }
     }
 
-    fun confirmReviewAndSave(
-        onSaved: () -> Unit,
-        onNutritionEnrichmentFinished: () -> Unit
-    ) {
+    fun confirmReviewAndSave(onSaved: () -> Unit) {
         val currentState = _uiState.value
         if (currentState.isLoading) return
 
@@ -176,14 +168,12 @@ class ImportFileViewModel(
                     )
                 }
 
-                onSaved()
-
-                enrichNutritionInBackground(
-                    planId = planId,
-                    reviewedCells = reviewedCells,
-                    reviewedOptions = reviewedOptions,
-                    onNutritionEnrichmentFinished = onNutritionEnrichmentFinished
+                NutritionEnrichmentWorker.enqueue(
+                    context = getApplication(),
+                    planId = planId
                 )
+
+                onSaved()
             }.onFailure { throwable ->
                 _uiState.update {
                     it.copy(
@@ -191,87 +181,6 @@ class ImportFileViewModel(
                         errorMessage = throwable.message
                             ?: "Errore sconosciuto durante il salvataggio del piano.",
                         infoMessage = null
-                    )
-                }
-            }
-        }
-    }
-
-    private fun enrichNutritionInBackground(
-        planId: String,
-        reviewedCells: List<ReviewedImportedMealCell>,
-        reviewedOptions: List<ReviewedImportedMealOption>,
-        onNutritionEnrichmentFinished: () -> Unit
-    ) {
-        viewModelScope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    val nutritionCache = linkedMapOf<String, ImportedMealNutrition?>()
-
-                    suspend fun estimateCached(text: String): ImportedMealNutrition? {
-                        val normalized = text.trim()
-                        if (normalized.isBlank()) return null
-
-                        if (nutritionCache.containsKey(normalized)) {
-                            return nutritionCache[normalized]
-                        }
-
-                        val estimated = nutritionEstimator.estimateNutritionForMeal(normalized)
-                        nutritionCache[normalized] = estimated
-                        return estimated
-                    }
-
-                    val enrichedCells = buildList {
-                        for (cell in reviewedCells) {
-                            val estimatedNutrition = estimateCached(cell.mealText)
-                            add(
-                                cell.copy(
-                                    mealText = appendAiNutritionFooter(
-                                        originalMealText = cell.mealText,
-                                        nutrition = estimatedNutrition
-                                    )
-                                )
-                            )
-                        }
-                    }
-
-                    val enrichedOptions = buildList {
-                        for (option in reviewedOptions) {
-                            val estimatedNutrition = estimateCached(option.mealText)
-                            add(
-                                option.copy(
-                                    mealText = appendAiNutritionFooter(
-                                        originalMealText = option.mealText,
-                                        nutrition = estimatedNutrition
-                                    )
-                                )
-                            )
-                        }
-                    }
-
-                    repository.applyAiNutritionTextEnrichment(
-                        planId = planId,
-                        cells = enrichedCells,
-                        extraOptions = enrichedOptions
-                    )
-                }
-            }.onSuccess { (updatedSlots, updatedOptions) ->
-                val totalUpdated = updatedSlots + updatedOptions
-                _uiState.update { state ->
-                    state.copy(
-                        infoMessage = if (totalUpdated > 0) {
-                            "Piano salvato. Stima nutrienti completata: $updatedSlots slot e $updatedOptions opzioni aggiornati."
-                        } else {
-                            "Piano salvato. Nessun valore nutrizionale stimato automaticamente."
-                        }
-                    )
-                }
-                onNutritionEnrichmentFinished()
-            }.onFailure { throwable ->
-                _uiState.update { state ->
-                    state.copy(
-                        infoMessage = "Piano salvato, ma la stima nutrienti non è stata completata.",
-                        errorMessage = throwable.message
                     )
                 }
             }
@@ -334,37 +243,5 @@ class ImportFileViewModel(
         }
 
         return null
-    }
-}
-
-private fun appendAiNutritionFooter(
-    originalMealText: String,
-    nutrition: ImportedMealNutrition?
-): String {
-    val cleaned = originalMealText
-        .replace("\r\n", "\n")
-        .replace("\r", "\n")
-        .trim()
-
-    if (cleaned.isBlank() || nutrition == null || !nutrition.hasAnyValue) {
-        return cleaned
-    }
-
-    if (cleaned.contains("NUTRISLOT_AI_NUTRITION")) {
-        return cleaned
-    }
-
-    val lines = buildList {
-        add("NUTRISLOT_AI_NUTRITION")
-        nutrition.calories?.let { add("$it kcal") }
-        nutrition.proteinGrams?.let { add("$it g proteine") }
-        nutrition.carbsGrams?.let { add("$it g carboidrati") }
-        nutrition.fibreGrams?.let { add("$it g fibre") }
-    }
-
-    return buildString {
-        append(cleaned)
-        append("\n\n")
-        append(lines.joinToString("\n"))
     }
 }

@@ -6,6 +6,8 @@ import java.io.BufferedReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import android.util.Log
+import java.io.IOException
 
 class GeminiNutritionEstimator(
     private val apiKey: String
@@ -13,12 +15,18 @@ class GeminiNutritionEstimator(
 
     fun estimateNutritionForMeal(mealText: String): ImportedMealNutrition? {
         val trimmedApiKey = apiKey.trim()
-        if (trimmedApiKey.isBlank()) return null
+        if (trimmedApiKey.isBlank()) {
+            Log.e(TAG, "Gemini API key vuota.")
+            return null
+        }
 
         val normalizedMealText = mealText.trim()
-        if (normalizedMealText.isBlank()) return null
+        if (normalizedMealText.isBlank()) {
+            Log.w(TAG, "Meal text vuoto, salto la richiesta.")
+            return null
+        }
 
-        return runCatching {
+        return try {
             val endpoint = URL(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$trimmedApiKey"
             )
@@ -33,21 +41,52 @@ class GeminiNutritionEstimator(
 
             val requestBody = buildRequestBody(normalizedMealText)
 
+            Log.d(
+                TAG,
+                "Gemini request start. textLength=${normalizedMealText.length} body=${requestBody.toString().take(1200)}"
+            )
+
             OutputStreamWriter(connection.outputStream).use { writer ->
                 writer.write(requestBody.toString())
                 writer.flush()
             }
 
-            val responseText = when (connection.responseCode) {
-                in 200..299 -> connection.inputStream.bufferedReader().use(BufferedReader::readText)
-                else -> connection.errorStream?.bufferedReader()?.use(BufferedReader::readText)
-                    ?: return null
+            val statusCode = connection.responseCode
+            val responseText = when (statusCode) {
+                in 200..299 -> {
+                    connection.inputStream.bufferedReader().use(BufferedReader::readText)
+                }
+                else -> {
+                    connection.errorStream?.bufferedReader()?.use(BufferedReader::readText)
+                        ?: ""
+                }
             }
 
             connection.disconnect()
 
-            parseResponse(responseText)
-        }.getOrNull()
+            if (statusCode !in 200..299) {
+                Log.e(
+                    TAG,
+                    "Gemini HTTP $statusCode. Response=$responseText"
+                )
+                return null
+            }
+
+            Log.d(
+                TAG,
+                "Gemini success. Response=${responseText.take(1200)}"
+            )
+
+            parseResponse(responseText).also { parsed ->
+                Log.d(TAG, "Gemini parsed nutrition=$parsed")
+            }
+        } catch (e: IOException) {
+            Log.e(TAG, "Gemini IO error", e)
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Gemini unexpected error", e)
+            null
+        }
     }
 
     private fun buildRequestBody(mealText: String): JSONObject {
@@ -148,5 +187,9 @@ class GeminiNutritionEstimator(
         )
 
         return nutrition.takeIf { it.hasAnyValue }
+    }
+
+    companion object {
+        private const val TAG = "GeminiEstimator"
     }
 }

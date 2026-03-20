@@ -21,12 +21,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -69,6 +72,7 @@ fun AppNavGraph(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     LaunchedEffect(Unit) {
         weeklyPlanViewModel.loadLatestPlan()
@@ -91,6 +95,23 @@ fun AppNavGraph(
                 consumptionId = event.consumptionId
             )
             weeklyPlanViewModel.consumePendingCalorieUndoEvent()
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, currentDestination?.route) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (
+                event == Lifecycle.Event.ON_RESUME &&
+                currentDestination?.route == AppTopLevelDestination.Planner.route
+            ) {
+                weeklyPlanViewModel.loadLatestPlan()
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -222,9 +243,6 @@ fun AppNavGraph(
                                     route = AppTopLevelDestination.Planner.route,
                                     inclusive = false
                                 )
-                            },
-                            onNutritionEnrichmentFinished = {
-                                weeklyPlanViewModel.loadLatestPlan()
                             }
                         )
                     },

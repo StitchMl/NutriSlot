@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package it.lagioiaproductions.nutrislot.data.repository
 
 import it.lagioiaproductions.nutrislot.data.local.room.MealAssignmentEntity
@@ -180,10 +182,10 @@ class WeeklyPlanRepository(
         }
 
         val updatedSlotsCount = updatedSlotEntities.count {
-            it.plannedMealText.contains("NUTRISLOT_AI_NUTRITION")
+            it.plannedMealText.contains("Nutrienti: ")
         }
         val updatedOptionsCount = updatedOptionEntities.count {
-            it.mealText.contains("NUTRISLOT_AI_NUTRITION")
+            it.mealText.contains("Nutrienti: ")
         }
 
         return updatedSlotsCount to updatedOptionsCount
