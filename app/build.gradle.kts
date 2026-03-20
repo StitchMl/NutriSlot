@@ -4,6 +4,9 @@ plugins {
     id("com.google.devtools.ksp") version "2.3.5"
 }
 
+val geminiApiKey = (providers.gradleProperty("GEMINI_API_KEY").orNull ?: "")
+    .replace("\"", "\\\"")
+
 android {
     namespace = "it.lagioiaproductions.nutrislot"
     compileSdk {
@@ -20,6 +23,7 @@ android {
         versionName = "3.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
     buildTypes {
@@ -39,6 +43,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -64,6 +69,7 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.runtime.saveable)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.work.runtime.ktx)
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)

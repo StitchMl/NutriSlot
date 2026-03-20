@@ -26,7 +26,6 @@ fun WaterTrackerRoute() {
         onAddWater = viewModel::addWater,
         onResetWater = viewModel::resetWater,
         onUpdateGoal = viewModel::updateGoal,
-        onClearGoal = viewModel::clearGoal,
         onUpdateReminder = viewModel::updateReminder,
         onAddContainerPreset = viewModel::addContainerPreset,
         onRemoveContainerPreset = viewModel::removeContainerPreset

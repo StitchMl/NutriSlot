@@ -1,5 +1,6 @@
 package it.lagioiaproductions.nutrislot.data.repository.model
 
+import it.lagioiaproductions.nutrislot.domain.model.ImportedMealNutrition
 import it.lagioiaproductions.nutrislot.domain.model.MealOptionSourceType
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
@@ -7,7 +8,8 @@ import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 data class ReviewedImportedMealCell(
     val dayOfWeek: WeekDay,
     val mealSlotType: MealSlotType,
-    val mealText: String
+    val mealText: String,
+    val nutrition: ImportedMealNutrition? = null
 )
 
 data class ReviewedImportedMealOption(
@@ -16,7 +18,8 @@ data class ReviewedImportedMealOption(
     val mealText: String,
     val sourceType: MealOptionSourceType,
     val tags: List<String>,
-    val pageNumber: Int?
+    val pageNumber: Int?,
+    val nutrition: ImportedMealNutrition? = null
 )
 
 data class ReviewedImportedMealRule(

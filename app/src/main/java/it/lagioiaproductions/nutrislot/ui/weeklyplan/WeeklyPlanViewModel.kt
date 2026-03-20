@@ -28,10 +28,13 @@ class WeeklyPlanViewModel(
     )
 
     private var currentSnapshot: WeeklyPlanSnapshot? = null
+    private var nextCalorieSyncEventId: Long = 1L
+    private var nextCalorieUndoEventId: Long = 1L
 
     private val _uiState = MutableStateFlow(
         WeeklyPlanUiState(
-            isLoading = true
+            isLoading = true,
+            pendingCalorieUndoEvent = null
         )
     )
     val uiState: StateFlow<WeeklyPlanUiState> = _uiState.asStateFlow()
@@ -64,7 +67,9 @@ class WeeklyPlanViewModel(
                         selectedCalendarDay = today,
                         showConsumedSlotsInCalendar = currentShowConsumed,
                         slots = emptyList(),
-                        errorMessage = null
+                        errorMessage = null,
+                        pendingCalorieSyncEvent = null,
+                        pendingCalorieUndoEvent = null
                     )
                 } else {
                     _uiState.value = snapshot.toUiState(
@@ -75,6 +80,8 @@ class WeeklyPlanViewModel(
                         currentWeekReferenceDay = today,
                         selectedCalendarDay = currentSelectedDay,
                         showConsumedSlotsInCalendar = currentShowConsumed
+                    ).copy(
+                        pendingCalorieSyncEvent = null
                     )
                 }
             }.onFailure { throwable ->
@@ -88,9 +95,17 @@ class WeeklyPlanViewModel(
                     showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar,
                     slots = emptyList(),
                     errorMessage = throwable.message
-                        ?: "Errore sconosciuto durante il caricamento del piano."
+                        ?: "Errore sconosciuto durante il caricamento del piano.",
+                    pendingCalorieSyncEvent = null,
+                    pendingCalorieUndoEvent = null
                 )
             }
+        }
+    }
+
+    fun consumePendingCalorieUndoEvent() {
+        _uiState.update { state ->
+            state.copy(pendingCalorieUndoEvent = null)
         }
     }
 
@@ -146,7 +161,9 @@ class WeeklyPlanViewModel(
             planId = snapshot.plan.id,
             targetSlotId = dialog.targetSlotId,
             sourceSlotId = assignedSourceSlotId,
-            successMessage = "Pasto segnato come completato nella settimana corrente."
+            successMessage = "Pasto segnato come completato nella settimana corrente.",
+            consumedMealText = dialog.currentDisplayedMealText,
+            consumedMealSlotLabel = dialog.targetMealSlotLabel
         )
     }
 
@@ -162,17 +179,6 @@ class WeeklyPlanViewModel(
         )
     }
 
-    fun undoCompletedMeal() {
-        val snapshot = currentSnapshot ?: return
-        val dialog = _uiState.value.slotActionDialog ?: return
-
-        applyUndoConsumption(
-            planId = snapshot.plan.id,
-            targetSlotId = dialog.targetSlotId,
-            successMessage = "Completamento annullato."
-        )
-    }
-
     fun selectExtraCatalogOption(optionId: String) {
         val snapshot = currentSnapshot ?: return
         val dialog = _uiState.value.slotActionDialog ?: return
@@ -185,11 +191,10 @@ class WeeklyPlanViewModel(
         )
     }
 
-    private fun applyUndoConsumption(
-        planId: String,
-        targetSlotId: String,
-        successMessage: String
-    ) {
+    fun undoCompletedMeal() {
+        val snapshot = currentSnapshot ?: return
+        val dialog = _uiState.value.slotActionDialog ?: return
+
         viewModelScope.launch {
             _uiState.update { state ->
                 state.copy(
@@ -201,37 +206,51 @@ class WeeklyPlanViewModel(
 
             runCatching {
                 withContext(Dispatchers.IO) {
-                    repository.undoMealConsumption(
-                        planId = planId,
-                        targetSlotId = targetSlotId
+                    val removedConsumptionId = repository.undoMealConsumption(
+                        planId = snapshot.plan.id,
+                        targetSlotId = dialog.targetSlotId
                     )
 
-                    repository.getWeeklyPlanSnapshot(planId)
+                    val updatedSnapshot = repository.getWeeklyPlanSnapshot(snapshot.plan.id)
                         ?: throw IllegalStateException(
-                            "Impossibile ricaricare il piano dopo l'aggiornamento."
+                            "Impossibile ricaricare il piano dopo l'annullamento."
                         )
+
+                    removedConsumptionId to updatedSnapshot
                 }
-            }.onSuccess { updatedSnapshot ->
+            }.onSuccess { (removedConsumptionId, updatedSnapshot) ->
                 currentSnapshot = updatedSnapshot
 
                 _uiState.value = updatedSnapshot.toUiState(
-                    actionMessage = successMessage,
+                    actionMessage = "Consumo annullato con successo.",
                     actionErrorMessage = null,
                     isApplyingSlotAction = false,
                     slotActionDialog = null,
                     currentWeekReferenceDay = _uiState.value.currentWeekReferenceDay,
                     selectedCalendarDay = _uiState.value.selectedCalendarDay,
                     showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
+                ).copy(
+                    pendingCalorieSyncEvent = null,
+                    pendingCalorieUndoEvent = WeeklyPlanCalorieUndoUi(
+                        id = nextCalorieUndoEventId++,
+                        consumptionId = removedConsumptionId
+                    )
                 )
             }.onFailure { throwable ->
                 _uiState.update { state ->
                     state.copy(
                         isApplyingSlotAction = false,
                         actionErrorMessage = throwable.message
-                            ?: "Errore sconosciuto durante l'annullamento del completamento."
+                            ?: "Errore sconosciuto durante l'annullamento del consumo."
                     )
                 }
             }
+        }
+    }
+
+    fun consumePendingCalorieSyncEvent() {
+        _uiState.update { state ->
+            state.copy(pendingCalorieSyncEvent = null)
         }
     }
 
@@ -272,6 +291,8 @@ class WeeklyPlanViewModel(
                     currentWeekReferenceDay = _uiState.value.currentWeekReferenceDay,
                     selectedCalendarDay = _uiState.value.selectedCalendarDay,
                     showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
+                ).copy(
+                    pendingCalorieSyncEvent = null
                 )
             }.onFailure { throwable ->
                 _uiState.update { state ->
@@ -289,7 +310,9 @@ class WeeklyPlanViewModel(
         planId: String,
         targetSlotId: String,
         sourceSlotId: String,
-        successMessage: String
+        successMessage: String,
+        consumedMealText: String,
+        consumedMealSlotLabel: String
     ) {
         viewModelScope.launch {
             _uiState.update { state ->
@@ -302,16 +325,18 @@ class WeeklyPlanViewModel(
 
             runCatching {
                 withContext(Dispatchers.IO) {
-                    repository.recordMealConsumption(
+                    val newConsumption = repository.recordMealConsumption(
                         planId = planId,
                         targetSlotId = targetSlotId,
                         sourceSlotId = sourceSlotId
                     )
 
-                    repository.getWeeklyPlanSnapshot(planId)
+                    val updatedSnapshot = repository.getWeeklyPlanSnapshot(planId)
                         ?: throw IllegalStateException("Impossibile ricaricare il piano dopo l'aggiornamento.")
+
+                    newConsumption to updatedSnapshot
                 }
-            }.onSuccess { updatedSnapshot ->
+            }.onSuccess { (newConsumption, updatedSnapshot) ->
                 currentSnapshot = updatedSnapshot
 
                 _uiState.value = updatedSnapshot.toUiState(
@@ -322,6 +347,14 @@ class WeeklyPlanViewModel(
                     currentWeekReferenceDay = _uiState.value.currentWeekReferenceDay,
                     selectedCalendarDay = _uiState.value.selectedCalendarDay,
                     showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
+                ).copy(
+                    pendingCalorieSyncEvent = WeeklyPlanCalorieSyncUi(
+                        id = nextCalorieSyncEventId++,
+                        consumptionId = newConsumption.id,
+                        mealText = consumedMealText,
+                        mealSlotLabel = consumedMealSlotLabel
+                    ),
+                    pendingCalorieUndoEvent = null
                 )
             }.onFailure { throwable ->
                 _uiState.update { state ->
@@ -374,6 +407,8 @@ class WeeklyPlanViewModel(
                     currentWeekReferenceDay = _uiState.value.currentWeekReferenceDay,
                     selectedCalendarDay = _uiState.value.selectedCalendarDay,
                     showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
+                ).copy(
+                    pendingCalorieSyncEvent = null
                 )
             }.onFailure { throwable ->
                 _uiState.update { state ->

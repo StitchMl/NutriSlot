@@ -47,6 +47,17 @@ data class SlotActionDialogUi(
     val mealRuleSummary: String? = null
 )
 
+data class WeeklyPlanCalorieSyncUi(
+    val id: Long,
+    val consumptionId: String,
+    val mealText: String,
+    val mealSlotLabel: String
+)
+
+data class WeeklyPlanCalorieUndoUi(
+    val id: Long,
+    val consumptionId: String
+)
 data class WeeklyPlanUiState(
     val isLoading: Boolean = false,
     val hasLoadedOnce: Boolean = false,
@@ -61,7 +72,9 @@ data class WeeklyPlanUiState(
     val isApplyingSlotAction: Boolean = false,
     val actionMessage: String? = null,
     val actionErrorMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val pendingCalorieSyncEvent: WeeklyPlanCalorieSyncUi? = null,
+    val pendingCalorieUndoEvent: WeeklyPlanCalorieUndoUi? = null
 ) {
     val isEmpty: Boolean
         get() = hasLoadedOnce && slots.isEmpty() && errorMessage == null

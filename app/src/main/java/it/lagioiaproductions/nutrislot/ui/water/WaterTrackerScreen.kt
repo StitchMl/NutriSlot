@@ -29,7 +29,6 @@ fun WaterTrackerScreen(
     onAddWater: (Int, Boolean) -> Unit,
     onResetWater: () -> Unit,
     onUpdateGoal: (Int) -> Unit,
-    onClearGoal: () -> Unit,
     onUpdateReminder: (Boolean, Int) -> Unit,
     onAddContainerPreset: (Int) -> Unit,
     onRemoveContainerPreset: (Int) -> Unit
@@ -38,7 +37,6 @@ fun WaterTrackerScreen(
     var showGoalDialog by rememberSaveable { mutableStateOf(false) }
     var showReminderDialog by rememberSaveable { mutableStateOf(false) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
-    var showClearGoalDialog by rememberSaveable { mutableStateOf(false) }
     var showPresetsDialog by rememberSaveable { mutableStateOf(false) }
 
     Box(
@@ -146,19 +144,6 @@ fun WaterTrackerScreen(
             onConfirm = {
                 onResetWater()
                 showResetDialog = false
-            }
-        )
-    }
-
-    if (showClearGoalDialog) {
-        ResetWaterDialog(
-            title = "Clear goal",
-            description = "This removes the daily target but keeps your saved bottle sizes.",
-            confirmLabel = "Clear goal",
-            onDismiss = { showClearGoalDialog = false },
-            onConfirm = {
-                onClearGoal()
-                showClearGoalDialog = false
             }
         )
     }

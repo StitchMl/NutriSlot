@@ -74,6 +74,26 @@ fun AppNavGraph(
         weeklyPlanViewModel.loadLatestPlan()
     }
 
+    LaunchedEffect(weeklyPlanUiState.pendingCalorieSyncEvent?.id) {
+        weeklyPlanUiState.pendingCalorieSyncEvent?.let { event ->
+            bridgeViewModel.addWeeklyPlanConsumptionToCalories(
+                consumptionId = event.consumptionId,
+                mealText = event.mealText,
+                mealSlotLabel = event.mealSlotLabel
+            )
+            weeklyPlanViewModel.consumePendingCalorieSyncEvent()
+        }
+    }
+
+    LaunchedEffect(weeklyPlanUiState.pendingCalorieUndoEvent?.id) {
+        weeklyPlanUiState.pendingCalorieUndoEvent?.let { event ->
+            bridgeViewModel.removeWeeklyPlanConsumptionFromCalories(
+                consumptionId = event.consumptionId
+            )
+            weeklyPlanViewModel.consumePendingCalorieUndoEvent()
+        }
+    }
+
     AppRootScaffold(
         currentDestination = currentDestination,
         onDestinationSelected = { destination ->
@@ -169,9 +189,13 @@ fun AppNavGraph(
                             launchSingleTop = true
                         }
                     },
+                    calorieJournalByDate = bridgeUiState.calorieJournalByDate,
                     importedProduct = bridgeUiState.pendingCalorieProduct,
                     latestScannedProduct = bridgeUiState.latestScannedProduct,
-                    onConsumeImportedProduct = bridgeViewModel::consumePendingCalorieProduct
+                    onConsumeImportedProductForDay = bridgeViewModel::consumePendingCalorieProductForDay,
+                    onUpdateGoalForDay = bridgeViewModel::setCalorieGoalForDay,
+                    onDeleteEntry = bridgeViewModel::removeCalorieEntry,
+                    onResetDay = bridgeViewModel::resetCalorieDay
                 )
             }
 
@@ -191,13 +215,18 @@ fun AppNavGraph(
                     onClearCellClick = importFileViewModel::clearMealText,
                     onBackClick = { navController.popBackStack() },
                     onConfirmReviewClick = {
-                        importFileViewModel.confirmReviewAndSave {
-                            weeklyPlanViewModel.loadLatestPlan()
-                            navController.popBackStack(
-                                route = AppTopLevelDestination.Planner.route,
-                                inclusive = false
-                            )
-                        }
+                        importFileViewModel.confirmReviewAndSave(
+                            onSaved = {
+                                weeklyPlanViewModel.loadLatestPlan()
+                                navController.popBackStack(
+                                    route = AppTopLevelDestination.Planner.route,
+                                    inclusive = false
+                                )
+                            },
+                            onNutritionEnrichmentFinished = {
+                                weeklyPlanViewModel.loadLatestPlan()
+                            }
+                        )
                     },
                     onTogglePreviewDay = importFileViewModel::togglePreviewDay,
                     onToggleShowOnlyFilledSlots = importFileViewModel::toggleShowOnlyFilledSlots

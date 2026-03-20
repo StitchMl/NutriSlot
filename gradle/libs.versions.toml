@@ -7,6 +7,7 @@ kotlin = "2.3.20"
 navigationCompose = "2.9.7"
 room = "2.8.4"
 datastore = "1.2.1"
+workRuntime = "2.11.1"
 
 [libraries]
 androidx-compose-bom-v20260300 = { module = "androidx.compose:compose-bom", version.ref = "androidxComposeBom" }
@@ -28,6 +29,7 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntime" }
 
 pdfbox-android = { module = "com.tom-roush:pdfbox-android", version = "2.0.27.0" }
 

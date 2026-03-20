@@ -10,13 +10,27 @@ data class ImportedPlanDraft(
     val status: ImportStatus
 )
 
+data class ImportedMealNutrition(
+    val calories: Int? = null,
+    val proteinGrams: Int? = null,
+    val carbsGrams: Int? = null,
+    val fibreGrams: Int? = null
+) {
+    val hasAnyValue: Boolean
+        get() = calories != null ||
+                proteinGrams != null ||
+                carbsGrams != null ||
+                fibreGrams != null
+}
+
 data class ImportedMealCell(
     val id: String,
     val dayOfWeek: WeekDay?,
     val mealSlotType: MealSlotType?,
     val rawText: String,
     val normalizedText: String,
-    val recognitionState: CellRecognitionState
+    val recognitionState: CellRecognitionState,
+    val nutrition: ImportedMealNutrition? = null
 )
 
 data class ImportedMealOption(
@@ -27,7 +41,8 @@ data class ImportedMealOption(
     val normalizedText: String,
     val sourceType: MealOptionSourceType,
     val tags: List<String> = emptyList(),
-    val pageNumber: Int? = null
+    val pageNumber: Int? = null,
+    val nutrition: ImportedMealNutrition? = null
 )
 
 data class ImportedMealRule(

@@ -1,4 +1,4 @@
-@file:Suppress("SameParameterValue")
+@file:Suppress("AssignedValueIsNeverRead")
 
 package it.lagioiaproductions.nutrislot.ui.calories
 
@@ -6,8 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,28 +23,32 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedAssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,191 +58,158 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.shared.CalorieDayLogUi
+import it.lagioiaproductions.nutrislot.ui.shared.CalorieJournalEntryUi
+import it.lagioiaproductions.nutrislot.ui.shared.CalorieJournalSection
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 import kotlin.math.roundToInt
 
-private data class JournalMealEntryUi(
-    val id: Int,
-    val section: JournalSection,
-    val title: String,
-    val subtitle: String,
-    val calories: Int,
-    val protein: Int,
-    val carbs: Int,
-    val fibre: Int,
-    val timeLabel: String
-)
-
-private enum class JournalSection(
-    val label: String,
-    val emoji: String,
-    val defaultTime: String
-) {
-    BREAKFAST("Colazione", "☀️", "08:00"),
-    LUNCH("Pranzo", "🥗", "13:00"),
-    DINNER("Cena", "🍽️", "20:00"),
-    SNACK("Snack", "🍎", "16:30")
-}
-
-private enum class JournalFilter(
-    val label: String,
-    val section: JournalSection?
-) {
-    ALL("Tutti", null),
-    BREAKFAST("Colazione", JournalSection.BREAKFAST),
-    LUNCH("Pranzo", JournalSection.LUNCH),
-    DINNER("Cena", JournalSection.DINNER),
-    SNACK("Snack", JournalSection.SNACK)
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalorieTrackerScreen(
     onBackClick: () -> Unit,
     onOpenScannerClick: () -> Unit,
+    calorieJournalByDate: Map<String, CalorieDayLogUi>,
     importedProduct: LinkedScannedProductUi?,
     latestScannedProduct: LinkedScannedProductUi?,
-    onConsumeImportedProduct: () -> Unit
+    onConsumeImportedProductForDay: (String) -> Unit,
+    onUpdateGoalForDay: (String, Int?) -> Unit,
+    onDeleteEntry: (String, Long) -> Unit,
+    onResetDay: (String) -> Unit
 ) {
-    val caloriesTarget = 2092
-    val proteinsTarget = 120
-    val carbsTarget = 200
-    val fibreTarget = 25
-
     var selectedDayOffset by remember { mutableIntStateOf(0) }
-    var selectedFilter by remember { mutableStateOf(JournalFilter.ALL) }
-    var searchQuery by remember { mutableStateOf("") }
-    var nextId by remember { mutableIntStateOf(1000) }
+    var showGoalDialog by remember { mutableStateOf(false) }
+    var goalInput by remember { mutableStateOf("") }
 
-    val journalEntries = remember {
-        mutableStateListOf<JournalMealEntryUi>().apply {
-            addAll(seedJournalEntries())
+    val currentDayKey = remember(selectedDayOffset) {
+        dayKeyForOffset(selectedDayOffset)
+    }
+
+    val dayLog = calorieJournalByDate[currentDayKey] ?: CalorieDayLogUi()
+    val entries = dayLog.entries.sortedByDescending { it.id }
+
+    val calories = entries.sumOf { it.calories }
+    val protein = entries.sumOf { it.protein }
+    val carbs = entries.sumOf { it.carbs }
+    val fibre = entries.sumOf { it.fibre }
+
+    val goalKcal = dayLog.goalKcal
+    val progress = if (goalKcal != null && goalKcal > 0) {
+        (calories.toFloat() / goalKcal.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val progressPercent = (progress * 100f).roundToInt()
+
+    LaunchedEffect(importedProduct?.barcode, importedProduct?.name, currentDayKey) {
+        if (importedProduct != null) {
+            onConsumeImportedProductForDay(currentDayKey)
         }
     }
 
-    fun addEntry(
-        title: String,
-        subtitle: String,
-        section: JournalSection,
-        calories: Int,
-        protein: Int,
-        carbs: Int,
-        fibre: Int,
-        timeLabel: String = section.defaultTime
-    ) {
-        journalEntries.add(
-            0,
-            JournalMealEntryUi(
-                id = nextId++,
-                section = section,
-                title = title,
-                subtitle = subtitle,
-                calories = calories,
-                protein = protein,
-                carbs = carbs,
-                fibre = fibre,
-                timeLabel = timeLabel
-            )
+    if (showGoalDialog) {
+        AlertDialog(
+            onDismissRequest = { showGoalDialog = false },
+            title = {
+                Text("Imposta goal kcal")
+            },
+            text = {
+                OutlinedTextField(
+                    value = goalInput,
+                    onValueChange = { value ->
+                        goalInput = value.filter { it.isDigit() }
+                    },
+                    singleLine = true,
+                    label = { Text("Kcal target") }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onUpdateGoalForDay(
+                            currentDayKey,
+                            goalInput.toIntOrNull()
+                        )
+                        showGoalDialog = false
+                    }
+                ) {
+                    Text("Salva")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showGoalDialog = false }
+                ) {
+                    Text("Annulla")
+                }
+            }
         )
     }
 
-    fun resetDay() {
-        journalEntries.clear()
-    }
-
-    LaunchedEffect(importedProduct?.barcode, importedProduct?.name) {
-        importedProduct?.let { product ->
-            val inferredSection = inferSectionFromProduct(product)
-            addEntry(
-                title = product.name,
-                subtitle = product.subtitle,
-                section = inferredSection,
-                calories = product.calories,
-                protein = product.protein,
-                carbs = product.carbs,
-                fibre = product.fibre,
-                timeLabel = inferredSection.defaultTime
-            )
-            onConsumeImportedProduct()
-        }
-    }
-
-    val calories = journalEntries.sumOf { it.calories }
-    val proteins = journalEntries.sumOf { it.protein }
-    val carbs = journalEntries.sumOf { it.carbs }
-    val fibre = journalEntries.sumOf { it.fibre }
-
-    val progress = (calories.toFloat() / caloriesTarget.toFloat()).coerceIn(0f, 1f)
-    val progressPercent = (progress * 100f).roundToInt()
-    val remainingCalories = (caloriesTarget - calories).coerceAtLeast(0)
-
-    val filteredEntries = journalEntries.filter { entry ->
-        val matchesFilter = selectedFilter.section == null || entry.section == selectedFilter.section
-        val matchesSearch = searchQuery.isBlank() ||
-                entry.title.contains(searchQuery, ignoreCase = true) ||
-                entry.subtitle.contains(searchQuery, ignoreCase = true)
-        matchesFilter && matchesSearch
-    }
-
     Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Journal") },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Indietro"
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenScannerClick) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Aggiungi da scanner"
+                        )
+                    }
+                }
+            )
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 16.dp),
+                .padding(horizontal = 18.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            TopJournalBar(
-                onBackClick = onBackClick,
-                onOpenScannerClick = onOpenScannerClick
-            )
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "Journal",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Diario pasti e riepilogo nutrizionale",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            DaySelectorCard(
-                dayTitle = dayTitleForOffset(selectedDayOffset),
-                daySubtitle = daySubtitleForOffset(selectedDayOffset),
+            DateCard(
+                title = longDateForOffset(selectedDayOffset),
+                subtitle = shortWeekdayForOffset(selectedDayOffset),
                 onPrevious = { selectedDayOffset-- },
                 onNext = { selectedDayOffset++ }
             )
 
             SummaryCard(
                 calories = calories,
-                target = caloriesTarget,
+                goalKcal = goalKcal,
                 progress = progress,
                 progressPercent = progressPercent,
-                protein = proteins,
-                proteinTarget = proteinsTarget,
+                protein = protein,
                 carbs = carbs,
-                carbsTarget = carbsTarget,
                 fibre = fibre,
-                fibreTarget = fibreTarget
+                onEditGoal = {
+                    goalInput = goalKcal?.toString().orEmpty()
+                    showGoalDialog = true
+                }
             )
 
             latestScannedProduct?.let { product ->
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
                 ) {
                     Text(
-                        text = "Ultimo prodotto scannerizzato: ${product.name}",
+                        text = "Ultimo scanner: ${product.name}",
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -248,68 +217,44 @@ fun CalorieTrackerScreen(
                 }
             }
 
-            SearchAndFilterBlock(
-                searchQuery = searchQuery,
-                onSearchQueryChange = { searchQuery = it },
-                selectedFilter = selectedFilter,
-                onFilterSelected = { selectedFilter = it }
-            )
-
-            if (journalEntries.isNotEmpty()) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.75f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onOpenScannerClick,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Rimanenti",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                text = "$remainingCalories kcal",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Log food")
+                }
 
-                        Text(
-                            text = if (calories >= caloriesTarget) "Goal raggiunto" else "Obiettivo in corso",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary
+                FilledTonalButton(
+                    onClick = { onResetDay(currentDayKey) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Reset giorno")
+                }
+            }
+
+            if (entries.isEmpty()) {
+                EmptyJournalCard()
+            } else {
+                CalorieJournalSection.entries.forEach { section ->
+                    val sectionEntries = entries.filter { it.section == section }
+                    if (sectionEntries.isNotEmpty()) {
+                        SectionBlock(
+                            section = section,
+                            entries = sectionEntries,
+                            dayKey = currentDayKey,
+                            onDeleteEntry = onDeleteEntry
                         )
                     }
                 }
-            }
-
-            JournalSection.entries.forEach { section ->
-                val entriesForSection = filteredEntries.filter { it.section == section }
-                if (entriesForSection.isNotEmpty()) {
-                    JournalSectionBlock(
-                        section = section,
-                        entries = entriesForSection,
-                        onDeleteEntry = { entryId ->
-                            journalEntries.removeAll { it.id == entryId }
-                        }
-                    )
-                }
-            }
-
-            if (filteredEntries.isEmpty()) {
-                EmptyJournalState(
-                    searchQuery = searchQuery,
-                    onOpenScannerClick = onOpenScannerClick,
-                    onResetDay = ::resetDay
-                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -318,93 +263,9 @@ fun CalorieTrackerScreen(
 }
 
 @Composable
-private fun TopJournalBar(
-    onBackClick: () -> Unit,
-    onOpenScannerClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RoundIconAction(
-            onClick = onBackClick,
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Indietro"
-            )
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
-                shadowElevation = 2.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RoundIconAction(
-                        onClick = onOpenScannerClick,
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Aggiungi alimento"
-                        )
-                    }
-
-                    Text(
-                        text = "Log food",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RoundIconAction(
-    onClick: () -> Unit,
-    containerColor: Color,
-    contentColor: Color,
-    content: @Composable () -> Unit
-) {
-    Surface(
-        modifier = Modifier.size(46.dp),
-        shape = CircleShape,
-        color = containerColor,
-        tonalElevation = 2.dp,
-        shadowElevation = 2.dp
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            IconButton(onClick = onClick) {
-                androidx.compose.runtime.CompositionLocalProvider(
-                    androidx.compose.material3.LocalContentColor provides contentColor
-                ) {
-                    content()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DaySelectorCard(
-    dayTitle: String,
-    daySubtitle: String,
+private fun DateCard(
+    title: String,
+    subtitle: String,
     onPrevious: () -> Unit,
     onNext: () -> Unit
 ) {
@@ -418,13 +279,13 @@ private fun DaySelectorCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 14.dp),
+                .padding(horizontal = 10.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onPrevious) {
                 Icon(
                     imageVector = Icons.Default.ChevronLeft,
-                    contentDescription = "Giorno precedente",
+                    contentDescription = "Precedente",
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -433,24 +294,13 @@ private fun DaySelectorCard(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = dayTitle,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
                 Text(
-                    text = daySubtitle,
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -459,7 +309,7 @@ private fun DaySelectorCard(
             IconButton(onClick = onNext) {
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Giorno successivo",
+                    contentDescription = "Successivo",
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -470,26 +320,24 @@ private fun DaySelectorCard(
 @Composable
 private fun SummaryCard(
     calories: Int,
-    target: Int,
+    goalKcal: Int?,
     progress: Float,
     progressPercent: Int,
     protein: Int,
-    proteinTarget: Int,
     carbs: Int,
-    carbsTarget: Int,
     fibre: Int,
-    fibreTarget: Int
+    onEditGoal: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
         )
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -497,104 +345,97 @@ private fun SummaryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
                         text = "Calories",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
                     Text(
                         text = calories.toString(),
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold
                     )
+
                     Text(
-                        text = "di $target kcal",
+                        text = if (goalKcal != null) {
+                            "di $goalKcal kcal"
+                        } else {
+                            "Goal non impostato"
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    TextButton(
+                        onClick = onEditGoal,
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            if (goalKcal == null) "Imposta goal" else "Modifica goal"
+                        )
+                    }
                 }
 
-                ProgressRing(
-                    progress = progress,
-                    label = "$progressPercent%"
-                )
+                Box(
+                    modifier = Modifier.size(96.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                    progress = { 1f },
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    strokeWidth = 10.dp,
+                    trackColor = ProgressIndicatorDefaults.circularIndeterminateTrackColor,
+                    strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
+                    )
+                    CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 10.dp,
+                    trackColor = ProgressIndicatorDefaults.circularIndeterminateTrackColor,
+                    strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
+                    )
+                    Text(
+                        text = if (goalKcal == null) "--" else "$progressPercent%",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
+
+            HorizontalDivider()
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                MacroSummaryItem(
-                    label = "Proteine",
-                    value = protein,
-                    target = proteinTarget,
-                    unit = "g",
-                    accent = Color(0xFF2E90FA)
-                )
-                MacroSummaryItem(
-                    label = "Carbo",
-                    value = carbs,
-                    target = carbsTarget,
-                    unit = "g",
-                    accent = Color(0xFF22C55E)
-                )
-                MacroSummaryItem(
-                    label = "Fibre",
-                    value = fibre,
-                    target = fibreTarget,
-                    unit = "g",
-                    accent = MaterialTheme.colorScheme.primary
-                )
+                MacroValue("Proteine", protein, "g", Color(0xFF2E90FA))
+                MacroValue("Carbo", carbs, "g", Color(0xFF22C55E))
+                MacroValue("Fibre", fibre, "g", MaterialTheme.colorScheme.primary)
             }
         }
     }
 }
 
 @Composable
-private fun ProgressRing(
-    progress: Float,
-    label: String
-) {
-    Box(
-        modifier = Modifier.size(96.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator(
-            progress = { 1f },
-            modifier = Modifier.fillMaxSize(),
-            strokeWidth = 10.dp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-            trackColor = Color.Transparent
-        )
-        CircularProgressIndicator(
-            progress = { progress },
-            modifier = Modifier.fillMaxSize(),
-            strokeWidth = 10.dp,
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = Color.Transparent
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-@Composable
-private fun MacroSummaryItem(
+private fun MacroValue(
     label: String,
     value: Int,
-    target: Int,
     unit: String,
     accent: Color
 ) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = label,
@@ -602,75 +443,25 @@ private fun MacroSummaryItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "$value",
+            text = value.toString(),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = accent
         )
         Text(
-            text = "di $target $unit",
+            text = unit,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SearchAndFilterBlock(
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
-    selectedFilter: JournalFilter,
-    onFilterSelected: (JournalFilter) -> Unit
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = RoundedCornerShape(18.dp),
-            placeholder = {
-                Text("Cerca pasti...")
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null
-                )
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                focusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-            )
-        )
-
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            JournalFilter.entries.forEach { filter ->
-                FilterChip(
-                    selected = selectedFilter == filter,
-                    onClick = { onFilterSelected(filter) },
-                    label = {
-                        Text(filter.label)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun JournalSectionBlock(
-    section: JournalSection,
-    entries: List<JournalMealEntryUi>,
-    onDeleteEntry: (Int) -> Unit
+private fun SectionBlock(
+    section: CalorieJournalSection,
+    entries: List<CalorieJournalEntryUi>,
+    dayKey: String,
+    onDeleteEntry: (String, Long) -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -678,7 +469,7 @@ private fun JournalSectionBlock(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
         ) {
             Text(
                 text = section.label,
@@ -688,23 +479,18 @@ private fun JournalSectionBlock(
             )
         }
 
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            entries.forEach { entry ->
-                JournalMealCard(
-                    entry = entry,
-                    onDelete = { onDeleteEntry(entry.id) }
-                )
-            }
+        entries.forEach { entry ->
+            JournalMealCard(
+                entry = entry,
+                onDelete = { onDeleteEntry(dayKey, entry.id) }
+            )
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun JournalMealCard(
-    entry: JournalMealEntryUi,
+    entry: CalorieJournalEntryUi,
     onDelete: () -> Unit
 ) {
     Card(
@@ -723,7 +509,7 @@ private fun JournalMealCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(54.dp)
+                    .size(52.dp)
                     .background(
                         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
                         shape = CircleShape
@@ -750,72 +536,41 @@ private fun JournalMealCard(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                if (entry.subtitle.isNotBlank()) {
+                    Text(
+                        text = entry.subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    NutrientChip(
-                        text = "${entry.calories} kcal",
-                        background = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        content = MaterialTheme.colorScheme.primary
-                    )
-                    NutrientChip(
-                        text = "${entry.protein}g proteine",
-                        background = Color(0xFF2E90FA).copy(alpha = 0.12f),
-                        content = Color(0xFF2E90FA)
-                    )
-                    NutrientChip(
-                        text = "${entry.carbs}g carbo",
-                        background = Color(0xFF22C55E).copy(alpha = 0.12f),
-                        content = Color(0xFF22C55E)
-                    )
+                    NutrientChip("${entry.calories} kcal")
+                    NutrientChip("${entry.protein}g pro")
+                    NutrientChip("${entry.carbs}g carb")
                     if (entry.fibre > 0) {
-                        NutrientChip(
-                            text = "${entry.fibre}g fibre",
-                            background = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                            content = MaterialTheme.colorScheme.secondary
-                        )
+                        NutrientChip("${entry.fibre}g fib")
                     }
                 }
 
-                Text(
-                    text = entry.subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ElevatedAssistChip(
+                    onClick = {},
+                    label = {
+                        Text(
+                            "${entry.sourceLabel} • ${entry.timeLabel}"
+                        )
+                    }
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = entry.timeLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Elimina",
+                    tint = MaterialTheme.colorScheme.error
                 )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { }) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Modifica",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Elimina",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
             }
         }
     }
@@ -823,30 +578,24 @@ private fun JournalMealCard(
 
 @Composable
 private fun NutrientChip(
-    text: String,
-    background: Color,
-    content: Color
+    text: String
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = background
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     ) {
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = content
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
 
 @Composable
-private fun EmptyJournalState(
-    searchQuery: String,
-    onOpenScannerClick: () -> Unit,
-    onResetDay: () -> Unit
-) {
+private fun EmptyJournalCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -856,125 +605,40 @@ private fun EmptyJournalState(
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = if (searchQuery.isBlank()) {
-                    "Nessun pasto registrato"
-                } else {
-                    "Nessun risultato trovato"
-                },
+                text = "Nessun pasto registrato",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = if (searchQuery.isBlank()) {
-                    "Aggiungi il primo alimento dallo scanner per iniziare il diario."
-                } else {
-                    "Prova a cambiare ricerca o filtro."
-                },
+                text = "Questa giornata è vuota. Aggiungi un alimento dallo scanner oppure registra pasti dal planner.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Surface(
-                    onClick = onOpenScannerClick,
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primary
-                ) {
-                    Text(
-                        text = "Apri scanner",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-
-                Surface(
-                    onClick = onResetDay,
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
-                    Text(
-                        text = "Reset",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
         }
     }
 }
 
-private fun seedJournalEntries(): List<JournalMealEntryUi> {
-    return listOf(
-        JournalMealEntryUi(
-            id = 1,
-            section = JournalSection.BREAKFAST,
-            title = "Avocado toast",
-            subtitle = "Pane integrale, avocado",
-            calories = 280,
-            protein = 8,
-            carbs = 32,
-            fibre = 6,
-            timeLabel = "08:00"
-        ),
-        JournalMealEntryUi(
-            id = 2,
-            section = JournalSection.LUNCH,
-            title = "Turkey sandwich",
-            subtitle = "Tacchino, pane integrale",
-            calories = 380,
-            protein = 25,
-            carbs = 45,
-            fibre = 5,
-            timeLabel = "12:00"
-        ),
-        JournalMealEntryUi(
-            id = 3,
-            section = JournalSection.DINNER,
-            title = "Pasta con verdure",
-            subtitle = "Pasta, zucchine, olio EVO",
-            calories = 520,
-            protein = 18,
-            carbs = 64,
-            fibre = 7,
-            timeLabel = "20:15"
-        )
-    )
-}
-
-private fun inferSectionFromProduct(product: LinkedScannedProductUi): JournalSection {
-    val source = "${product.name} ${product.subtitle}".lowercase()
-
-    return when {
-        listOf("colazione", "breakfast").any { source.contains(it) } -> JournalSection.BREAKFAST
-        listOf("pranzo", "lunch").any { source.contains(it) } -> JournalSection.LUNCH
-        listOf("cena", "dinner").any { source.contains(it) } -> JournalSection.DINNER
-        else -> JournalSection.SNACK
+private fun calendarForOffset(offset: Int): Calendar {
+    return Calendar.getInstance().apply {
+        add(Calendar.DAY_OF_YEAR, offset)
     }
 }
 
-private fun dayTitleForOffset(offset: Int): String {
-    return when (offset) {
-        0 -> "Oggi"
-        -1 -> "Ieri"
-        1 -> "Domani"
-        else -> if (offset > 0) "Tra $offset giorni" else "${-offset} giorni fa"
-    }
+private fun dayKeyForOffset(offset: Int): String {
+    return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        .format(calendarForOffset(offset).time)
 }
 
-private fun daySubtitleForOffset(offset: Int): String {
-    return when (offset) {
-        0 -> "Diario giornaliero"
-        -1 -> "Giorno precedente"
-        1 -> "Giorno successivo"
-        else -> "Selezione rapida"
-    }
+private fun longDateForOffset(offset: Int): String {
+    return SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
+        .format(calendarForOffset(offset).time)
+}
+
+private fun shortWeekdayForOffset(offset: Int): String {
+    return SimpleDateFormat("EEE", Locale.getDefault())
+        .format(calendarForOffset(offset).time)
 }

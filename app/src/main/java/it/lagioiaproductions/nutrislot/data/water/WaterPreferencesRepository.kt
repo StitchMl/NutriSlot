@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import it.lagioiaproductions.nutrislot.notifications.water.WaterReminderScheduler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.Calendar
@@ -72,6 +73,17 @@ class WaterPreferencesRepository(
         }
     }
 
+    suspend fun removeConsumedMl(amountMl: Int) {
+        val normalizedAmount = amountMl.coerceAtLeast(1)
+
+        context.waterDataStore.edit { prefs ->
+            syncDayIfNeeded(prefs)
+
+            val currentConsumed = (prefs[Keys.consumedMl] ?: 0).coerceAtLeast(0)
+            prefs[Keys.consumedMl] = (currentConsumed - normalizedAmount).coerceAtLeast(0)
+        }
+    }
+
     suspend fun resetConsumedMl() {
         context.waterDataStore.edit { prefs ->
             prefs[Keys.lastTrackedDayKey] = currentDayKey()
@@ -86,21 +98,22 @@ class WaterPreferencesRepository(
         }
     }
 
-    suspend fun clearGoal() {
-        context.waterDataStore.edit { prefs ->
-            syncDayIfNeeded(prefs)
-            prefs[Keys.targetMl] = 0
-        }
-    }
-
     suspend fun setReminderConfig(
         enabled: Boolean,
         intervalMinutes: Int
     ) {
+        val normalizedInterval = intervalMinutes.coerceAtLeast(15)
+
         context.waterDataStore.edit { prefs ->
             syncDayIfNeeded(prefs)
             prefs[Keys.remindersEnabled] = enabled
-            prefs[Keys.reminderIntervalMinutes] = intervalMinutes.coerceAtLeast(15)
+            prefs[Keys.reminderIntervalMinutes] = normalizedInterval
+        }
+
+        if (enabled) {
+            WaterReminderScheduler.schedule(context, normalizedInterval)
+        } else {
+            WaterReminderScheduler.cancel(context)
         }
     }
 

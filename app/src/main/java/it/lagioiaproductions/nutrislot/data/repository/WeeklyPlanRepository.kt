@@ -95,6 +95,100 @@ class WeeklyPlanRepository(
         return planId
     }
 
+    suspend fun undoMealConsumption(
+        planId: String,
+        targetSlotId: String
+    ): String {
+        val plan = weeklyPlanDao.getPlanById(planId)
+            ?: throw IllegalStateException("Piano non trovato.")
+
+        val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(plan.id)
+        val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(plan.id)
+
+        val activeConsumptions = consumptionEntities.filter { consumption ->
+            WeeklyPlanningCalculator.isInCurrentWeek(consumption.consumedAtEpochMillis)
+        }
+
+        val latestConsumptionForTarget = activeConsumptions
+            .filter { it.targetSlotId == targetSlotId }
+            .maxByOrNull { it.consumedAtEpochMillis }
+            ?: throw IllegalStateException("Nessun consumo da annullare per questo slot.")
+
+        deleteCurrentAssignmentsForTargets(
+            targetSlotIds = setOf(targetSlotId),
+            assignments = assignmentEntities
+        )
+
+        weeklyPlanDao.deleteMealConsumptionsByIds(
+            consumptionIds = listOf(latestConsumptionForTarget.id)
+        )
+
+        if (latestConsumptionForTarget.sourceSlotId != targetSlotId) {
+            weeklyPlanDao.insertMealAssignments(
+                assignments = listOf(
+                    MealAssignmentEntity(
+                        id = UUID.randomUUID().toString(),
+                        planId = plan.id,
+                        targetSlotId = latestConsumptionForTarget.targetSlotId,
+                        sourceSlotId = latestConsumptionForTarget.sourceSlotId,
+                        assignedAtEpochMillis = System.currentTimeMillis()
+                    )
+                )
+            )
+        }
+
+        return latestConsumptionForTarget.id
+    }
+
+    suspend fun applyAiNutritionTextEnrichment(
+        planId: String,
+        cells: List<ReviewedImportedMealCell>,
+        extraOptions: List<ReviewedImportedMealOption>
+    ): Pair<Int, Int> {
+        val plan = weeklyPlanDao.getPlanById(planId)
+            ?: throw IllegalStateException("Piano non trovato.")
+
+        val updatedSlotEntities = cells.map { cell ->
+            MealSlotEntity(
+                id = "${plan.id}_${cell.dayOfWeek.name}_${cell.mealSlotType.name}",
+                planId = plan.id,
+                dayOfWeek = cell.dayOfWeek.name,
+                mealSlotType = cell.mealSlotType.name,
+                plannedMealText = normalizeMealText(cell.mealText)
+            )
+        }
+
+        val updatedOptionEntities = extraOptions.mapIndexed { index, option ->
+            MealOptionEntity(
+                id = "${plan.id}_OPTION_$index",
+                planId = plan.id,
+                mealSlotType = option.mealSlotType.name,
+                title = option.title,
+                mealText = normalizeMealText(option.mealText),
+                sourceType = option.sourceType.name,
+                tagsSerialized = serializeStringList(option.tags),
+                pageNumber = option.pageNumber
+            )
+        }
+
+        if (updatedSlotEntities.isNotEmpty()) {
+            weeklyPlanDao.insertMealSlots(updatedSlotEntities)
+        }
+
+        if (updatedOptionEntities.isNotEmpty()) {
+            weeklyPlanDao.insertMealOptions(updatedOptionEntities)
+        }
+
+        val updatedSlotsCount = updatedSlotEntities.count {
+            it.plannedMealText.contains("NUTRISLOT_AI_NUTRITION")
+        }
+        val updatedOptionsCount = updatedOptionEntities.count {
+            it.mealText.contains("NUTRISLOT_AI_NUTRITION")
+        }
+
+        return updatedSlotsCount to updatedOptionsCount
+    }
+
     suspend fun assignMealToSlot(
         planId: String,
         targetSlotId: String,
@@ -253,7 +347,7 @@ class WeeklyPlanRepository(
         planId: String,
         targetSlotId: String,
         sourceSlotId: String
-    ) {
+    ): MealConsumptionEntity {
         val plan = weeklyPlanDao.getPlanById(planId)
             ?: throw IllegalStateException("Piano non trovato.")
 
@@ -317,6 +411,7 @@ class WeeklyPlanRepository(
         )
 
         weeklyPlanDao.insertMealConsumptions(consumptions = listOf(newConsumption))
+        return newConsumption
     }
 
     suspend fun getLatestWeeklyPlanSnapshot(): WeeklyPlanSnapshot? {
@@ -436,50 +531,6 @@ class WeeklyPlanRepository(
         ) {
             throw IllegalStateException(
                 "Sostituzione non consentita tra ${targetSlot.mealSlotType} e ${sourceSlot.mealSlotType}."
-            )
-        }
-    }
-
-    suspend fun undoMealConsumption(
-        planId: String,
-        targetSlotId: String
-    ) {
-        val plan = weeklyPlanDao.getPlanById(planId)
-            ?: throw IllegalStateException("Piano non trovato.")
-
-        val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(plan.id)
-        val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(plan.id)
-
-        val currentWeekConsumptionsForTarget = consumptionEntities
-            .filter { consumption ->
-                consumption.targetSlotId == targetSlotId &&
-                        WeeklyPlanningCalculator.isInCurrentWeek(consumption.consumedAtEpochMillis)
-            }
-            .sortedByDescending { it.consumedAtEpochMillis }
-
-        val latestConsumption = currentWeekConsumptionsForTarget.firstOrNull()
-            ?: throw IllegalStateException("Questo slot non risulta completato nella settimana corrente.")
-
-        weeklyPlanDao.deleteMealConsumptionsByIds(
-            consumptionIds = listOf(latestConsumption.id)
-        )
-
-        deleteCurrentAssignmentsForTargets(
-            targetSlotIds = setOf(targetSlotId),
-            assignments = assignmentEntities
-        )
-
-        if (latestConsumption.sourceSlotId != targetSlotId) {
-            val restoredAssignment = MealAssignmentEntity(
-                id = UUID.randomUUID().toString(),
-                planId = plan.id,
-                targetSlotId = targetSlotId,
-                sourceSlotId = latestConsumption.sourceSlotId,
-                assignedAtEpochMillis = System.currentTimeMillis()
-            )
-
-            weeklyPlanDao.insertMealAssignments(
-                assignments = listOf(restoredAssignment)
             )
         }
     }
