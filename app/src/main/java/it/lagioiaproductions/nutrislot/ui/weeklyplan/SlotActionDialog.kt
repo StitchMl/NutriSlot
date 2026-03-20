@@ -6,14 +6,22 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -100,11 +108,17 @@ internal fun SlotActionDialog(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isApplying
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             if (isApplying) {
-                                "Aggiornamento in corso..."
+                                "Aggiornamento..."
                             } else {
-                                "Annulla completamento"
+                                "Annulla consumo"
                             }
                         )
                     }
@@ -114,11 +128,17 @@ internal fun SlotActionDialog(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isApplying
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             if (isApplying) {
-                                "Aggiornamento in corso..."
+                                "Aggiornamento..."
                             } else {
-                                "Segna come consumato"
+                                "Consumato"
                             }
                         )
                     }
@@ -162,6 +182,12 @@ internal fun SlotActionDialog(
                 onClick = onDismiss,
                 enabled = !isApplying
             ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(4.dp))
                 Text("Chiudi")
             }
         },
