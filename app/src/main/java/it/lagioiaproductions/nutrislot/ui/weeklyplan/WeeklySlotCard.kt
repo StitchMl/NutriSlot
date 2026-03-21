@@ -27,9 +27,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
@@ -42,21 +43,25 @@ internal fun WeeklySlotCard(
     onEditClick: () -> Unit,
     onAddToShoppingClick: () -> Unit
 ) {
-    val preview = remember(slotUi.displayedMealText, slotUi.mealSlotType) {
+    val parsedSections = remember(slotUi.displayedMealText) {
+        parseMealSectionVisuals(slotUi.displayedMealText)
+    }
+
+    val preview = remember(parsedSections, slotUi.mealSlotType) {
         buildMealPreview(
-            rawMealText = slotUi.displayedMealText,
+            parsedSections = parsedSections,
             fallbackTitle = slotUi.mealSlotType.displayName
         )
     }
 
     val visualStyle = remember(
-        slotUi.displayedMealText,
+        parsedSections.firstOrNull()?.visualInfo?.semanticKey,
         slotUi.mealSlotType,
         slotUi.displayState,
         slotUi.isActuallyCompletedThisWeek
     ) {
         foodVisualStyleForMeal(
-            mealText = slotUi.displayedMealText,
+            visualInfo = parsedSections.firstOrNull()?.visualInfo,
             slotType = slotUi.mealSlotType,
             displayState = slotUi.displayState,
             isCompleted = slotUi.isActuallyCompletedThisWeek
@@ -106,7 +111,7 @@ internal fun WeeklySlotCard(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 10.dp, vertical = 7.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -121,7 +126,7 @@ internal fun WeeklySlotCard(
                             onClick = onEditClick,
                             modifier = Modifier.size(32.dp),
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
                                 contentColor = MaterialTheme.colorScheme.onSurface
                             )
                         ) {
@@ -134,7 +139,7 @@ internal fun WeeklySlotCard(
 
                         Text(
                             text = buildString {
-                                visualStyle.emoji?.let {
+                                preview.primaryEmoji?.let {
                                     append(it)
                                     append("  ")
                                 }
@@ -160,19 +165,31 @@ internal fun WeeklySlotCard(
                     text = preview.title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = visualStyle.title
+                    color = visualStyle.title,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
+
+                preview.sectionChips.take(2).forEach { chip ->
+                    SectionChip(
+                        chip = chip,
+                        accent = visualStyle.accent,
+                        contentColor = visualStyle.meta
+                    )
+                }
 
                 preview.supportingLines.forEachIndexed { index, line ->
                     Text(
                         text = line,
                         style = if (index == 0) {
-                            MaterialTheme.typography.bodyMedium
-                        } else {
                             MaterialTheme.typography.bodySmall
+                        } else {
+                            MaterialTheme.typography.labelSmall
                         },
                         fontWeight = if (index == 0) FontWeight.Medium else FontWeight.Normal,
-                        color = if (index == 0) visualStyle.body else visualStyle.meta
+                        color = if (index == 0) visualStyle.body else visualStyle.meta,
+                        maxLines = if (index == 0) 2 else 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -188,22 +205,20 @@ internal fun WeeklySlotCard(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = visualStyle.meta,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
 
-                if (preview.supportingLines.isEmpty() && footerNote != null) {
+                footerNote?.let {
                     Text(
-                        text = footerNote,
+                        text = it,
                         style = MaterialTheme.typography.labelSmall,
-                        color = visualStyle.meta
-                    )
-                } else if (footerNote != null) {
-                    Text(
-                        text = footerNote,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = visualStyle.meta
+                        color = visualStyle.meta,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -220,42 +235,86 @@ internal fun WeeklySlotCard(
     }
 }
 
+@Composable
+private fun SectionChip(
+    chip: SectionChipUi,
+    accent: Color,
+    contentColor: Color
+) {
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = accent.copy(alpha = 0.10f)
+    ) {
+        Text(
+            text = "${chip.emoji} ${chip.label}",
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
 private data class MealPreviewUi(
+    val primaryEmoji: String?,
     val title: String,
-    val supportingLines: List<String>
+    val supportingLines: List<String>,
+    val sectionChips: List<SectionChipUi>
+)
+
+private data class SectionChipUi(
+    val emoji: String,
+    val label: String
 )
 
 private fun buildMealPreview(
-    rawMealText: String,
+    parsedSections: List<ParsedMealSectionUi>,
     fallbackTitle: String
 ): MealPreviewUi {
-    val rawLines = tokenizeMealPreviewLines(rawMealText)
-    if (rawLines.isEmpty()) {
+    if (parsedSections.isEmpty()) {
         return MealPreviewUi(
+            primaryEmoji = null,
             title = fallbackTitle,
-            supportingLines = emptyList()
+            supportingLines = emptyList(),
+            sectionChips = emptyList()
         )
     }
 
-    val firstLineSplit = splitPrimaryLine(rawLines.first())
+    val primarySection = parsedSections.first()
+    val firstLineSplit = splitPrimaryLine(primarySection.lines.firstOrNull().orEmpty())
     val title = firstLineSplit.title.ifBlank { fallbackTitle }
 
     val candidateSupportLines = buildList {
         firstLineSplit.remainder?.let { add(it) }
-        addAll(rawLines.drop(1))
+        addAll(primarySection.lines.drop(1))
     }
         .map(::normalizePreviewLine)
         .filter { it.isNotBlank() }
         .distinctBy { it.lowercase() }
+        .take(2)
 
-    val quantityLines = candidateSupportLines.filter(::containsQuantityOrPortionHint)
-    val detailLines = candidateSupportLines.filterNot(::containsQuantityOrPortionHint)
+    val sectionChips = parsedSections
+        .take(3)
+        .map { section ->
+            SectionChipUi(
+                emoji = section.visualInfo.emoji,
+                label = ellipsize(
+                    text = section.lines.firstOrNull()
+                        ?.takeIf { it.isNotBlank() }
+                        ?: mealSemanticLabel(section.visualInfo.semanticKey),
+                    maxLength = 22
+                )
+            )
+        }
+        .distinctBy { "${it.emoji}|${it.label}" }
 
     return MealPreviewUi(
-        title = title,
-        supportingLines = (quantityLines + detailLines)
-            .distinctBy { it.lowercase() }
-            .take(4)
+        primaryEmoji = primarySection.visualInfo.emoji,
+        title = ellipsize(title, 52),
+        supportingLines = candidateSupportLines,
+        sectionChips = sectionChips
     )
 }
 
@@ -283,7 +342,9 @@ private fun splitPrimaryLine(line: String): PrimaryLineSplit {
     val title = normalized.substring(0, splitIndex).trim().let {
         if (it.endsWith("…")) it else "$it…"
     }
-    val remainder = normalized.substring(splitIndex)
+
+    val rawRemainder = normalized.substring(splitIndex).trim()
+    val remainder = rawRemainder
         .removePrefix("oppure")
         .removePrefix("+")
         .trim()
@@ -294,26 +355,9 @@ private fun splitPrimaryLine(line: String): PrimaryLineSplit {
     )
 }
 
-private fun tokenizeMealPreviewLines(text: String): List<String> {
-    return text
-        .replace("\r\n", "\n")
-        .replace("\r", "\n")
-        .replace("•", "\n")
-        .lines()
-        .flatMap { rawLine ->
-            val trimmed = rawLine.trim()
-            when {
-                trimmed.isBlank() -> emptyList()
-                trimmed.startsWith("+") -> listOf(trimmed.removePrefix("+").trim())
-                else -> listOf(trimmed)
-            }
-        }
-        .map(::normalizePreviewLine)
-        .filter { it.isNotBlank() }
-}
-
 private fun normalizePreviewLine(line: String): String {
     return line
+        .stripMealNutritionBlock()
         .removePrefix("•")
         .removePrefix("-")
         .removePrefix("–")
@@ -324,21 +368,9 @@ private fun normalizePreviewLine(line: String): String {
         .trim()
 }
 
-private fun containsQuantityOrPortionHint(text: String): Boolean {
-    val lower = text.lowercase()
-    return Regex("""\d""").containsMatchIn(lower) ||
-            " g" in lower ||
-            "kg" in lower ||
-            "ml" in lower ||
-            "grammi" in lower ||
-            "grammo" in lower ||
-            "porzione" in lower ||
-            "porzioni" in lower ||
-            "fetta" in lower ||
-            "fette" in lower ||
-            "cucchiaio" in lower ||
-            "cucchiai" in lower ||
-            "n." in lower
+private fun ellipsize(text: String, maxLength: Int): String {
+    if (text.length <= maxLength) return text
+    return text.take(maxLength - 1).trimEnd() + "…"
 }
 
 private data class FoodVisualStyle(
@@ -352,53 +384,38 @@ private data class FoodVisualStyle(
 )
 
 private fun foodVisualStyleForMeal(
-    mealText: String,
+    visualInfo: MealVisualInfo?,
     slotType: MealSlotType,
     displayState: SlotDisplayState,
     isCompleted: Boolean
 ): FoodVisualStyle {
-    val normalized = mealText.lowercase()
-
-    val base = when {
-        "pasta" in normalized || "spaghetti" in normalized || "penne" in normalized || "gnocchi" in normalized ->
-            baseFoodStyle(Color(0xFFFFD8B0), Color(0xFFF08A24), Color(0xFFF08A24), "🍝")
-
-        "riso" in normalized || "risotto" in normalized ->
-            baseFoodStyle(Color(0xFFFFEEAE), Color(0xFFD6A400), Color(0xFFD6A400), "🍚")
-
-        "pollo" in normalized || "tacchino" in normalized || "carne" in normalized || "hamburger" in normalized ->
-            baseFoodStyle(Color(0xFFFFCDC7), Color(0xFFE96A5F), Color(0xFFE96A5F), "🍗")
-
-        "salmone" in normalized || "tonno" in normalized || "pesce" in normalized || "orata" in normalized ->
-            baseFoodStyle(Color(0xFFCDEBFF), Color(0xFF4DA3FF), Color(0xFF4DA3FF), "🐟")
-
-        "uovo" in normalized || "uova" in normalized ->
-            baseFoodStyle(Color(0xFFFFF2BA), Color(0xFFE0B400), Color(0xFFE0B400), "🥚")
-
-        "yogurt" in normalized || "latte" in normalized || "fiocchi di latte" in normalized ->
-            baseFoodStyle(Color(0xFFE1F0FF), Color(0xFF6BA4FF), Color(0xFF6BA4FF), "🥛")
-
-        "frutta" in normalized || "mela" in normalized || "banana" in normalized || "pera" in normalized || "kiwi" in normalized ->
-            baseFoodStyle(Color(0xFFFFD4E1), Color(0xFFFF5C8A), Color(0xFFFF5C8A), "🍎")
-
-        "verdure" in normalized || "insalata" in normalized || "zucchine" in normalized || "broccoli" in normalized ->
-            baseFoodStyle(Color(0xFFD5F5D9), Color(0xFF54B868), Color(0xFF54B868), "🥗")
-
-        "pane" in normalized || "toast" in normalized || "fette biscottate" in normalized ->
-            baseFoodStyle(Color(0xFFF2DFC7), Color(0xFFC78A48), Color(0xFFC78A48), "🍞")
-
-        "legumi" in normalized || "lenticchie" in normalized || "ceci" in normalized || "fagioli" in normalized ->
-            baseFoodStyle(Color(0xFFE0D3FF), Color(0xFF8D63FF), Color(0xFF8D63FF), "🫘")
-
-        "patate" in normalized ->
-            baseFoodStyle(Color(0xFFF5E2B9), Color(0xFFD29A31), Color(0xFFD29A31), "🥔")
-
-        "zuppa" in normalized || "minestra" in normalized || "vellutata" in normalized ->
-            baseFoodStyle(Color(0xFFFFE2B8), Color(0xFFF59E0B), Color(0xFFF59E0B), "🍲")
-
-        "pizza" in normalized ->
-            baseFoodStyle(Color(0xFFFFD6BF), Color(0xFFFF7A45), Color(0xFFFF7A45), "🍕")
-
+    val base = when (visualInfo?.semanticKey) {
+        "panino" ->
+            baseFoodStyle(Color(0xFFF3E0C5), Color(0xFFC78A48), Color(0xFFC78A48), visualInfo.emoji)
+        "piadina" ->
+            baseFoodStyle(Color(0xFFFFDFC9), Color(0xFFE58D5E), Color(0xFFE58D5E), visualInfo.emoji)
+        "frisella" ->
+            baseFoodStyle(Color(0xFFF0E3CE), Color(0xFFB98A52), Color(0xFFB98A52), visualInfo.emoji)
+        "insalata", "verdura", "avocado" ->
+            baseFoodStyle(Color(0xFFD5F5D9), Color(0xFF54B868), Color(0xFF54B868), visualInfo.emoji)
+        "cereale_primo" ->
+            baseFoodStyle(Color(0xFFFFD8B0), Color(0xFFF08A24), Color(0xFFF08A24), visualInfo.emoji)
+        "carne" ->
+            baseFoodStyle(Color(0xFFFFCDC7), Color(0xFFE96A5F), Color(0xFFE96A5F), visualInfo.emoji)
+        "pesce" ->
+            baseFoodStyle(Color(0xFFCDEBFF), Color(0xFF4DA3FF), Color(0xFF4DA3FF), visualInfo.emoji)
+        "uova" ->
+            baseFoodStyle(Color(0xFFFFF2BA), Color(0xFFE0B400), Color(0xFFE0B400), visualInfo.emoji)
+        "latticino", "formaggio" ->
+            baseFoodStyle(Color(0xFFE1F0FF), Color(0xFF6BA4FF), Color(0xFF6BA4FF), visualInfo.emoji)
+        "frutta", "banana", "mela", "pera" ->
+            baseFoodStyle(Color(0xFFFFD4E1), Color(0xFFFF5C8A), Color(0xFFFF5C8A), visualInfo.emoji)
+        "pane" ->
+            baseFoodStyle(Color(0xFFF2DFC7), Color(0xFFC78A48), Color(0xFFC78A48), visualInfo.emoji)
+        "colazione_secca", "pancake", "dolce_spalmabile", "caffe" ->
+            baseFoodStyle(Color(0xFFFFE6D5), Color(0xFFFFA36C), Color(0xFFFFA36C), visualInfo.emoji)
+        "olio" ->
+            baseFoodStyle(Color(0xFFE6F3C8), Color(0xFF97B63E), Color(0xFF97B63E), visualInfo.emoji)
         else -> fallbackStyleForSlot(slotType)
     }
 
@@ -455,35 +472,31 @@ private fun fallbackStyleForSlot(
             Color(0xFFFFE6D5),
             Color(0xFFFFA36C),
             Color(0xFFFFA36C),
-            null
+            "🥣"
         )
-
         MealSlotType.MORNING_SNACK -> baseFoodStyle(
             Color(0xFFE4F7E7),
             Color(0xFF6BCB77),
             Color(0xFF6BCB77),
-            null
+            "🍏"
         )
-
         MealSlotType.LUNCH -> baseFoodStyle(
             Color(0xFFDDF0FF),
             Color(0xFF5AA9FF),
             Color(0xFF5AA9FF),
-            null
+            "🍽️"
         )
-
         MealSlotType.AFTERNOON_SNACK -> baseFoodStyle(
             Color(0xFFFFE8C7),
             Color(0xFFFFB84D),
             Color(0xFFFFB84D),
-            null
+            "🥜"
         )
-
         MealSlotType.DINNER -> baseFoodStyle(
             Color(0xFFE7E0FF),
             Color(0xFF8B7CFF),
             Color(0xFF8B7CFF),
-            null
+            "🍽️"
         )
     }
 }

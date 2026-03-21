@@ -27,9 +27,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -72,7 +74,9 @@ internal fun SlotActionDialog(
                     )
                 }
 
-                val targetSections = parseMealSections(dialogUi.currentDisplayedMealText)
+                val targetSections = remember(dialogUi.currentDisplayedMealText) {
+                    parseMealSectionVisuals(dialogUi.currentDisplayedMealText)
+                }
 
                 if (targetSections.isEmpty()) {
                     Text(
@@ -241,6 +245,10 @@ private fun ReplacementOptionCard(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
+    val sections = remember(option.mealText) {
+        parseMealSectionVisuals(option.mealText)
+    }
+
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -252,21 +260,13 @@ private fun ReplacementOptionCard(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                WeeklyStatusBadge(
-                    text = "${option.sourceDayLabel} • ${option.sourceMealSlotLabel}",
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
-
-            Text(
-                text = option.mealText,
-                style = MaterialTheme.typography.bodyMedium
+            WeeklyStatusBadge(
+                text = "${option.sourceDayLabel} • ${option.sourceMealSlotLabel}",
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
             )
+
+            CompactMealSectionsPreview(sections = sections)
         }
     }
 }
@@ -277,6 +277,10 @@ private fun ExtraCatalogOptionCard(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
+    val sections = remember(option.mealText) {
+        parseMealSectionVisuals(option.mealText)
+    }
+
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -298,17 +302,38 @@ private fun ExtraCatalogOptionCard(
                 )
             }
 
-            Text(
-                text = option.mealText,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                InlineTag(
+                    text = option.sourceLabel.replaceFirstChar {
+                        if (it.isLowerCase()) it.titlecase() else it.toString()
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+
+                option.tags
+                    .filter { it.isNotBlank() }
+                    .take(2)
+                    .forEach { tag ->
+                        InlineTag(
+                            text = tag,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+            }
+
+            CompactMealSectionsPreview(sections = sections)
         }
     }
 }
 
 @Composable
 private fun MealTextBlock(
-    sections: List<List<String>>
+    sections: List<ParsedMealSectionUi>
 ) {
     Surface(
         shape = RoundedCornerShape(18.dp),
@@ -318,38 +343,135 @@ private fun MealTextBlock(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             sections.forEachIndexed { index, section ->
                 if (index > 0) {
-                    SectionSeparatorBadge()
+                    SectionSeparatorBadge(text = "Alternativa ${index + 1}")
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    section.forEach { line ->
-                        Text(
-                            text = line,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
+                MealSectionCard(
+                    section = section,
+                    compact = false
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SectionSeparatorBadge() {
+private fun CompactMealSectionsPreview(
+    sections: List<ParsedMealSectionUi>
+) {
+    if (sections.isEmpty()) {
+        Text(
+            text = "Nessun contenuto disponibile.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        sections.take(2).forEach { section ->
+            MealSectionCard(
+                section = section,
+                compact = true
+            )
+        }
+
+        if (sections.size > 2) {
+            Text(
+                text = "+${sections.size - 2} altre opzioni",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun MealSectionCard(
+    section: ParsedMealSectionUi,
+    compact: Boolean
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val headline = section.lines.firstOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?: mealSemanticLabel(section.visualInfo.semanticKey)
+
+            Text(
+                text = "${section.visualInfo.emoji} $headline",
+                style = if (compact) {
+                    MaterialTheme.typography.bodyMedium
+                } else {
+                    MaterialTheme.typography.titleSmall
+                },
+                fontWeight = FontWeight.SemiBold,
+                maxLines = if (compact) 2 else 3,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            section.lines.drop(1).take(if (compact) 2 else 4).forEach { line ->
+                Text(
+                    text = line,
+                    style = if (compact) {
+                        MaterialTheme.typography.bodySmall
+                    } else {
+                        MaterialTheme.typography.bodyMedium
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = if (compact) 1 else 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionSeparatorBadge(
+    text: String
+) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Text(
-            text = "Dettaglio",
+            text = text,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+}
+
+@Composable
+private fun InlineTag(
+    text: String,
+    containerColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color
+) {
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = containerColor
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

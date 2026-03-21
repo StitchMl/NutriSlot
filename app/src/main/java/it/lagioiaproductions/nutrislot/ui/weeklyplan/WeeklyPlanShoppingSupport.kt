@@ -96,24 +96,83 @@ internal fun extractShoppingItemsFromSlots(slots: List<WeeklySlotUi>): List<Stri
 }
 
 internal fun extractShoppingItemsFromMealText(mealText: String): List<String> {
-    return normalizeShoppingItems(
-        mealText
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
-            .replace("•", "\n")
-            .lines()
-    )
+    val cleanedSource = mealText.stripMealNutritionBlock()
+
+    val parsedLines = parseMealSections(cleanedSource)
+        .flatMap { section -> section.flatMap(::splitShoppingSegments) }
+
+    if (parsedLines.isEmpty()) return emptyList()
+
+    return normalizeShoppingItems(parsedLines)
+}
+
+private fun splitShoppingSegments(line: String): List<String> {
+    val sanitizedLine = line
+        .stripMealNutritionBlock()
+        .replace("•", "\n")
+        .trim()
+
+    if (
+        sanitizedLine.isBlank() ||
+        isNutritionLine(sanitizedLine) ||
+        isStandaloneShoppingHeading(sanitizedLine)
+    ) {
+        return emptyList()
+    }
+
+    return sanitizedLine
+        .split(Regex("\\s*\\+\\s*"))
+        .flatMap { chunk ->
+            chunk.lines().map { it.trim() }
+        }
+        .map { chunk ->
+            chunk.replace(Regex("^[-•\\s]+"), "")
+                .replace(
+                    Regex("^(?:oppure|in alternativa|alternativa)\\s*:?\\s+", RegexOption.IGNORE_CASE),
+                    ""
+                )
+                .trim()
+        }
+        .filter { chunk ->
+            chunk.isNotBlank() &&
+                    !isNutritionLine(chunk) &&
+                    !isStandaloneShoppingHeading(chunk)
+        }
 }
 
 private fun normalizeShoppingItems(items: List<String>): List<String> {
     return items
-        .map { line ->
-            line
+        .mapNotNull { line ->
+            val cleaned = line
+                .stripMealNutritionBlock()
                 .replace(Regex("^[-+•\\s]+"), "")
                 .replace(Regex("\\s+"), " ")
                 .trim()
                 .removeSuffix(".")
+                .trim()
+
+            cleaned.takeIf {
+                it.isNotBlank() &&
+                        !isNutritionLine(it) &&
+                        !isStandaloneShoppingHeading(it)
+            }
         }
-        .filter { it.isNotBlank() }
         .distinct()
+}
+
+private fun isStandaloneShoppingHeading(line: String): Boolean {
+    return when (line.lowercase().trim()) {
+        "colazione",
+        "spuntino mattina",
+        "spuntino di meta mattina",
+        "spuntino meta mattina",
+        "meta mattina",
+        "pranzo",
+        "spuntino pomeridiano",
+        "spuntino pomeriggio",
+        "spuntino del pomeriggio",
+        "pomeriggio",
+        "cena" -> true
+        else -> false
+    }
 }

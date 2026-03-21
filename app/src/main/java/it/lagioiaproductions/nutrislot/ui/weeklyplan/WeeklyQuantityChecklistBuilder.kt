@@ -84,12 +84,13 @@ object WeeklyQuantityChecklistBuilder {
 
     private fun extractChecklistEntriesFromMealText(mealText: String): List<ChecklistEntryDraft> {
         val segments = mealText
+            .stripMealNutritionBlock()
             .replace("\r\n", "\n")
             .replace("\r", "\n")
             .replace("•", "\n")
             .split("\n", "+", ";", ",")
             .map { it.trim() }
-            .filter { it.isNotBlank() }
+            .filter { it.isNotBlank() && !isNutritionLine(it) }
 
         val entries = buildList {
             segments.forEach { segment ->
@@ -102,7 +103,9 @@ object WeeklyQuantityChecklistBuilder {
 
     private fun extractChecklistEntryFromSegment(segment: String): ChecklistEntryDraft? {
         val normalizedSegment = segment.replace(Regex("\\s+"), " ").trim()
-        if (normalizedSegment.isBlank() || isChecklistNoise(normalizedSegment)) return null
+        if (normalizedSegment.isBlank() || isChecklistNoise(normalizedSegment) || isNutritionLine(normalizedSegment)) {
+            return null
+        }
 
         gramsOrMlPattern.find(normalizedSegment)?.let { match ->
             val amount = match.groupValues[1].replace(",", ".").trim()
@@ -120,7 +123,7 @@ object WeeklyQuantityChecklistBuilder {
         countedFoodPattern.find(normalizedSegment)?.let { match ->
             val quantity = match.groupValues[1].trim()
             val rawPhrase = cleanupFoodTail(match.groupValues[2])
-            if (rawPhrase.isBlank() || isChecklistNoise(rawPhrase)) return null
+            if (rawPhrase.isBlank() || isChecklistNoise(rawPhrase) || isNutritionLine(rawPhrase)) return null
             val refined = refineCountedFoodPhrase(quantity, rawPhrase) ?: return null
             return ChecklistEntryDraft(
                 key = normalizeChecklistKey(refined.title),
@@ -134,19 +137,19 @@ object WeeklyQuantityChecklistBuilder {
 
     private fun refineCountedFoodPhrase(quantity: String, phrase: String): RefinedChecklistPhrase? {
         val cleanedPhrase = phrase.replace(Regex("\\s+"), " ").trim()
-        if (cleanedPhrase.isBlank() || isChecklistNoise(cleanedPhrase)) return null
+        if (cleanedPhrase.isBlank() || isChecklistNoise(cleanedPhrase) || isNutritionLine(cleanedPhrase)) return null
 
         val lowered = cleanedPhrase.lowercase()
         val measurePrefix = checklistMeasurePrefixes.firstOrNull { lowered.startsWith(it) }
         if (measurePrefix != null) {
             val tail = lowered.removePrefix(measurePrefix).removePrefix("di ").trim()
             val title = formatChecklistTitle(cleanupFoodTail(tail))
-            if (title.isBlank() || isChecklistNoise(title)) return null
+            if (title.isBlank() || isChecklistNoise(title) || isNutritionLine(title)) return null
             return RefinedChecklistPhrase(title = title, portionText = "$quantity ${measurePrefix.trim()}")
         }
 
         val title = formatChecklistTitle(cleanupFoodTail(cleanedPhrase))
-        if (title.isBlank()) return null
+        if (title.isBlank() || isNutritionLine(title)) return null
         return RefinedChecklistPhrase(title = title, portionText = "$quantity ${cleanedPhrase.lowercase()}")
     }
 
