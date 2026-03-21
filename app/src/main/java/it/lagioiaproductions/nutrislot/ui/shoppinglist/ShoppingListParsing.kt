@@ -1,5 +1,11 @@
 package it.lagioiaproductions.nutrislot.ui.shoppinglist
 
+import it.lagioiaproductions.nutrislot.ui.shared.inferMealVisualInfo
+import it.lagioiaproductions.nutrislot.ui.shared.normalizeMealUiLine
+import it.lagioiaproductions.nutrislot.ui.shared.protectConnectedMealPhrases
+import it.lagioiaproductions.nutrislot.ui.shared.restoreConnectedMealPhrases
+import it.lagioiaproductions.nutrislot.ui.shared.shouldAppendMealContinuation
+
 internal data class ParsedShoppingEntry(
     val isExtra: Boolean,
     val leadingEmoji: String,
@@ -37,13 +43,13 @@ private fun explodeMealChunks(text: String): List<String> {
 
     return candidates
         .flatMap(::splitAlternativeChunks)
-        .map(::restoreProtectedPhrases)
+        .map(::restoreConnectedMealPhrases)
         .map { it.normalizeShoppingText() }
         .filter { it.isNotBlank() }
 }
 
 private fun extractStructuredSections(text: String): List<String> {
-    val rawLines = text
+    val rawLines = protectConnectedMealPhrases(text)
         .replace("\r\n", "\n")
         .replace("\r", "\n")
         .lines()
@@ -60,17 +66,20 @@ private fun extractStructuredSections(text: String): List<String> {
     fun flushSection() {
         val joined = currentSection
             .joinToString(separator = " ")
-            .replace(Regex("\\s+"), " ")
-            .trim()
+            .normalizeMealUiLine()
 
-        if (joined.isNotBlank()) {
-            sections += joined
+        val restored = restoreConnectedMealPhrases(joined)
+        if (restored.isNotBlank()) {
+            sections += restored
         }
         currentSection = mutableListOf()
     }
 
     rawLines.forEach { rawLine ->
-        val line = rawLine.removeLeadingMealSlotHeading().trim()
+        val line = rawLine
+            .removeLeadingMealSlotHeading()
+            .normalizeShoppingText()
+
         if (line.isBlank()) return@forEach
 
         if (line == "+") {
@@ -79,10 +88,9 @@ private fun extractStructuredSections(text: String): List<String> {
         }
 
         val previous = currentSection.lastOrNull()
-        if (previous != null && shouldAppendShoppingLine(previous, line)) {
+        if (previous != null && shouldAppendMealContinuation(previous, line)) {
             currentSection[currentSection.lastIndex] = "$previous $line"
-                .replace(Regex("\\s+"), " ")
-                .trim()
+                .normalizeMealUiLine()
         } else {
             currentSection += line
         }
@@ -94,7 +102,7 @@ private fun extractStructuredSections(text: String): List<String> {
 
 private fun splitAlternativeChunks(text: String): List<String> {
     val normalized = text.normalizeShoppingText()
-    val protectedText = protectConnectedPhrases(normalized)
+    val protectedText = protectConnectedMealPhrases(normalized)
 
     val splitByStrongAlternative = protectedText
         .split(STRONG_ALTERNATIVE_REGEX)
@@ -128,8 +136,8 @@ private fun splitSlashAlternatives(text: String): List<String> {
 
     val shouldSplit =
         parts.size > 1 &&
-                parts.count { ALL_QUANTITY_REGEX.containsMatchIn(restoreProtectedPhrases(it)) } >= 2 &&
-                parts.all { part -> restoreProtectedPhrases(part).any(Char::isLetter) }
+                parts.count { ALL_QUANTITY_REGEX.containsMatchIn(restoreConnectedMealPhrases(it)) } >= 2 &&
+                parts.all { part -> restoreConnectedMealPhrases(part).any(Char::isLetter) }
 
     return if (shouldSplit) parts else listOf(text)
 }
@@ -143,10 +151,14 @@ private fun splitSimpleOrAlternatives(text: String): List<String> {
     val shouldSplit =
         parts.size > 1 &&
                 parts.all { part ->
-                    val restored = restoreProtectedPhrases(part)
+                    val restored = restoreConnectedMealPhrases(part).lowercase()
                     ALL_QUANTITY_REGEX.containsMatchIn(restored) ||
-                            restored.lowercase().startsWith("yogurt") ||
-                            restored.lowercase().startsWith("latte")
+                            restored.startsWith("yogurt") ||
+                            restored.startsWith("latte") ||
+                            restored.startsWith("pane") ||
+                            restored.startsWith("panino") ||
+                            restored.startsWith("piadina") ||
+                            restored.startsWith("frisella")
                 }
 
     return if (shouldSplit) parts else listOf(text)
@@ -202,6 +214,9 @@ private fun parseShoppingOption(rawOption: String): ParsedShoppingOption {
     }
 
     val label = working
+        .replace("/", " / ")
+        .replace(Regex("\\s+/\\s+"), " / ")
+        .replace(Regex("\\be\\s*/\\s*o\\b", RegexOption.IGNORE_CASE), "e/o")
         .replace(Regex("\\s+"), " ")
         .trim()
         .trim(',', ';', '-', ' ')
@@ -210,43 +225,16 @@ private fun parseShoppingOption(rawOption: String): ParsedShoppingOption {
         }
         .ifBlank { fallbackLabel }
 
+    val emoji = when {
+        isOilOnly -> "🫒"
+        else -> inferMealVisualInfo(label).emoji
+    }
+
     return ParsedShoppingOption(
         label = label,
         detailTags = tags.distinct(),
-        emoji = emojiForProduct(label)
+        emoji = emoji
     )
-}
-
-private fun shouldAppendShoppingLine(
-    previous: String,
-    current: String
-): Boolean {
-    val normalizedCurrent = current.lowercase()
-    if (
-        normalizedCurrent.startsWith("oppure") ||
-        normalizedCurrent.startsWith("in alternativa") ||
-        normalizedCurrent.startsWith("nb")
-    ) {
-        return false
-    }
-
-    val firstChar = current.firstOrNull() ?: return false
-
-    val currentLooksLikeContinuation =
-        firstChar.isLowerCase() ||
-                firstChar.isDigit() ||
-                firstChar == '(' ||
-                current.length <= 18
-
-    val previousLooksOpen =
-        previous.endsWith(",") ||
-                previous.endsWith(":") ||
-                previous.endsWith("/") ||
-                previous.endsWith("-") ||
-                previous.endsWith(" o") ||
-                previous.endsWith(" oppure")
-
-    return currentLooksLikeContinuation || previousLooksOpen
 }
 
 private fun String.removeLeadingMealSlotHeading(): String {
@@ -254,9 +242,16 @@ private fun String.removeLeadingMealSlotHeading(): String {
     return when (trimmed.lowercase()) {
         "colazione",
         "spuntino mattina",
+        "spuntino di meta mattina",
+        "spuntino meta mattina",
+        "meta mattina",
         "pranzo",
         "spuntino pomeridiano",
+        "spuntino pomeriggio",
+        "spuntino del pomeriggio",
+        "pomeriggio",
         "cena" -> ""
+
         else -> trimmed
     }
 }
@@ -296,72 +291,3 @@ private val STRONG_ALTERNATIVE_REGEX = Regex(
     pattern = "\\s+(?:oppure|in alternativa|alternativa)\\s*:?\\s+",
     option = RegexOption.IGNORE_CASE
 )
-
-private val PROTECTED_PHRASES = listOf(
-    "scuro o integrale",
-    "integrale o scuro",
-    "pane scuro o integrale",
-    "pane integrale o scuro",
-    "cotta e/o cruda",
-    "cotte e/o crude",
-    "cotto e/o crudo",
-    "cotti e/o crudi",
-    "cruda e/o cotta",
-    "crude e/o cotte",
-    "caffè latte"
-)
-
-private fun protectConnectedPhrases(text: String): String {
-    var result = text
-    PROTECTED_PHRASES.forEachIndexed { index, phrase ->
-        val placeholder = "__KEEP_${index}__"
-        result = Regex(Regex.escape(phrase), RegexOption.IGNORE_CASE)
-            .replace(result) { placeholder }
-    }
-    return result
-}
-
-private fun restoreProtectedPhrases(text: String): String {
-    var result = text
-    PROTECTED_PHRASES.forEachIndexed { index, phrase ->
-        result = result.replace("__KEEP_${index}__", phrase)
-    }
-    return result
-}
-
-private fun emojiForProduct(label: String): String {
-    val text = label.lowercase()
-
-    return when {
-        "panino" in text || "panini" in text -> "🥪"
-        "piadina" in text -> "🌯"
-        "frisella" in text || "friselle" in text -> "🥯"
-        "toast" in text -> "🧇"
-        "pancake" in text -> "🥞"
-        "insalatona" in text || "insalata" in text -> "🥗"
-        "pesce" in text || "salmone" in text || "tonno" in text || "sgombro" in text -> "🐟"
-        "latte" in text || "yogurt" in text || "kefir" in text -> "🥛"
-        "lattuga" in text || "verdura" in text || "rughetta" in text || "zucchine" in text || "songino" in text -> "🥬"
-        "pomodoro" in text || "pomodorini" in text -> "🍅"
-        "carota" in text || "carote" in text -> "🥕"
-        "pasta" in text || "spaghetti" in text || "riso" in text || "couscous" in text || "orzo" in text || "farro" in text -> "🍝"
-        "cereali" in text || "cornflakes" in text || "muesli" in text || "granola" in text -> "🥣"
-        "mela" in text -> "🍎"
-        "pera" in text -> "🍐"
-        "banana" in text -> "🍌"
-        "pane" in text -> "🍞"
-        "uova" in text || "uovo" in text || "frittata" in text -> "🥚"
-        "mandorle" in text || "nocciole" in text || "noci" in text || "frutta secca" in text || "arachidi" in text -> "🥜"
-        "avocado" in text -> "🥑"
-        "caffè" in text || "caffe" in text -> "☕"
-        "formaggio" in text || "parmigiano" in text || "primo sale" in text || "ricotta" in text || "mozzarella" in text || "feta" in text || "philadelphia" in text -> "🧀"
-        "pollo" in text || "tacchino" in text || "hamburger" in text || "carne" in text || "affettato" in text || "bresaola" in text -> "🍗"
-        "frutto" in text || "frutta" in text || "fragole" in text || "kiwi" in text || "arancia" in text -> "🍓"
-        "miele" in text || "marmellata" in text -> "🍯"
-        "cioccolato" in text -> "🍫"
-        "olio" in text || "olive" in text -> "🫒"
-        "acqua" in text -> "💧"
-        "detersivo" in text -> "🧴"
-        else -> "🛒"
-    }
-}

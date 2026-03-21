@@ -1,7 +1,23 @@
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
+import it.lagioiaproductions.nutrislot.ui.shared.MealVisualInfo
+import it.lagioiaproductions.nutrislot.ui.shared.inferMealVisualInfo
+import it.lagioiaproductions.nutrislot.ui.shared.normalizeMealUiLine
+import it.lagioiaproductions.nutrislot.ui.shared.protectConnectedMealPhrases
+import it.lagioiaproductions.nutrislot.ui.shared.restoreConnectedMealPhrases
+import it.lagioiaproductions.nutrislot.ui.shared.shouldAppendMealContinuation
+
+internal data class ParsedMealSectionUi(
+    val lines: List<String>,
+    val visualInfo: MealVisualInfo
+)
+
 internal fun parseMealSections(text: String): List<List<String>> {
-    val rawLines = text
+    return parseMealSectionVisuals(text).map { it.lines }
+}
+
+internal fun parseMealSectionVisuals(text: String): List<ParsedMealSectionUi> {
+    val rawLines = protectConnectedMealPhrases(text)
         .replace("\r\n", "\n")
         .replace("\r", "\n")
         .replace("•", "\n• ")
@@ -13,14 +29,19 @@ internal fun parseMealSections(text: String): List<List<String>> {
         return emptyList()
     }
 
-    val sections = mutableListOf<MutableList<String>>()
+    val sections = mutableListOf<List<String>>()
     var currentSection = mutableListOf<String>()
 
     fun flushSection() {
-        if (currentSection.isNotEmpty()) {
-            sections += currentSection
-            currentSection = mutableListOf()
+        val restoredLines = currentSection
+            .map(::restoreConnectedMealPhrases)
+            .map(String::normalizeMealUiLine)
+            .filter { it.isNotBlank() }
+
+        if (restoredLines.isNotEmpty()) {
+            sections += restoredLines
         }
+        currentSection = mutableListOf()
     }
 
     rawLines.forEach { rawLine ->
@@ -31,6 +52,7 @@ internal fun parseMealSections(text: String): List<List<String>> {
             .removePrefix("–")
             .removePrefix("—")
             .trim()
+            .normalizeMealUiLine()
 
         if (normalizedLine.isBlank()) {
             return@forEach
@@ -41,39 +63,43 @@ internal fun parseMealSections(text: String): List<List<String>> {
             return@forEach
         }
 
+        if (isStandaloneMealHeading(normalizedLine)) {
+            return@forEach
+        }
+
         val previous = currentSection.lastOrNull()
-        if (previous != null && shouldAppendToPreviousLine(previous, normalizedLine)) {
+        if (previous != null && shouldAppendMealContinuation(previous, normalizedLine)) {
             currentSection[currentSection.lastIndex] = "$previous $normalizedLine"
+                .normalizeMealUiLine()
         } else {
             currentSection += normalizedLine
         }
     }
 
     flushSection()
-    return sections
+
+    return sections.map { lines ->
+        ParsedMealSectionUi(
+            lines = lines,
+            visualInfo = inferMealVisualInfo(lines.joinToString(separator = " "))
+        )
+    }
 }
 
-private fun shouldAppendToPreviousLine(
-    previous: String,
-    current: String
-): Boolean {
-    val firstChar = current.firstOrNull() ?: return false
+private fun isStandaloneMealHeading(line: String): Boolean {
+    return when (line.lowercase()) {
+        "colazione",
+        "spuntino mattina",
+        "spuntino di meta mattina",
+        "spuntino meta mattina",
+        "meta mattina",
+        "pranzo",
+        "spuntino pomeridiano",
+        "spuntino pomeriggio",
+        "spuntino del pomeriggio",
+        "pomeriggio",
+        "cena" -> true
 
-    val currentLooksLikeContinuation =
-        firstChar.isLowerCase() ||
-                firstChar.isDigit() ||
-                firstChar == '(' ||
-                firstChar == '%' ||
-                current.length <= 18
-
-    val previousLooksOpen =
-        previous.endsWith(",") ||
-                previous.endsWith(":") ||
-                previous.endsWith("/") ||
-                previous.endsWith("-") ||
-                previous.endsWith(" o") ||
-                previous.endsWith(" ed") ||
-                previous.endsWith(" oppure")
-
-    return currentLooksLikeContinuation || previousLooksOpen
+        else -> false
+    }
 }
