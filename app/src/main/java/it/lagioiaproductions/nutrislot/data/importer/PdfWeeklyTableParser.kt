@@ -92,6 +92,7 @@ internal class PdfWeeklyTableParser {
     ): ImportedPlanDraft {
         val cells = buildCanonicalCells(collectedTexts)
         val populatedCells = cells.count { it.rawText.isNotBlank() }
+        val suspectedCells = cells.count { it.recognitionState == CellRecognitionState.SUSPECTED }
         val finalWarnings = warnings.toMutableList()
 
         when {
@@ -100,11 +101,18 @@ internal class PdfWeeklyTableParser {
                     message = "Nessun pasto riconosciuto automaticamente. Il layout del PDF potrebbe non essere supportato."
                 )
             }
+
             populatedCells < PdfImportTextNormalization.EXPECTED_WEEKLY_SLOTS -> {
                 finalWarnings += ImportWarning(
                     message = "Riconoscimento parziale: trovate $populatedCells celle con contenuto su ${PdfImportTextNormalization.EXPECTED_WEEKLY_SLOTS} slot attesi."
                 )
             }
+        }
+
+        if (suspectedCells > 0) {
+            finalWarnings += ImportWarning(
+                message = "$suspectedCells celle sono state marcate come sospette e vanno controllate in anteprima."
+            )
         }
 
         val status = when {
@@ -187,10 +195,12 @@ internal class PdfWeeklyTableParser {
                         )
                     }
                 }
+
                 dayAtStart != null -> {
                     currentDay = dayAtStart
                     currentSlot = null
                 }
+
                 slotMatch != null && currentDay != null -> {
                     currentSlot = slotMatch.slot
 
@@ -203,6 +213,7 @@ internal class PdfWeeklyTableParser {
                         )
                     }
                 }
+
                 currentDay != null && currentSlot != null -> {
                     appendUniqueMealLine(
                         collectedTexts = collectedTexts,
@@ -211,6 +222,7 @@ internal class PdfWeeklyTableParser {
                         line = originalLine
                     )
                 }
+
                 else -> {
                     orphanLineCount += 1
                 }
@@ -349,10 +361,15 @@ internal class PdfWeeklyTableParser {
     ): List<ImportedMealCell> {
         return WeekDay.orderedValues().flatMap { day ->
             MealSlotType.orderedValues().map { slot ->
-                val rawText = collectedTexts[day to slot]
-                    ?.joinToString(separator = "\n")
-                    ?.trim()
-                    .orEmpty()
+                val cleanedLines = sanitizeSlotLines(
+                    slot = slot,
+                    lines = collectedTexts[day to slot].orEmpty()
+                )
+                val rawText = cleanedLines.joinToString(separator = "\n")
+                val recognitionState = determineRecognitionState(
+                    rawText = rawText,
+                    slot = slot
+                )
 
                 ImportedMealCell(
                     id = "${day.name}_${slot.name}",
@@ -360,13 +377,162 @@ internal class PdfWeeklyTableParser {
                     mealSlotType = slot,
                     rawText = rawText,
                     normalizedText = PdfImportTextNormalization.normalizeMealText(rawText),
-                    recognitionState = if (rawText.isBlank()) {
-                        CellRecognitionState.EMPTY
-                    } else {
-                        CellRecognitionState.RECOGNIZED
-                    }
+                    recognitionState = recognitionState
                 )
             }
+        }
+    }
+
+    private fun sanitizeSlotLines(
+        slot: MealSlotType,
+        lines: List<String>
+    ): List<String> {
+        val normalizedLines = lines
+            .map(::normalizeSlotLine)
+            .filter { it.isNotBlank() }
+            .filterNot { shouldDiscardSlotLine(slot, it) }
+
+        if (normalizedLines.isEmpty()) return emptyList()
+
+        val mergedLines = mutableListOf<String>()
+
+        normalizedLines.forEach { line ->
+            if (line == "+") {
+                if (mergedLines.isNotEmpty() && mergedLines.last() != "+") {
+                    mergedLines += line
+                }
+                return@forEach
+            }
+
+            val previous = mergedLines.lastOrNull()
+            when {
+                previous == null -> mergedLines += line
+                previous == "+" -> mergedLines += line
+                shouldAppendToPreviousSlotLine(previous, line) -> {
+                    mergedLines[mergedLines.lastIndex] = "$previous $line"
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
+                }
+
+                PdfImportTextNormalization.normalizeMealText(previous) != PdfImportTextNormalization.normalizeMealText(line) -> {
+                    mergedLines += line
+                }
+            }
+        }
+
+        return mergedLines
+            .dropWhile { it == "+" }
+            .dropLastWhile { it == "+" }
+            .fold(mutableListOf<String>()) { acc, line ->
+                val normalized = PdfImportTextNormalization.normalizeMealText(line)
+                if (acc.lastOrNull()?.let(PdfImportTextNormalization::normalizeMealText) != normalized) {
+                    acc += line
+                }
+                acc
+            }
+    }
+
+    private fun normalizeSlotLine(
+        rawLine: String
+    ): String {
+        val trimmed = rawLine.trim()
+        if (trimmed == "+") return "+"
+
+        return trimmed
+            .replace(Regex("\\s+"), " ")
+            .replace(Regex("\\s+([,;:.])"), "$1")
+            .replace(Regex("([:])(?=\\S)"), "$1 ")
+            .replace(Regex("(\\d)\\s*-\\s*(\\d)"), "$1-$2")
+            .trim()
+            .trim('.', ' ')
+    }
+
+    private fun shouldDiscardSlotLine(
+        slot: MealSlotType,
+        line: String
+    ): Boolean {
+        val normalized = PdfImportTextNormalization.normalizeForMatching(line)
+
+        if (normalized.isBlank()) return true
+        if (normalized == ".") return true
+        if (normalized.startsWith("---- page")) return true
+        if (PdfImportTextNormalization.isWeekDayHeaderLine(normalized)) return true
+
+        val isPureSlotHeading = PdfImportTextNormalization.mealSlotAliases.values
+            .flatten()
+            .any { alias -> normalized == alias }
+        if (isPureSlotHeading) return true
+
+        val containsForeignHeading = PdfImportTextNormalization.mealSlotAliases
+            .filterKeys { it != slot }
+            .values
+            .flatten()
+            .any { alias -> Regex("\\b${Regex.escape(alias)}\\b").containsMatchIn(normalized) } &&
+                line.length <= 24
+        return containsForeignHeading
+    }
+
+    private fun shouldAppendToPreviousSlotLine(
+        previous: String,
+        current: String
+    ): Boolean {
+        val normalizedCurrent = PdfImportTextNormalization.normalizeForMatching(current)
+        if (
+            normalizedCurrent.startsWith("oppure") ||
+            normalizedCurrent.startsWith("in alternativa") ||
+            normalizedCurrent.startsWith("alternativa") ||
+            normalizedCurrent.startsWith("nb")
+        ) {
+            return false
+        }
+
+        val firstChar = current.firstOrNull() ?: return false
+
+        val currentLooksLikeContinuation =
+            firstChar.isLowerCase() ||
+                    firstChar.isDigit() ||
+                    firstChar == '(' ||
+                    firstChar == '%' ||
+                    current.length <= 18
+
+        val normalizedPrevious = PdfImportTextNormalization.normalizeForMatching(previous)
+        val previousLooksOpen =
+            previous.endsWith(",") ||
+                    previous.endsWith(":") ||
+                    previous.endsWith("/") ||
+                    previous.endsWith("-") ||
+                    normalizedPrevious.endsWith(" o") ||
+                    normalizedPrevious.endsWith(" ed") ||
+                    normalizedPrevious.endsWith(" oppure")
+
+        return currentLooksLikeContinuation || previousLooksOpen
+    }
+
+    private fun determineRecognitionState(
+        rawText: String,
+        slot: MealSlotType
+    ): CellRecognitionState {
+        if (rawText.isBlank()) {
+            return CellRecognitionState.EMPTY
+        }
+
+        val normalized = PdfImportTextNormalization.normalizeForMatching(rawText)
+
+        val containsUnexpectedSlotHeading = PdfImportTextNormalization.mealSlotAliases
+            .filterKeys { it != slot }
+            .values
+            .flatten()
+            .any { alias -> Regex("\\b${Regex.escape(alias)}\\b").containsMatchIn(normalized) }
+
+        val containsWeekdayLeak = PdfImportTextNormalization.weekDayAliases
+            .values
+            .flatten()
+            .any { alias -> Regex("\\b${Regex.escape(alias)}\\b").containsMatchIn(normalized) }
+
+        return if (containsUnexpectedSlotHeading || containsWeekdayLeak) {
+            CellRecognitionState.SUSPECTED
+        } else {
+            CellRecognitionState.RECOGNIZED
         }
     }
 
