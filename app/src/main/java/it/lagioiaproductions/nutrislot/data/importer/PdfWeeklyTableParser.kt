@@ -2,8 +2,8 @@ package it.lagioiaproductions.nutrislot.data.importer
 
 import it.lagioiaproductions.nutrislot.domain.model.CellRecognitionState
 import it.lagioiaproductions.nutrislot.domain.model.ImportWarning
-import it.lagioiaproductions.nutrislot.domain.model.ImportedMealCell
 import it.lagioiaproductions.nutrislot.domain.model.ImportStatus
+import it.lagioiaproductions.nutrislot.domain.model.ImportedMealCell
 import it.lagioiaproductions.nutrislot.domain.model.ImportedMealOption
 import it.lagioiaproductions.nutrislot.domain.model.ImportedMealRule
 import it.lagioiaproductions.nutrislot.domain.model.ImportedPlanDraft
@@ -423,7 +423,7 @@ internal class PdfWeeklyTableParser {
         return mergedLines
             .dropWhile { it == "+" }
             .dropLastWhile { it == "+" }
-            .fold(mutableListOf<String>()) { acc, line ->
+            .fold(mutableListOf()) { acc, line ->
                 val normalized = PdfImportTextNormalization.normalizeMealText(line)
                 if (acc.lastOrNull()?.let(PdfImportTextNormalization::normalizeMealText) != normalized) {
                     acc += line

@@ -49,6 +49,7 @@ android {
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom.v20260300))
+    implementation(libs.androidx.compose.foundation)
     androidTestImplementation(platform(libs.androidx.compose.bom.v20260300))
 
     implementation(libs.androidx.ui)
