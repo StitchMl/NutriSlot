@@ -441,7 +441,7 @@ internal class PdfWeeklyTableParser {
         return trimmed
             .replace(Regex("\\s+"), " ")
             .replace(Regex("\\s+([,;:.])"), "$1")
-            .replace(Regex("([:])(?=\\S)"), "$1 ")
+            .replace(Regex(":(?=\\S)"), ": ")
             .replace(Regex("(\\d)\\s*-\\s*(\\d)"), "$1-$2")
             .trim()
             .trim('.', ' ')

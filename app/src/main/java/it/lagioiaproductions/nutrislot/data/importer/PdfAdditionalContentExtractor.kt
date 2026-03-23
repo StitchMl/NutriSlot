@@ -205,7 +205,7 @@ internal class PdfAdditionalContentExtractor {
             .removeBulletPrefix()
             .replace(Regex("\\s+"), " ")
             .replace(Regex("\\s+([,;:.])"), "$1")
-            .replace(Regex("([:])(?=\\S)"), "$1 ")
+            .replace(Regex(":(?=\\S)"), ": ")
             .replace(Regex("(\\d)\\s*-\\s*(\\d)"), "$1-$2")
             .trim()
             .trim('.', ';', ' ')
@@ -298,7 +298,7 @@ internal class PdfAdditionalContentExtractor {
     )
 
     companion object {
-        private val BULLET_PREFIX_REGEX = Regex("^(?:•|-|–|—)\\s*")
+        private val BULLET_PREFIX_REGEX = Regex("^[•\\-–—]\\s*")
 
         private val ALL_QUANTITY_REGEX = Regex(
             pattern = "(N\\.?\\s*\\d+|\\d+[.,]?\\d*\\s*(kg|g|mg|l|ml|cl|pz))\\b",
