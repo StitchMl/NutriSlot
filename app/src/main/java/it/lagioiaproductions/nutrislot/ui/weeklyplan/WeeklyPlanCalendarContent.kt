@@ -93,6 +93,7 @@ fun WeeklyCalendarGridContent(
     onRefreshClick: () -> Unit,
     onOpenSlotAction: (slotId: String) -> Unit,
     onOpenSlotEdit: (slotId: String) -> Unit,
+    onToggleSlotCompleted: (slotId: String) -> Unit,
     onSelectCalendarDay: (WeekDay) -> Unit,
     onToggleConsumedSlotsVisibility: () -> Unit,
     onAddMealToShopping: (List<String>) -> Unit,
@@ -186,6 +187,7 @@ fun WeeklyCalendarGridContent(
                             slotsByDayAndType = slotsByDayAndType,
                             onOpenSlotAction = onOpenSlotAction,
                             onOpenSlotEdit = onOpenSlotEdit,
+                            onToggleSlotCompleted = onToggleSlotCompleted,
                             onAddMealToShopping = onAddMealToShopping
                         )
                     }
@@ -251,6 +253,7 @@ private fun CalendarSlotRow(
     slotsByDayAndType: Map<WeekDay, Map<MealSlotType, WeeklySlotUi?>>,
     onOpenSlotAction: (slotId: String) -> Unit,
     onOpenSlotEdit: (slotId: String) -> Unit,
+    onToggleSlotCompleted: (slotId: String) -> Unit,
     onAddMealToShopping: (List<String>) -> Unit
 ) {
     Row(
@@ -267,6 +270,7 @@ private fun CalendarSlotRow(
                 dayWidth = DayColumnWidth,
                 onOpenSlotAction = onOpenSlotAction,
                 onOpenSlotEdit = onOpenSlotEdit,
+                onToggleSlotCompleted = onToggleSlotCompleted,
                 onAddMealToShopping = onAddMealToShopping
             )
         }
@@ -466,6 +470,7 @@ private fun CalendarGridCell(
     dayWidth: Dp,
     onOpenSlotAction: (slotId: String) -> Unit,
     onOpenSlotEdit: (slotId: String) -> Unit,
+    onToggleSlotCompleted: (slotId: String) -> Unit,
     onAddMealToShopping: (List<String>) -> Unit
 ) {
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
@@ -483,6 +488,7 @@ private fun CalendarGridCell(
                 slotUi = it,
                 onManageClick = { onOpenSlotAction(it.slotId) },
                 onEditClick = { onOpenSlotEdit(it.slotId) },
+                onToggleCompletedClick = { onToggleSlotCompleted(it.slotId) },
                 onAddToShoppingClick = {
                     onAddMealToShopping(extractShoppingItemsFromMealText(it.displayedMealText))
                 }

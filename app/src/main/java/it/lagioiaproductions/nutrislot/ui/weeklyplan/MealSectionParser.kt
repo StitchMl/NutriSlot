@@ -44,8 +44,21 @@ internal fun parseMealSectionVisuals(text: String): List<ParsedMealSectionUi> {
         currentSection = mutableListOf()
     }
 
+    fun appendSegment(segment: String) {
+        val normalizedSegment = segment.normalizeMealUiLine()
+        if (normalizedSegment.isBlank()) return
+
+        val previous = currentSection.lastOrNull()
+        if (previous != null && shouldAppendMealContinuation(previous, normalizedSegment)) {
+            currentSection[currentSection.lastIndex] = "$previous $normalizedSegment"
+                .normalizeMealUiLine()
+        } else {
+            currentSection += normalizedSegment
+        }
+    }
+
     rawLines.forEach { rawLine ->
-        val normalizedLine = rawLine
+        var normalizedLine = rawLine
             .trim()
             .removePrefix("•")
             .removePrefix("-")
@@ -55,27 +68,31 @@ internal fun parseMealSectionVisuals(text: String): List<ParsedMealSectionUi> {
             .normalizeMealUiLine()
 
         if (normalizedLine.isBlank()) return@forEach
-
         if (normalizedLine == "+") {
             flushSection()
             return@forEach
         }
-
         if (isStandaloneMealHeading(normalizedLine)) {
             return@forEach
         }
-
         if (isNutritionLine(normalizedLine)) {
             flushSection()
             return@forEach
         }
 
-        val previous = currentSection.lastOrNull()
-        if (previous != null && shouldAppendMealContinuation(previous, normalizedLine)) {
-            currentSection[currentSection.lastIndex] = "$previous $normalizedLine"
-                .normalizeMealUiLine()
-        } else {
-            currentSection += normalizedLine
+        if (startsWithAlternativePrefix(normalizedLine)) {
+            flushSection()
+            normalizedLine = removeAlternativePrefix(normalizedLine)
+        }
+
+        val inlineAlternatives = splitInlineAlternatives(normalizedLine)
+        if (inlineAlternatives.isEmpty()) return@forEach
+
+        inlineAlternatives.forEachIndexed { index, segment ->
+            if (index > 0) {
+                flushSection()
+            }
+            appendSegment(segment)
         }
     }
 
@@ -106,6 +123,7 @@ internal fun mealSemanticLabel(semanticKey: String): String {
         "banana" -> "Banana"
         "mela" -> "Mela"
         "pera" -> "Pera"
+        "cioccolato" -> "Cioccolato"
         "frutta" -> "Frutta"
         "frutta_secca" -> "Frutta secca"
         "avocado" -> "Avocado"
@@ -237,10 +255,24 @@ private fun shouldAppendMealContinuation(
                 previous.endsWith("/") ||
                 previous.endsWith("-") ||
                 normalizedPrevious.endsWith(" o") ||
-                normalizedPrevious.endsWith(" ed") ||
-                normalizedPrevious.endsWith(" oppure")
+                normalizedPrevious.endsWith(" ed")
 
     return currentLooksLikeContinuation || previousLooksOpen
+}
+
+private fun startsWithAlternativePrefix(text: String): Boolean {
+    return ALTERNATIVE_PREFIX_REGEX.containsMatchIn(text)
+}
+
+private fun removeAlternativePrefix(text: String): String {
+    return ALTERNATIVE_PREFIX_REGEX.replace(text, "").trim()
+}
+
+private fun splitInlineAlternatives(text: String): List<String> {
+    return text
+        .split(ALTERNATIVE_SPLIT_REGEX)
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
 }
 
 private fun inferMealVisualInfo(text: String): MealVisualInfo {
@@ -365,6 +397,16 @@ private fun isStandaloneMealHeading(line: String): Boolean {
         else -> false
     }
 }
+
+private val ALTERNATIVE_PREFIX_REGEX = Regex(
+    pattern = "^(?:oppure|in alternativa|alternativa)\\s*:?\\s+",
+    option = RegexOption.IGNORE_CASE
+)
+
+private val ALTERNATIVE_SPLIT_REGEX = Regex(
+    pattern = "\\s+(?:oppure|in alternativa|alternativa)\\s*:?\\s+",
+    option = RegexOption.IGNORE_CASE
+)
 
 private val PROTECTED_MEAL_PHRASES = listOf(
     "scuro o integrale",

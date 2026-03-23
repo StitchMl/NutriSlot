@@ -1,4 +1,4 @@
-@file:Suppress("SameParameterValue")
+@file:Suppress("SameParameterValue", "UNUSED_PARAMETER")
 
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
@@ -16,11 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -31,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -57,7 +53,7 @@ internal fun SlotActionDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 460.dp)
+                    .heightIn(max = 500.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -85,7 +81,7 @@ internal fun SlotActionDialog(
                     )
                 } else {
                     DialogSectionTitle("Pasto attualmente assegnato")
-                    MealTextBlock(sections = targetSections)
+                    MealSectionsBlock(sections = targetSections)
                 }
 
                 if (
@@ -106,52 +102,10 @@ internal fun SlotActionDialog(
                     }
                 }
 
-                if (dialogUi.isTargetActuallyCompletedThisWeek) {
-                    Button(
-                        onClick = onUndoCompletedMeal,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isApplying
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            if (isApplying) {
-                                "Aggiornamento..."
-                            } else {
-                                "Annulla consumo"
-                            }
-                        )
-                    }
-                } else if (dialogUi.canConsumeAsPlanned) {
-                    Button(
-                        onClick = onConsumeAsPlanned,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isApplying
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            if (isApplying) {
-                                "Aggiornamento..."
-                            } else {
-                                "Consumato"
-                            }
-                        )
-                    }
-                }
-
                 if (dialogUi.replacementOptions.isNotEmpty()) {
                     DialogSectionTitle("Sostituisci con un pasto già pianificato")
 
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         dialogUi.replacementOptions.forEach { replacement ->
                             ReplacementOptionCard(
                                 option = replacement,
@@ -167,8 +121,8 @@ internal fun SlotActionDialog(
                 if (dialogUi.extraCatalogOptions.isNotEmpty()) {
                     DialogSectionTitle("Opzioni extra dal PDF")
 
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        dialogUi.extraCatalogOptions.take(4).forEach { option ->
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        dialogUi.extraCatalogOptions.forEach { option ->
                             ExtraCatalogOptionCard(
                                 option = option,
                                 enabled = !isApplying,
@@ -258,7 +212,7 @@ private fun ReplacementOptionCard(
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             WeeklyStatusBadge(
                 text = "${option.sourceDayLabel} • ${option.sourceMealSlotLabel}",
@@ -266,7 +220,7 @@ private fun ReplacementOptionCard(
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
             )
 
-            CompactMealSectionsPreview(sections = sections)
+            MealSectionsBlock(sections = sections)
         }
     }
 }
@@ -316,7 +270,7 @@ private fun ExtraCatalogOptionCard(
 
                 option.tags
                     .filter { it.isNotBlank() }
-                    .take(2)
+                    .take(3)
                     .forEach { tag ->
                         InlineTag(
                             text = tag,
@@ -326,41 +280,13 @@ private fun ExtraCatalogOptionCard(
                     }
             }
 
-            CompactMealSectionsPreview(sections = sections)
+            MealSectionsBlock(sections = sections)
         }
     }
 }
 
 @Composable
-private fun MealTextBlock(
-    sections: List<ParsedMealSectionUi>
-) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            sections.forEachIndexed { index, section ->
-                if (index > 0) {
-                    SectionSeparatorBadge(text = "Alternativa ${index + 1}")
-                }
-
-                MealSectionCard(
-                    section = section,
-                    compact = false
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CompactMealSectionsPreview(
+private fun MealSectionsBlock(
     sections: List<ParsedMealSectionUi>
 ) {
     if (sections.isEmpty()) {
@@ -372,32 +298,34 @@ private fun CompactMealSectionsPreview(
         return
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        sections.take(2).forEach { section ->
-            MealSectionCard(
-                section = section,
-                compact = true
-            )
-        }
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            sections.forEachIndexed { index, section ->
+                if (index > 0) {
+                    SectionSeparatorBadge(text = "Alternativa ${index + 1}")
+                }
 
-        if (sections.size > 2) {
-            Text(
-                text = "+${sections.size - 2} altre opzioni",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                MealSectionCard(section = section)
+            }
         }
     }
 }
 
 @Composable
 private fun MealSectionCard(
-    section: ParsedMealSectionUi,
-    compact: Boolean
+    section: ParsedMealSectionUi
 ) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -409,27 +337,15 @@ private fun MealSectionCard(
 
             Text(
                 text = "${section.visualInfo.emoji} $headline",
-                style = if (compact) {
-                    MaterialTheme.typography.bodyMedium
-                } else {
-                    MaterialTheme.typography.titleSmall
-                },
-                fontWeight = FontWeight.SemiBold,
-                maxLines = if (compact) 2 else 3,
-                overflow = TextOverflow.Ellipsis
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
             )
 
-            section.lines.drop(1).take(if (compact) 2 else 4).forEach { line ->
+            section.lines.drop(1).forEach { line ->
                 Text(
                     text = line,
-                    style = if (compact) {
-                        MaterialTheme.typography.bodySmall
-                    } else {
-                        MaterialTheme.typography.bodyMedium
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (compact) 1 else 2,
-                    overflow = TextOverflow.Ellipsis
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -469,9 +385,7 @@ private fun InlineTag(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            color = contentColor
         )
     }
 }

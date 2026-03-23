@@ -148,6 +148,7 @@ fun AppNavGraph(
                     onRefreshClick = weeklyPlanViewModel::loadLatestPlan,
                     onOpenSlotAction = weeklyPlanViewModel::openSlotAction,
                     onOpenSlotEdit = weeklyPlanViewModel::openEditSlot,
+                    onToggleSlotCompleted = weeklyPlanViewModel::toggleSlotCompletedFromCalendar,
                     onDismissSlotAction = weeklyPlanViewModel::dismissSlotAction,
                     onConsumeAsPlanned = weeklyPlanViewModel::consumeAsPlanned,
                     onConsumeReplacement = weeklyPlanViewModel::consumeReplacement,

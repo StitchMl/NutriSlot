@@ -50,6 +50,16 @@ class WeeklyPlanViewModel(
     )
     val uiState: StateFlow<WeeklyPlanUiState> = _uiState.asStateFlow()
 
+    fun toggleSlotCompletedFromCalendar(slotId: String) {
+        val slotUi = _uiState.value.slots.firstOrNull { it.slotId == slotId } ?: return
+
+        if (slotUi.isActuallyCompletedThisWeek) {
+            undoCompletedMealByTargetSlotId(slotId)
+        } else {
+            consumeSlotAsPlannedByTargetSlotId(slotId)
+        }
+    }
+
     fun loadLatestPlan() {
         viewModelScope.launch {
             _uiState.update {
@@ -247,18 +257,8 @@ class WeeklyPlanViewModel(
     }
 
     fun consumeAsPlanned() {
-        val snapshot = currentSnapshot ?: return
-        val dialog = _uiState.value.slotActionDialog ?: return
-        val assignedSourceSlotId = dialog.currentAssignedSourceSlotId ?: return
-
-        applyConsumption(
-            planId = snapshot.plan.id,
-            targetSlotId = dialog.targetSlotId,
-            sourceSlotId = assignedSourceSlotId,
-            successMessage = "Pasto segnato come completato nella settimana corrente.",
-            consumedMealText = dialog.currentDisplayedMealText,
-            consumedMealSlotLabel = dialog.targetMealSlotLabel
-        )
+        val targetSlotId = _uiState.value.slotActionDialog?.targetSlotId ?: return
+        consumeSlotAsPlannedByTargetSlotId(targetSlotId)
     }
 
     fun consumeReplacement(sourceSlotId: String) {
@@ -286,8 +286,39 @@ class WeeklyPlanViewModel(
     }
 
     fun undoCompletedMeal() {
+        val targetSlotId = _uiState.value.slotActionDialog?.targetSlotId ?: return
+        undoCompletedMealByTargetSlotId(targetSlotId)
+    }
+
+    fun consumePendingCalorieSyncEvent() {
+        _uiState.update { state ->
+            state.copy(pendingCalorieSyncEvent = null)
+        }
+    }
+
+    private fun consumeSlotAsPlannedByTargetSlotId(targetSlotId: String) {
         val snapshot = currentSnapshot ?: return
-        val dialog = _uiState.value.slotActionDialog ?: return
+        val targetUi = _uiState.value.slots.firstOrNull { it.slotId == targetSlotId } ?: return
+        val targetSlot = snapshot.slots.firstOrNull { it.id == targetSlotId } ?: return
+        val planning = buildActiveWeekPlanning(snapshot)
+
+        val currentAssignedSourceSlotId =
+            planning.pendingSourceByTarget[targetSlotId]
+                ?: targetSlot.id.takeIf { targetSlot.plannedMealText.isNotBlank() }
+                ?: return
+
+        applyConsumption(
+            planId = snapshot.plan.id,
+            targetSlotId = targetSlotId,
+            sourceSlotId = currentAssignedSourceSlotId,
+            successMessage = "Pasto segnato come completato nella settimana corrente.",
+            consumedMealText = targetUi.displayedMealText,
+            consumedMealSlotLabel = targetUi.mealSlotType.displayName
+        )
+    }
+
+    private fun undoCompletedMealByTargetSlotId(targetSlotId: String) {
+        val snapshot = currentSnapshot ?: return
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -302,7 +333,7 @@ class WeeklyPlanViewModel(
                 withContext(Dispatchers.IO) {
                     val removedConsumptionId = repository.undoMealConsumption(
                         planId = snapshot.plan.id,
-                        targetSlotId = dialog.targetSlotId
+                        targetSlotId = targetSlotId
                     )
 
                     val updatedSnapshot = repository.getWeeklyPlanSnapshot(snapshot.plan.id)
@@ -345,12 +376,6 @@ class WeeklyPlanViewModel(
                     )
                 }
             }
-        }
-    }
-
-    fun consumePendingCalorieSyncEvent() {
-        _uiState.update { state ->
-            state.copy(pendingCalorieSyncEvent = null)
         }
     }
 

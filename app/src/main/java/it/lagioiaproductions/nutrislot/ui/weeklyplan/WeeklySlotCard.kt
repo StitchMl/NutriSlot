@@ -12,12 +12,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.RemoveCircle
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -25,8 +29,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
@@ -38,6 +42,7 @@ internal fun WeeklySlotCard(
     slotUi: WeeklySlotUi,
     onManageClick: () -> Unit,
     onEditClick: () -> Unit,
+    onToggleCompletedClick: () -> Unit,
     onAddToShoppingClick: () -> Unit
 ) {
     val parsedSections = remember(slotUi.displayedMealText) {
@@ -80,8 +85,30 @@ internal fun WeeklySlotCard(
         }
     }
 
-    val showNutritionInline = remember(slotUi.nutritionSummary, content.lines.size) {
-        !slotUi.nutritionSummary.isNullOrBlank() && content.lines.size <= 2
+    val canToggleCompleted = remember(slotUi.displayState, slotUi.displayedMealText, slotUi.isActuallyCompletedThisWeek) {
+        slotUi.isActuallyCompletedThisWeek ||
+                (
+                        slotUi.displayedMealText.isNotBlank() &&
+                                slotUi.displayState != SlotDisplayState.Empty
+                        )
+    }
+
+    val completionContainer = if (slotUi.isActuallyCompletedThisWeek) {
+        MaterialTheme.colorScheme.secondaryContainer
+    } else {
+        MaterialTheme.colorScheme.tertiaryContainer
+    }
+
+    val completionContent = if (slotUi.isActuallyCompletedThisWeek) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        MaterialTheme.colorScheme.onTertiaryContainer
+    }
+
+    val showNutritionInline = remember(slotUi.nutritionSummary, content.detailLines.size, content.alternativeLines.size) {
+        !slotUi.nutritionSummary.isNullOrBlank() &&
+                content.detailLines.size <= 1 &&
+                content.alternativeLines.isEmpty()
     }
 
     val cardShape = MaterialTheme.shapes.medium
@@ -119,9 +146,22 @@ internal fun WeeklySlotCard(
                     verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    Text(
+                        text = buildString {
+                            content.primaryEmoji?.let {
+                                append(it)
+                                append("  ")
+                            }
+                            append(timeLabel)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = visualStyle.meta
+                    )
+
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         FilledIconButton(
                             onClick = onEditClick,
@@ -138,33 +178,45 @@ internal fun WeeklySlotCard(
                             )
                         }
 
-                        Text(
-                            text = buildString {
-                                content.primaryEmoji?.let {
-                                    append(it)
-                                    append("  ")
-                                }
-                                append(timeLabel)
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = visualStyle.meta
-                        )
-                    }
+                        if (canToggleCompleted) {
+                            FilledIconButton(
+                                onClick = onToggleCompletedClick,
+                                modifier = Modifier.size(32.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = completionContainer,
+                                    contentColor = completionContent
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = if (slotUi.isActuallyCompletedThisWeek) {
+                                        Icons.Default.RemoveCircle
+                                    } else {
+                                        Icons.Default.CheckCircle
+                                    },
+                                    contentDescription = if (slotUi.isActuallyCompletedThisWeek) {
+                                        "Annulla completamento"
+                                    } else {
+                                        "Segna completato"
+                                    },
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
 
-                    FilledIconButton(
-                        onClick = onAddToShoppingClick,
-                        modifier = Modifier.size(32.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingCart,
-                            contentDescription = "Aggiungi alla spesa",
-                            modifier = Modifier.size(20.dp)
-                        )
+                        FilledIconButton(
+                            onClick = onAddToShoppingClick,
+                            modifier = Modifier.size(32.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingCart,
+                                contentDescription = "Aggiungi alla spesa",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
 
@@ -175,18 +227,7 @@ internal fun WeeklySlotCard(
                     color = visualStyle.title
                 )
 
-                if (content.alternativeCount > 0) {
-                    CompactBadge(
-                        text = when (content.alternativeCount) {
-                            1 -> "1 alternativa"
-                            else -> "${content.alternativeCount} alternative"
-                        },
-                        background = visualStyle.accent.copy(alpha = 0.12f),
-                        content = visualStyle.meta
-                    )
-                }
-
-                content.lines.forEachIndexed { index, line ->
+                content.detailLines.forEachIndexed { index, line ->
                     Text(
                         text = line,
                         style = if (index == 0) {
@@ -196,6 +237,14 @@ internal fun WeeklySlotCard(
                         },
                         fontWeight = if (index == 0) FontWeight.Medium else FontWeight.Normal,
                         color = if (index == 0) visualStyle.body else visualStyle.meta
+                    )
+                }
+
+                content.alternativeLines.forEach { alternative ->
+                    CompactBadge(
+                        text = alternative,
+                        background = visualStyle.accent.copy(alpha = 0.10f),
+                        content = visualStyle.meta
                     )
                 }
 
@@ -253,8 +302,8 @@ private fun CompactBadge(
 private data class CalendarMealContentUi(
     val primaryEmoji: String?,
     val title: String,
-    val lines: List<String>,
-    val alternativeCount: Int
+    val detailLines: List<String>,
+    val alternativeLines: List<String>
 )
 
 private fun buildCalendarMealContent(
@@ -265,43 +314,38 @@ private fun buildCalendarMealContent(
         return CalendarMealContentUi(
             primaryEmoji = null,
             title = fallbackTitle,
-            lines = emptyList(),
-            alternativeCount = 0
+            detailLines = emptyList(),
+            alternativeLines = emptyList()
         )
     }
 
     val primarySection = parsedSections.first()
-    val title = normalizeCalendarLine(
+    val primaryTitle = normalizeCalendarLine(
         primarySection.lines.firstOrNull().orEmpty()
     ).ifBlank { fallbackTitle }
 
-    val detailLines = mutableListOf<String>()
-
-    primarySection.lines
+    val primaryDetails = primarySection.lines
         .drop(1)
         .map(::normalizeCalendarLine)
         .filter { it.isNotBlank() }
-        .forEach(detailLines::add)
 
-    parsedSections.drop(1).forEachIndexed { index, section ->
-        val altHeadline = section.lines.firstOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?: mealSemanticLabel(section.visualInfo.semanticKey)
+    val alternativeLines = parsedSections
+        .drop(1)
+        .map { section ->
+            val joined = section.lines
+                .map(::normalizeCalendarLine)
+                .filter { it.isNotBlank() }
+                .joinToString(separator = " • ")
 
-        detailLines += "Alternativa ${index + 2}: ${section.visualInfo.emoji} ${normalizeCalendarLine(altHeadline)}"
-
-        section.lines
-            .drop(1)
-            .map(::normalizeCalendarLine)
-            .filter { it.isNotBlank() }
-            .forEach(detailLines::add)
-    }
+            "Alternativa: ${section.visualInfo.emoji} $joined"
+        }
+        .filter { it.isNotBlank() }
 
     return CalendarMealContentUi(
         primaryEmoji = primarySection.visualInfo.emoji,
-        title = title,
-        lines = detailLines,
-        alternativeCount = (parsedSections.size - 1).coerceAtLeast(0)
+        title = primaryTitle,
+        detailLines = primaryDetails,
+        alternativeLines = alternativeLines
     )
 }
 
