@@ -27,6 +27,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Update
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -134,7 +137,6 @@ fun WeeklyCalendarGridContent(
             onRefreshClick = onRefreshClick,
             onToggleConsumedSlotsVisibility = onToggleConsumedSlotsVisibility,
             showConsumedSlots = uiState.showConsumedSlotsInCalendar,
-            onAddWeekToShopping = { onAddWeekToShopping(weekShoppingItems) },
             onOpenWeeklyQuantityChecklist = onOpenWeeklyQuantityChecklist
         )
 
@@ -173,7 +175,8 @@ fun WeeklyCalendarGridContent(
                         currentDay = uiState.currentWeekReferenceDay,
                         allSlotsByDay = allSlotsByDay,
                         onSelectCalendarDay = onSelectCalendarDay,
-                        onAddDayToShopping = onAddDayToShopping
+                        onAddDayToShopping = onAddDayToShopping,
+                        onAddWeekToShopping = { onAddWeekToShopping(weekShoppingItems) },
                     )
 
                     CalendarSlotOrder.forEach { slotType ->
@@ -201,6 +204,7 @@ private fun CalendarHeaderRow(
     currentDay: WeekDay,
     allSlotsByDay: Map<WeekDay, List<WeeklySlotUi>>,
     onSelectCalendarDay: (WeekDay) -> Unit,
+    onAddWeekToShopping: () -> Unit,
     onAddDayToShopping: (List<String>) -> Unit
 ) {
     Row(
@@ -208,12 +212,20 @@ private fun CalendarHeaderRow(
             .fillMaxWidth()
             .height(DayHeaderHeight)
     ) {
-        Spacer(
+        Box (
             modifier = Modifier
                 .width(TimeRailWidth)
                 .fillMaxHeight()
                 .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
-        )
+        ) {
+            IconButton(onClick = { onAddWeekToShopping() }) {
+                Icon(
+                    imageVector = Icons.Default.ShoppingCart,
+                    contentDescription = "Aggiungi settimana alla spesa",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
 
         orderedDays.forEach { day ->
             DayHeaderCell(
@@ -268,7 +280,6 @@ private fun LoadedPlanTopBar(
     onRefreshClick: () -> Unit,
     onToggleConsumedSlotsVisibility: () -> Unit,
     showConsumedSlots: Boolean,
-    onAddWeekToShopping: () -> Unit,
     onOpenWeeklyQuantityChecklist: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -289,6 +300,26 @@ private fun LoadedPlanTopBar(
         )
 
         Box {
+            IconButton(onClick = { onRefreshClick() }) {
+                Icon(
+                    imageVector = Icons.Default.Update,
+                    contentDescription = "Aggiorna",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Box {
+            IconButton(onClick = { onToggleConsumedSlotsVisibility() }) {
+                Icon(
+                    imageVector = (if (showConsumedSlots) Icons.Default.Visibility else Icons.Default.VisibilityOff),
+                    contentDescription = (if (showConsumedSlots) "Nascondi completati" else "Mostra completati"),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Box {
             IconButton(onClick = { menuExpanded = true }) {
                 Icon(
                     imageVector = Icons.Default.Settings,
@@ -299,13 +330,6 @@ private fun LoadedPlanTopBar(
 
             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
-                    text = { Text("Aggiungi settimana alla spesa") },
-                    onClick = {
-                        menuExpanded = false
-                        onAddWeekToShopping()
-                    }
-                )
-                DropdownMenuItem(
                     text = { Text("Importa nuovo piano") },
                     onClick = {
                         menuExpanded = false
@@ -313,26 +337,10 @@ private fun LoadedPlanTopBar(
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Aggiorna") },
-                    onClick = {
-                        menuExpanded = false
-                        onRefreshClick()
-                    }
-                )
-                DropdownMenuItem(
                     text = { Text("Controllo quantità settimanali") },
                     onClick = {
                         menuExpanded = false
                         onOpenWeeklyQuantityChecklist()
-                    }
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(if (showConsumedSlots) "Nascondi completati" else "Mostra completati")
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onToggleConsumedSlotsVisibility()
                     }
                 )
             }
