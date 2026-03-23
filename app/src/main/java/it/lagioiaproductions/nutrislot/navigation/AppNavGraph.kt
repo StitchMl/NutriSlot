@@ -53,12 +53,18 @@ import it.lagioiaproductions.nutrislot.ui.root.AppRootScaffold
 import it.lagioiaproductions.nutrislot.ui.root.AppTopLevelDestination
 import it.lagioiaproductions.nutrislot.ui.scanner.ScannerScreen
 import it.lagioiaproductions.nutrislot.ui.shared.AppBridgeViewModel
-import it.lagioiaproductions.nutrislot.ui.shoppinglist.ShoppingListScreen
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.ShoppingListRoute
 import it.lagioiaproductions.nutrislot.ui.toolshub.ToolsHubScreen
 import it.lagioiaproductions.nutrislot.ui.water.WaterTrackerRoute
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanScreen
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanViewModel
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistScreen
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
+import it.lagioiaproductions.nutrislot.data.local.room.ShoppingListItemEntity
+import kotlinx.coroutines.launch
 
 private object Routes {
     const val IMPORT_FILE = "import_file"
@@ -83,6 +89,44 @@ fun AppNavGraph(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val shoppingDao = remember(context) {
+        NutriSlotDatabase.getInstance(context).weeklyPlanDao()
+    }
+    val scope = rememberCoroutineScope()
+
+    fun addTextsToShoppingDb(rawItems: List<String>) {
+        scope.launch {
+            rawItems
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .forEachIndexed { index, item ->
+                    shoppingDao.insertShoppingListItem(
+                        ShoppingListItemEntity(
+                            name = item,
+                            isPurchased = false,
+                            createdAtEpochMillis = System.currentTimeMillis() + index
+                        )
+                    )
+                }
+        }
+    }
+
+    fun addSingleTextToShoppingDb(rawItem: String) {
+        val cleaned = rawItem.trim()
+        if (cleaned.isBlank()) return
+
+        scope.launch {
+            shoppingDao.insertShoppingListItem(
+                ShoppingListItemEntity(
+                    name = cleaned,
+                    isPurchased = false,
+                    createdAtEpochMillis = System.currentTimeMillis()
+                )
+            )
+        }
+    }
 
     LaunchedEffect(Unit) {
         weeklyPlanViewModel.loadLatestPlan()
@@ -154,9 +198,9 @@ fun AppNavGraph(
                     onConsumeReplacement = weeklyPlanViewModel::consumeReplacement,
                     onSelectCalendarDay = weeklyPlanViewModel::selectCalendarDay,
                     onToggleConsumedSlotsVisibility = weeklyPlanViewModel::toggleConsumedSlotsVisibility,
-                    onAddMealToShopping = bridgeViewModel::addShoppingItemsFromTexts,
-                    onAddDayToShopping = bridgeViewModel::addShoppingItemsFromTexts,
-                    onAddWeekToShopping = bridgeViewModel::addShoppingItemsFromTexts,
+                    onAddMealToShopping = ::addTextsToShoppingDb,
+                    onAddDayToShopping = ::addTextsToShoppingDb,
+                    onAddWeekToShopping = ::addTextsToShoppingDb,
                     onOpenWeeklyQuantityChecklist = {
                         navController.navigate(Routes.WEEKLY_QUANTITY_CHECKLIST) {
                             launchSingleTop = true
@@ -180,15 +224,11 @@ fun AppNavGraph(
             }
 
             composable(AppTopLevelDestination.Grocery.route) {
-                ShoppingListScreen(
+                ShoppingListRoute(
                     onOpenScannerClick = {
                         navController.navigate(Routes.SCANNER)
                     },
-                    shoppingItems = bridgeUiState.shoppingItems,
-                    latestScannedProduct = bridgeUiState.latestScannedProduct,
-                    onAddManualItem = bridgeViewModel::addManualShoppingItem,
-                    onTogglePurchased = bridgeViewModel::toggleShoppingItemPurchased,
-                    onRemoveItem = bridgeViewModel::removeShoppingItem
+                    latestScannedProduct = bridgeUiState.latestScannedProduct
                 )
             }
 
@@ -211,7 +251,9 @@ fun AppNavGraph(
                 ScannerScreen(
                     onBackClick = { navController.popBackStack() },
                     onAddToShoppingList = { product ->
+                        addSingleTextToShoppingDb(product.name)
                         bridgeViewModel.sendProductToShopping(product)
+
                         navController.navigate(AppTopLevelDestination.Grocery.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
