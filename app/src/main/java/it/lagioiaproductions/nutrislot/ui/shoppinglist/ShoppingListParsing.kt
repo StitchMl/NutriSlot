@@ -15,6 +15,7 @@ internal data class ParsedShoppingOption(
 internal fun parseShoppingEntry(rawText: String): ParsedShoppingEntry {
     val sanitizedSource = rawText
         .stripShoppingNutritionBlock()
+        .normalizeBreadQualifierShorthand()
         .normalizeShoppingText()
 
     val isExtra = sanitizedSource.startsWith("+")
@@ -32,7 +33,9 @@ internal fun parseShoppingEntry(rawText: String): ParsedShoppingEntry {
 }
 
 private fun explodeMealChunks(text: String): List<String> {
-    val normalized = text.normalizeShoppingText()
+    val normalized = text
+        .normalizeBreadQualifierShorthand()
+        .normalizeShoppingText()
     if (normalized.isBlank()) return emptyList()
 
     val sections = extractStructuredSections(normalized)
@@ -41,8 +44,8 @@ private fun explodeMealChunks(text: String): List<String> {
     return candidates
         .flatMap(::splitAlternativeChunks)
         .map(::restoreProtectedPhrases)
-        .map { it.normalizeShoppingText() }
-        .filter { it.isNotBlank() }
+        .map(String::normalizeShoppingText)
+        .filter(String::isNotBlank)
 }
 
 private fun extractStructuredSections(text: String): List<String> {
@@ -52,8 +55,8 @@ private fun extractStructuredSections(text: String): List<String> {
         .replace("\r\n", "\n")
         .replace("\r", "\n")
         .lines()
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
+        .map(String::trim)
+        .filter(String::isNotBlank)
 
     if (rawLines.size <= 1 && "+" !in text) {
         return emptyList()
@@ -88,6 +91,11 @@ private fun extractStructuredSections(text: String): List<String> {
             return@forEach
         }
 
+        if (isStandaloneShoppingAlternativeSeparator(line)) {
+            flushSection()
+            return@forEach
+        }
+
         val previous = currentSection.lastOrNull()
         if (previous != null && shouldAppendShoppingLine(previous, line)) {
             currentSection[currentSection.lastIndex] = "$previous $line"
@@ -103,13 +111,15 @@ private fun extractStructuredSections(text: String): List<String> {
 }
 
 private fun splitAlternativeChunks(text: String): List<String> {
-    val normalized = text.normalizeShoppingText()
+    val normalized = text
+        .normalizeBreadQualifierShorthand()
+        .normalizeShoppingText()
     val protectedText = protectConnectedPhrases(normalized)
 
     val splitByStrongAlternative = protectedText
         .split(STRONG_ALTERNATIVE_REGEX)
-        .map { it.normalizeShoppingText() }
-        .filter { it.isNotBlank() }
+        .map(String::normalizeShoppingText)
+        .filter(String::isNotBlank)
 
     if (splitByStrongAlternative.size > 1) {
         return splitByStrongAlternative.flatMap(::splitSlashAlternatives)
@@ -129,26 +139,43 @@ private fun splitAlternativeChunks(text: String): List<String> {
 }
 
 private fun splitSlashAlternatives(text: String): List<String> {
-    if ('/' !in text) return listOf(text)
+    splitSlashWithSharedCarbGroup(text.normalizeBreadQualifierShorthand())?.let { grouped ->
+        return grouped
+    }
+
+    if (!SPACED_SLASH_ALTERNATIVE_REGEX.containsMatchIn(text)) {
+        return listOf(text)
+    }
 
     val parts = text
-        .split('/')
-        .map { it.normalizeShoppingText() }
-        .filter { it.isNotBlank() }
+        .split(SPACED_SLASH_ALTERNATIVE_REGEX)
+        .map(String::normalizeShoppingText)
+        .filter(String::isNotBlank)
 
+    val restoredParts = parts.map(::restoreProtectedPhrases)
     val shouldSplit =
         parts.size > 1 &&
-                parts.count { ALL_QUANTITY_REGEX.containsMatchIn(restoreProtectedPhrases(it)) } >= 2 &&
-                parts.all { part -> restoreProtectedPhrases(part).any(Char::isLetter) }
+                (
+                        restoredParts.count { part -> ALL_QUANTITY_REGEX.containsMatchIn(part) } >= 2 ||
+                                restoredParts.all { part ->
+                                    part.any(Char::isLetter) &&
+                                            (
+                                                    part.contains("pane", ignoreCase = true) ||
+                                                            part.contains("panino", ignoreCase = true)
+                                                    )
+                                }
+                        )
 
     return if (shouldSplit) parts else listOf(text)
 }
 
 private fun splitSimpleOrAlternatives(text: String): List<String> {
-    val parts = text
+    val normalized = text.normalizeBreadQualifierShorthand()
+
+    val parts = normalized
         .split(Regex("\\s+o\\s+", RegexOption.IGNORE_CASE))
-        .map { it.normalizeShoppingText() }
-        .filter { it.isNotBlank() }
+        .map(String::normalizeShoppingText)
+        .filter(String::isNotBlank)
 
     val shouldSplit =
         parts.size > 1 &&
@@ -163,17 +190,18 @@ private fun splitSimpleOrAlternatives(text: String): List<String> {
                             restored.startsWith("frisella")
                 }
 
-    return if (shouldSplit) parts else listOf(text)
+    return if (shouldSplit) parts else listOf(normalized)
 }
 
 private fun parseShoppingOption(rawOption: String): ParsedShoppingOption {
     val normalized = rawOption
         .stripShoppingNutritionBlock()
+        .normalizeBreadQualifierShorthand()
         .normalizeShoppingText()
 
     val rawNotes = PARENTHESIS_REGEX.findAll(normalized)
-        .map { it.groupValues[1].normalizeShoppingText() }
-        .filter { it.isNotBlank() }
+        .map { match -> match.groupValues[1].normalizeShoppingText() }
+        .filter(String::isNotBlank)
         .toMutableList()
 
     val isOilOnly = INLINE_OIL_TAG_REGEX.containsMatchIn(normalized) &&
@@ -191,7 +219,7 @@ private fun parseShoppingOption(rawOption: String): ParsedShoppingOption {
     }
 
     val inlineOilTags = INLINE_OIL_TAG_REGEX.findAll(working)
-        .map { it.value.normalizeShoppingText() }
+        .map { match -> match.value.normalizeShoppingText() }
         .toList()
 
     tags += inlineOilTags
@@ -208,7 +236,7 @@ private fun parseShoppingOption(rawOption: String): ParsedShoppingOption {
         }
     }
 
-    val extraNoteTags = rawNotes.partition { QUANTITY_LIKE_NOTE_REGEX.matches(it) }
+    val extraNoteTags = rawNotes.partition { note -> QUANTITY_LIKE_NOTE_REGEX.matches(note) }
     tags += extraNoteTags.first
     tags += extraNoteTags.second
 
@@ -234,6 +262,13 @@ private fun parseShoppingOption(rawOption: String): ParsedShoppingOption {
         detailTags = tags.distinct(),
         emoji = emojiForProduct(label)
     )
+}
+
+private fun isStandaloneShoppingAlternativeSeparator(line: String): Boolean {
+    return line == "/" ||
+            line.equals("oppure", ignoreCase = true) ||
+            line.equals("alternativa", ignoreCase = true) ||
+            line.equals("in alternativa", ignoreCase = true)
 }
 
 private fun shouldAppendShoppingLine(
@@ -404,6 +439,8 @@ private val STRONG_ALTERNATIVE_REGEX = Regex(
     option = RegexOption.IGNORE_CASE
 )
 
+private val SPACED_SLASH_ALTERNATIVE_REGEX = Regex("\\s+/\\s+")
+
 private val INLINE_NUTRIENTS_FROM_LABEL_REGEX = Regex(
     pattern = "(?is)\\bNutrienti\\s*:.*$"
 )
@@ -413,10 +450,6 @@ private val INLINE_NUTRIENTS_FROM_TOTAL_REGEX = Regex(
 )
 
 private val PROTECTED_PHRASES = listOf(
-    "scuro o integrale",
-    "integrale o scuro",
-    "pane scuro o integrale",
-    "pane integrale o scuro",
     "cotta e/o cruda",
     "cotte e/o crude",
     "cotto e/o crudo",
@@ -425,6 +458,91 @@ private val PROTECTED_PHRASES = listOf(
     "crude e/o cotte",
     "caffè latte"
 )
+
+private val BREAD_WITH_OR_REGEX = Regex(
+    pattern = """((?:\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|mg|l|ml|cl|pz)\s+di\s+)?(?:pane|panino)\s+)(scuro|integrale)\s+o\s+(?:(?:pane|panino)\s+)?(scuro|integrale)(.*)""",
+    options = setOf(RegexOption.IGNORE_CASE)
+)
+
+private val BREAD_WITH_SLASH_REGEX = Regex(
+    pattern = """((?:\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|mg|l|ml|cl|pz)\s+di\s+)?(?:pane|panino)\s+)(scuro|integrale)\s*/\s*(?:(?:pane|panino)\s+)?(scuro|integrale)(.*)""",
+    options = setOf(RegexOption.IGNORE_CASE)
+)
+
+private val IMPLICIT_BREAD_SHORTHAND_REGEX = Regex(
+    pattern = """((?:\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|mg|l|ml|cl|pz)\s+di\s+)?(?:pane|panino)\s+)scuro\s+integrale(.*)""",
+    options = setOf(RegexOption.IGNORE_CASE)
+)
+
+private fun String.normalizeBreadQualifierShorthand(): String {
+    val slashNormalized = BREAD_WITH_SLASH_REGEX.replace(this) { match ->
+        val prefix = match.groupValues[1]
+        val first = match.groupValues[2]
+        val second = match.groupValues[3]
+        val suffix = match.groupValues[4]
+        "$prefix$first/$second$suffix"
+    }
+
+    val orNormalized = BREAD_WITH_OR_REGEX.replace(slashNormalized) { match ->
+        val prefix = match.groupValues[1]
+        val first = match.groupValues[2]
+        val second = match.groupValues[3]
+        val suffix = match.groupValues[4]
+        "$prefix$first/$second$suffix"
+    }
+
+    return IMPLICIT_BREAD_SHORTHAND_REGEX.replace(orNormalized) { match ->
+        val prefix = match.groupValues[1]
+        val suffix = match.groupValues[2]
+        prefix + "scuro/integrale" + suffix
+    }
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+private fun splitSlashWithSharedCarbGroup(text: String): List<String>? {
+    val normalized = restoreProtectedPhrases(text).normalizeShoppingText()
+    val parts = normalized
+        .split(SPACED_SLASH_ALTERNATIVE_REGEX)
+        .map(String::normalizeShoppingText)
+        .filter(String::isNotBlank)
+
+    if (parts.size < 2) return null
+
+    val result = mutableListOf<String>()
+    val current = mutableListOf<String>()
+
+    parts.forEach { part ->
+        if (current.isEmpty()) {
+            current += part
+        } else {
+            val currentJoined = current.joinToString(" / ")
+            val currentHasQty = ALL_QUANTITY_REGEX.containsMatchIn(currentJoined)
+
+            val nextStartsNewAlt =
+                currentHasQty && (
+                        part.contains("pane", ignoreCase = true) ||
+                                part.contains("panino", ignoreCase = true) ||
+                                part.equals("scuro", ignoreCase = true) ||
+                                part.equals("integrale", ignoreCase = true)
+                        )
+
+            if (nextStartsNewAlt) {
+                result += currentJoined.normalizeShoppingText()
+                current.clear()
+                current += part
+            } else {
+                current += part
+            }
+        }
+    }
+
+    if (current.isNotEmpty()) {
+        result += current.joinToString(" / ").normalizeShoppingText()
+    }
+
+    return result.takeIf { it.size > 1 }
+}
 
 private fun emojiForProduct(label: String): String {
     val text = label.lowercase()

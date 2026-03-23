@@ -7,12 +7,12 @@ object WeeklyQuantityChecklistBuilder {
     private const val MAX_WEEKLY_CHECKLIST_ITEMS = 8
 
     private val gramsOrMlPattern = Regex(
-        pattern = "\\b(\\d+(?:[.,]\\d+)?)\\s*(g|gr|grammi|ml)\\s*(?:di\\s+)?([a-zA-ZàèéìòùÀÈÉÌÒÙ' ]{2,})",
+        pattern = "\\b(\\d+(?:[.,]\\d+)?)\\s*(g|gr|grammi|ml)\\s*(?:di\\s+)?([a-zA-ZàèéìòùÀÈÉÌÒÙ' /]{2,})",
         option = RegexOption.IGNORE_CASE
     )
 
     private val countedFoodPattern = Regex(
-        pattern = "\\b(\\d+)\\s+([a-zA-ZàèéìòùÀÈÉÌÒÙ' ]{2,})",
+        pattern = "\\b(\\d+)\\s+([a-zA-ZàèéìòùÀÈÉÌÒÙ' /]{2,})",
         option = RegexOption.IGNORE_CASE
     )
 
@@ -40,7 +40,6 @@ object WeeklyQuantityChecklistBuilder {
 
         slots.forEach { slot ->
             val slotEntries = extractChecklistEntriesFromMealText(slot.displayedMealText)
-                .distinctBy { it.key }
 
             slotEntries.forEach { entry ->
                 plannedEntriesByKey.getOrPut(entry.key) { mutableListOf() }.add(entry)
@@ -48,7 +47,7 @@ object WeeklyQuantityChecklistBuilder {
 
             if (slot.isActuallyCompletedThisWeek) {
                 slotEntries.forEach { entry ->
-                    consumedCountByKey[entry.key] = (consumedCountByKey[entry.key] ?: 0) + 1
+                    consumedCountByKey[entry.key] = (consumedCountByKey[entry.key] ?: 0) + entry.consumedIncrement
                 }
             }
         }
@@ -62,12 +61,15 @@ object WeeklyQuantityChecklistBuilder {
                     ?.firstOrNull()
                     ?: entries.first()
 
+                val targetTimes = entries.sumOf { it.targetIncrement }
+                val consumedTimes = min(consumedCountByKey[key] ?: 0, targetTimes)
+
                 WeeklyQuantityChecklistItemUi(
                     id = key,
                     title = preferredEntry.title,
                     portionText = preferredEntry.portionText,
-                    targetTimes = entries.size,
-                    consumedTimes = min(consumedCountByKey[key] ?: 0, entries.size)
+                    targetTimes = targetTimes,
+                    consumedTimes = consumedTimes
                 )
             }
             .filter(::shouldShowChecklistItem)
@@ -83,56 +85,101 @@ object WeeklyQuantityChecklistBuilder {
     }
 
     private fun extractChecklistEntriesFromMealText(mealText: String): List<ChecklistEntryDraft> {
-        val segments = mealText
-            .stripMealNutritionBlock()
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
-            .replace("•", "\n")
-            .split("\n", "+", ";", ",")
-            .map { it.trim() }
-            .filter { it.isNotBlank() && !isNutritionLine(it) }
+        val components = parseMealStructuredSections(mealText)
+            .flatMap { it.components }
 
-        val entries = buildList {
-            segments.forEach { segment ->
-                extractChecklistEntryFromSegment(segment)?.let(::add)
-            }
-        }
-
-        return entries.distinctBy { it.key }
+        return components.mapNotNull(::extractChecklistEntryFromComponent)
     }
 
-    private fun extractChecklistEntryFromSegment(segment: String): ChecklistEntryDraft? {
-        val normalizedSegment = segment.replace(Regex("\\s+"), " ").trim()
-        if (normalizedSegment.isBlank() || isChecklistNoise(normalizedSegment) || isNutritionLine(normalizedSegment)) {
-            return null
-        }
+    private fun extractChecklistEntryFromComponent(
+        component: ParsedMealComponent
+    ): ChecklistEntryDraft? {
+        val componentLabel = component.alternatives
+            .map(::normalizeChecklistSource)
+            .filter { it.isNotBlank() }
+            .joinToString(separator = " / ")
+            .trim()
 
-        gramsOrMlPattern.find(normalizedSegment)?.let { match ->
+        if (componentLabel.isBlank()) return null
+        if (isChecklistNoise(componentLabel) || isNutritionLine(componentLabel)) return null
+
+        val weeklyTarget = component.weeklyQuantityNotes
+            .firstNotNullOfOrNull(::extractWeeklyTargetCount)
+
+        val mealPortionNote = component.mealQuantityNotes
+            .firstOrNull()
+            ?.let(::normalizeMealQuantityNote)
+
+        gramsOrMlPattern.find(componentLabel)?.let { match ->
             val amount = match.groupValues[1].replace(",", ".").trim()
             val unit = normalizeMeasurementUnit(match.groupValues[2])
             val rawFood = cleanupFoodTail(match.groupValues[3])
             val title = formatChecklistTitle(rawFood)
             if (title.isBlank()) return null
+
             return ChecklistEntryDraft(
                 key = normalizeChecklistKey(title),
                 title = title,
-                portionText = "$amount $unit"
+                portionText = mealPortionNote ?: "$amount $unit",
+                targetIncrement = weeklyTarget ?: 1,
+                consumedIncrement = 1
             )
         }
 
-        countedFoodPattern.find(normalizedSegment)?.let { match ->
+        countedFoodPattern.find(componentLabel)?.let { match ->
             val quantity = match.groupValues[1].trim()
             val rawPhrase = cleanupFoodTail(match.groupValues[2])
             if (rawPhrase.isBlank() || isChecklistNoise(rawPhrase) || isNutritionLine(rawPhrase)) return null
+
             val refined = refineCountedFoodPhrase(quantity, rawPhrase) ?: return null
             return ChecklistEntryDraft(
                 key = normalizeChecklistKey(refined.title),
                 title = refined.title,
-                portionText = refined.portionText
+                portionText = mealPortionNote ?: refined.portionText,
+                targetIncrement = weeklyTarget ?: 1,
+                consumedIncrement = 1
             )
         }
 
-        return null
+        val title = formatChecklistTitle(cleanupFoodTail(componentLabel))
+        if (title.isBlank() || isChecklistNoise(title) || isNutritionLine(title)) return null
+
+        if (weeklyTarget == null && mealPortionNote == null) {
+            return null
+        }
+
+        return ChecklistEntryDraft(
+            key = normalizeChecklistKey(title),
+            title = title,
+            portionText = mealPortionNote,
+            targetIncrement = weeklyTarget ?: 1,
+            consumedIncrement = 1
+        )
+    }
+
+    private fun extractWeeklyTargetCount(note: String): Int? {
+        val normalized = note
+            .lowercase()
+            .replace("’", "'")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+        return when {
+            normalized.contains("a settimana") -> {
+                Regex("(?:n\\.?\\s*)?(\\d+)").find(normalized)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                    ?: Regex("max\\s*(\\d+)").find(normalized)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            }
+            else -> null
+        }
+    }
+
+    private fun normalizeMealQuantityNote(note: String): String {
+        return note
+            .replace(Regex("\\bnel\\s+pasto\\b", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .trim(',', ';')
+            .ifBlank { note }
     }
 
     private fun refineCountedFoodPhrase(quantity: String, phrase: String): RefinedChecklistPhrase? {
@@ -155,7 +202,6 @@ object WeeklyQuantityChecklistBuilder {
 
     private fun cleanupFoodTail(raw: String): String {
         return raw
-            .substringBefore(" oppure ")
             .substringBefore(" con ")
             .substringBefore(" accompagnato")
             .substringBefore(" a scelta")
@@ -164,7 +210,14 @@ object WeeklyQuantityChecklistBuilder {
             .trim()
             .replace(Regex("\\s+"), " ")
             .replace(Regex("^(di|del|della|dei|degli|delle)\\s+"), "")
-            .replace(Regex("\\b(al|alla|ai|alle|con|e|oppure)\\b.*$"), "")
+            .replace(Regex("\\b(al|alla|ai|alle|con|e)\\b.*$"), "")
+            .trim()
+            .removeSuffix(".")
+    }
+
+    private fun normalizeChecklistSource(raw: String): String {
+        return raw
+            .replace(Regex("\\s+"), " ")
             .trim()
             .removeSuffix(".")
     }
@@ -203,6 +256,16 @@ object WeeklyQuantityChecklistBuilder {
         return checklistNoiseWords.any { noise -> normalized == noise || normalized.startsWith("$noise ") }
     }
 
-    private data class ChecklistEntryDraft(val key: String, val title: String, val portionText: String?)
-    private data class RefinedChecklistPhrase(val title: String, val portionText: String)
+    private data class ChecklistEntryDraft(
+        val key: String,
+        val title: String,
+        val portionText: String?,
+        val targetIncrement: Int,
+        val consumedIncrement: Int
+    )
+
+    private data class RefinedChecklistPhrase(
+        val title: String,
+        val portionText: String
+    )
 }

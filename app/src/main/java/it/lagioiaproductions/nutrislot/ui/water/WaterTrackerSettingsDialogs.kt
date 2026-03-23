@@ -28,77 +28,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun AmountDialog(
-    title: String,
-    currentValueMl: Int,
-    confirmLabel: String,
-    presets: List<Int>,
-    initialInput: String,
-    helperText: String,
-    onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit
-) {
-    var input by remember(initialInput) { mutableStateOf(initialInput) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Current: $currentValueMl ml",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                Text(
-                    text = helperText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                PresetRow(
-                    values = presets.take(3),
-                    onSelected = { input = it.toString() }
-                )
-
-                if (presets.size > 3) {
-                    PresetRow(
-                        values = presets.drop(3),
-                        onSelected = { input = it.toString() }
-                    )
-                }
-
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it.filter(Char::isDigit) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("ml") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val parsed = input.toIntOrNull()
-                    if (parsed != null && parsed >= 0) {
-                        onConfirm(parsed)
-                    }
-                }
-            ) {
-                Text(confirmLabel)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
 fun ReminderDialog(
     enabled: Boolean,
     intervalMinutes: Int,
@@ -128,13 +57,13 @@ fun ReminderDialog(
                     )
                 }
 
-                PresetRow(
+                WaterPresetRow(
                     values = listOf(30, 60, 90),
                     suffix = "min",
                     onSelected = { localIntervalText = it.toString() }
                 )
 
-                PresetRow(
+                WaterPresetRow(
                     values = listOf(120, 150, 180),
                     suffix = "min",
                     onSelected = { localIntervalText = it.toString() }
@@ -158,31 +87,6 @@ fun ReminderDialog(
                 }
             ) {
                 Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
-fun ResetWaterDialog(
-    title: String,
-    description: String,
-    confirmLabel: String,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(description) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(confirmLabel)
             }
         },
         dismissButton = {
@@ -263,28 +167,4 @@ fun ContainerPresetsDialog(
         },
         dismissButton = null
     )
-}
-
-@Composable
-private fun PresetRow(
-    values: List<Int>,
-    suffix: String = "ml",
-    onSelected: (Int) -> Unit
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        values.forEach { value ->
-            Surface(
-                onClick = { onSelected(value) },
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Text(
-                    text = "$value $suffix",
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
 }

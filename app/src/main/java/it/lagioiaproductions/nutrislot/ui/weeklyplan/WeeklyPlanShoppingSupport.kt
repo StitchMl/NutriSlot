@@ -96,48 +96,88 @@ internal fun extractShoppingItemsFromSlots(slots: List<WeeklySlotUi>): List<Stri
 }
 
 internal fun extractShoppingItemsFromMealText(mealText: String): List<String> {
-    val cleanedSource = mealText.stripMealNutritionBlock()
+    val sections = parseMealStructuredSections(mealText)
 
-    val parsedLines = parseMealSections(cleanedSource)
-        .flatMap { section -> section.flatMap(::splitShoppingSegments) }
+    val parsedItems = sections
+        .flatMap { section -> section.components }
+        .mapNotNull(::buildShoppingItemFromComponent)
 
-    if (parsedLines.isEmpty()) return emptyList()
-
-    return normalizeShoppingItems(parsedLines)
+    if (parsedItems.isEmpty()) return emptyList()
+    return normalizeShoppingItems(parsedItems)
 }
 
-private fun splitShoppingSegments(line: String): List<String> {
-    val sanitizedLine = line
-        .stripMealNutritionBlock()
-        .replace("•", "\n")
-        .trim()
+private fun buildShoppingItemFromComponent(
+    component: ParsedMealComponent
+): String? {
+    val normalizedAlternatives = component.alternatives
+        .map(::normalizeShoppingText)
+        .filter { it.isNotBlank() }
 
-    if (
-        sanitizedLine.isBlank() ||
-        isNutritionLine(sanitizedLine) ||
-        isStandaloneShoppingHeading(sanitizedLine)
-    ) {
-        return emptyList()
+    if (normalizedAlternatives.isEmpty()) return null
+
+    val expandedAlternatives = collapseBreadVariantsForShopping(normalizedAlternatives)
+
+    val base = expandedAlternatives.joinToString(separator = " / ")
+    if (base.isBlank()) return null
+
+    val inlineNotes = mutableListOf<String>()
+
+    if (component.mealQuantityNotes.isNotEmpty()) {
+        inlineNotes += component.mealQuantityNotes.distinct()
     }
 
-    return sanitizedLine
-        .split(Regex("\\s*\\+\\s*"))
-        .flatMap { chunk ->
-            chunk.lines().map { it.trim() }
+    if (component.exampleNotes.isNotEmpty()) {
+        inlineNotes += "es. ${component.exampleNotes.distinct().joinToString(separator = "; ")}"
+    }
+
+    val genericNotesToKeep = component.genericNotes
+        .filter { note ->
+            val normalized = note.lowercase()
+            "%" in normalized || normalized.contains("integrale") || normalized.contains("light")
         }
-        .map { chunk ->
-            chunk.replace(Regex("^[-•\\s]+"), "")
-                .replace(
-                    Regex("^(?:oppure|in alternativa|alternativa)\\s*:?\\s+", RegexOption.IGNORE_CASE),
-                    ""
-                )
-                .trim()
-        }
-        .filter { chunk ->
-            chunk.isNotBlank() &&
-                    !isNutritionLine(chunk) &&
-                    !isStandaloneShoppingHeading(chunk)
-        }
+        .distinct()
+
+    inlineNotes += genericNotesToKeep
+
+    return if (inlineNotes.isEmpty()) {
+        base
+    } else {
+        "$base (${inlineNotes.joinToString(separator = "; ")})"
+    }
+}
+
+private val BREAD_ONLY_REGEX = Regex(
+    pattern = """^(?:\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|ml|l)\s+di\s+)?pane\s+(scuro|integrale)\b.*$""",
+    options = setOf(RegexOption.IGNORE_CASE)
+)
+
+private fun collapseBreadVariantsForShopping(alternatives: List<String>): List<String> {
+    if (alternatives.size < 2) return alternatives
+
+    val breadAlternatives = alternatives.filter { BREAD_ONLY_REGEX.matches(it) }
+    val nonBreadAlternatives = alternatives.filterNot { BREAD_ONLY_REGEX.matches(it) }
+
+    if (breadAlternatives.size < 2) return alternatives
+
+    val qualifiers = breadAlternatives.mapNotNull { alt ->
+        BREAD_ONLY_REGEX.matchEntire(alt)?.groupValues?.getOrNull(1)?.lowercase()
+    }.distinct()
+
+    if (!qualifiers.containsAll(listOf("scuro", "integrale"))) {
+        return alternatives
+    }
+
+    val normalizedBread = breadAlternatives.first()
+        .replace(Regex("""\bscuro\b""", RegexOption.IGNORE_CASE), "scuro/integrale")
+        .replace(Regex("""\bintegrale\b""", RegexOption.IGNORE_CASE), "scuro/integrale")
+        .replace(
+            Regex("""\bscuro/integrale\b\s*/\s*\bscuro/integrale\b""", RegexOption.IGNORE_CASE),
+            "scuro/integrale"
+        )
+        .replace(Regex("""\s+"""), " ")
+        .trim()
+
+    return nonBreadAlternatives + normalizedBread
 }
 
 private fun normalizeShoppingItems(items: List<String>): List<String> {
@@ -160,6 +200,11 @@ private fun normalizeShoppingItems(items: List<String>): List<String> {
         .distinct()
 }
 
+private fun normalizeShoppingText(text: String): String {
+    return text
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
 private fun isStandaloneShoppingHeading(line: String): Boolean {
     return when (line.lowercase().trim()) {
         "colazione",

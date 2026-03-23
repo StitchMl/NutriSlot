@@ -1,4 +1,8 @@
+@file:Suppress("CanBeVal")
+
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
+
+import it.lagioiaproductions.nutrislot.ui.shared.normalizeMealUiLine
 
 internal data class MealVisualInfo(
     val emoji: String,
@@ -10,14 +14,22 @@ internal data class ParsedMealSectionUi(
     val visualInfo: MealVisualInfo
 )
 
-internal fun parseMealSections(text: String): List<List<String>> {
-    return parseMealSectionVisuals(text).map { it.lines }
-}
+internal data class ParsedMealComponent(
+    val alternatives: List<String>,
+    val exampleNotes: List<String>,
+    val genericNotes: List<String>,
+    val weeklyQuantityNotes: List<String>,
+    val mealQuantityNotes: List<String>
+)
 
-internal fun parseMealSectionVisuals(text: String): List<ParsedMealSectionUi> {
+internal data class ParsedMealStructuredSection(
+    val components: List<ParsedMealComponent>
+)
+
+internal fun parseMealStructuredSections(text: String): List<ParsedMealStructuredSection> {
     val cleanedSource = text.stripMealNutritionBlock()
 
-    val rawLines = protectConnectedMealPhrases(cleanedSource)
+    val rawLines = cleanedSource
         .replace("\r\n", "\n")
         .replace("\r", "\n")
         .replace("•", "\n• ")
@@ -25,39 +37,29 @@ internal fun parseMealSectionVisuals(text: String): List<ParsedMealSectionUi> {
         .map { it.trim() }
         .filter { it.isNotBlank() }
 
-    if (rawLines.isEmpty()) {
-        return emptyList()
-    }
+    if (rawLines.isEmpty()) return emptyList()
 
-    val sections = mutableListOf<List<String>>()
-    var currentSection = mutableListOf<String>()
+    val sections = mutableListOf<ParsedMealStructuredSection>()
+    val currentComponents = mutableListOf<MutableParsedMealComponent>()
+    var forceNextAsAlternative = false
 
     fun flushSection() {
-        val restoredLines = currentSection
-            .map(::restoreConnectedMealPhrases)
-            .map(String::normalizeMealUiLine)
-            .filter { it.isNotBlank() }
+        val immutableComponents = currentComponents
+            .map { component -> component.toImmutable() }
+            .filter { component -> component.alternatives.isNotEmpty() }
 
-        if (restoredLines.isNotEmpty()) {
-            sections += restoredLines
+        if (immutableComponents.isNotEmpty()) {
+            sections += ParsedMealStructuredSection(
+                components = immutableComponents
+            )
         }
-        currentSection = mutableListOf()
-    }
-
-    fun appendSegment(segment: String) {
-        val normalizedSegment = segment.normalizeMealUiLine()
-        if (normalizedSegment.isBlank()) return
-
-        val previous = currentSection.lastOrNull()
-        if (previous != null && shouldAppendMealContinuation(previous, normalizedSegment)) {
-            currentSection[currentSection.lastIndex] = "$previous $normalizedSegment"
-                .normalizeMealUiLine()
-        } else {
-            currentSection += normalizedSegment
-        }
+        currentComponents.clear()
+        forceNextAsAlternative = false
     }
 
     rawLines.forEach { rawLine ->
+        val startsWithBullet = BULLET_PREFIX_REGEX.containsMatchIn(rawLine)
+
         var normalizedLine = rawLine
             .trim()
             .removePrefix("•")
@@ -69,39 +71,54 @@ internal fun parseMealSectionVisuals(text: String): List<ParsedMealSectionUi> {
 
         if (normalizedLine.isBlank()) return@forEach
         if (normalizedLine == "+") {
-            flushSection()
+            forceNextAsAlternative = false
             return@forEach
         }
-        if (isStandaloneMealHeading(normalizedLine)) {
-            return@forEach
-        }
-        if (isNutritionLine(normalizedLine)) {
-            flushSection()
+        if (isStandaloneMealHeading(normalizedLine)) return@forEach
+        if (isNutritionLine(normalizedLine)) return@forEach
+
+        if (isStandaloneAlternativeSeparatorLine(normalizedLine)) {
+            forceNextAsAlternative = true
             return@forEach
         }
 
-        if (startsWithAlternativePrefix(normalizedLine)) {
+        if (startsWithBullet && currentComponents.isNotEmpty()) {
             flushSection()
-            normalizedLine = removeAlternativePrefix(normalizedLine)
         }
 
-        val inlineAlternatives = splitInlineAlternatives(normalizedLine)
-        if (inlineAlternatives.isEmpty()) return@forEach
+        val additiveSegments = splitTopLevelAdditives(normalizedLine)
+        if (additiveSegments.isEmpty()) return@forEach
 
-        inlineAlternatives.forEachIndexed { index, segment ->
-            if (index > 0) {
-                flushSection()
+        additiveSegments.forEach { segment ->
+            val parsed = parseComponentSegment(segment) ?: return@forEach
+
+            val shouldAttachToPrevious =
+                (forceNextAsAlternative || parsed.attachAsAlternativeToPrevious) &&
+                        currentComponents.isNotEmpty()
+
+            if (shouldAttachToPrevious) {
+                currentComponents.last().merge(parsed.component)
+            } else {
+                currentComponents += parsed.component
             }
-            appendSegment(segment)
+
+            forceNextAsAlternative = false
         }
     }
 
     flushSection()
+    return sections
+}
 
-    return sections.map { lines ->
+internal fun parseMealSectionVisuals(text: String): List<ParsedMealSectionUi> {
+    return parseMealStructuredSections(text).map { section ->
+        val renderedLines = section.components
+            .map(::renderComponentLine)
+            .filter { it.isNotBlank() }
+
         ParsedMealSectionUi(
-            lines = lines,
-            visualInfo = inferMealVisualInfo(lines.joinToString(separator = " "))
+            lines = renderedLines,
+            visualInfo = inferMealVisualInfo(renderedLines.joinToString(separator = " "))
         )
     }
 }
@@ -200,64 +217,497 @@ internal fun isNutritionLine(line: String): Boolean {
             normalized.startsWith("tot. g lipidi")
 }
 
-private fun String.normalizeMealUiLine(): String {
-    return replace(Regex("\\s+"), " ").trim()
+private fun renderComponentLine(component: ParsedMealComponent): String {
+    val main = component.alternatives.joinToString(separator = " / ").normalizeMealUiLine()
+    if (main.isBlank()) return ""
+
+    val notes = mutableListOf<String>()
+
+    if (component.mealQuantityNotes.isNotEmpty()) {
+        notes += component.mealQuantityNotes.distinct()
+    }
+
+    if (component.weeklyQuantityNotes.isNotEmpty()) {
+        notes += component.weeklyQuantityNotes.distinct()
+    }
+
+    if (component.exampleNotes.isNotEmpty()) {
+        notes += "es. ${component.exampleNotes.distinct().joinToString(separator = "; ")}"
+    }
+
+    if (component.genericNotes.isNotEmpty()) {
+        notes += component.genericNotes.distinct()
+    }
+
+    return if (notes.isEmpty()) {
+        main
+    } else {
+        "$main (${notes.joinToString(separator = "; ")})"
+    }
 }
 
-private fun protectConnectedMealPhrases(text: String): String {
-    var result = text
-    PROTECTED_MEAL_PHRASES.forEachIndexed { index, phrase ->
-        val placeholder = "__MEAL_KEEP_${index}__"
-        result = Regex(Regex.escape(phrase), RegexOption.IGNORE_CASE)
-            .replace(result) { placeholder }
+private fun parseComponentSegment(
+    rawSegment: String
+): ParsedComponentParseResult? {
+    var working = rawSegment
+        .normalizeBreadQualifierShorthand()
+        .normalizeMealUiLine()
+    if (working.isBlank()) return null
+
+    val attachAsAlternativeToPrevious = startsWithAlternativePrefix(working)
+    if (attachAsAlternativeToPrevious) {
+        working = removeAlternativePrefix(working)
     }
+
+    val notesExtraction = extractParentheticalNotes(working)
+    val alternatives = splitTopLevelAlternatives(notesExtraction.baseText)
+        .map(::restoreCollapsedWhitespace)
+        .map(String::normalizeMealUiLine)
+        .filter { it.isNotBlank() }
+
+    if (alternatives.isEmpty()) return null
+
+    val component = MutableParsedMealComponent(
+        alternatives = alternatives.toMutableList()
+    )
+
+    notesExtraction.notes.forEach { rawNote ->
+        classifyParentheticalNote(rawNote, component)
+    }
+
+    return ParsedComponentParseResult(
+        component = component,
+        attachAsAlternativeToPrevious = attachAsAlternativeToPrevious
+    )
+}
+
+private fun classifyParentheticalNote(
+    rawNote: String,
+    component: MutableParsedMealComponent
+) {
+    val normalized = rawNote
+        .trim()
+        .removePrefix("(")
+        .removeSuffix(")")
+        .normalizeMealUiLine()
+
+    if (normalized.isBlank()) return
+
+    val matchable = normalized
+        .lowercase()
+        .replace("’", "'")
+        .normalizeMealUiLine()
+
+    when {
+        EXAMPLE_PREFIX_REGEX.containsMatchIn(matchable) -> {
+            val examplePayload = EXAMPLE_PREFIX_REGEX.replace(matchable, "").normalizeMealUiLine()
+            component.exampleNotes += examplePayload.ifBlank { normalized }
+        }
+
+        (matchable.startsWith("n.") || matchable.startsWith("n ") || matchable.startsWith("max ")) &&
+                matchable.contains("a settimana") -> {
+            component.weeklyQuantityNotes += normalized
+        }
+
+        (matchable.startsWith("n.") || matchable.startsWith("n ") || matchable.startsWith("max ")) &&
+                matchable.contains("nel pasto") -> {
+            component.mealQuantityNotes += normalized
+        }
+
+        else -> {
+            component.genericNotes += normalized
+        }
+    }
+}
+
+private fun extractParentheticalNotes(
+    text: String
+): ParentheticalExtraction {
+    val notes = mutableListOf<String>()
+    val baseBuilder = StringBuilder()
+    var depth = 0
+    val noteBuilder = StringBuilder()
+
+    text.forEach { char ->
+        when {
+            char == '(' -> {
+                if (depth == 0) {
+                    noteBuilder.clear()
+                } else {
+                    noteBuilder.append(char)
+                }
+                depth += 1
+            }
+
+            char == ')' && depth > 0 -> {
+                depth -= 1
+                if (depth == 0) {
+                    val note = noteBuilder.toString().normalizeMealUiLine()
+                    if (note.isNotBlank()) {
+                        notes += note
+                    }
+                } else {
+                    noteBuilder.append(char)
+                }
+            }
+
+            depth > 0 -> {
+                noteBuilder.append(char)
+            }
+
+            else -> {
+                baseBuilder.append(char)
+            }
+        }
+    }
+
+    return ParentheticalExtraction(
+        baseText = baseBuilder.toString()
+            .normalizeAlternativeMarkers()
+            .normalizeBreadQualifierShorthand()
+            .normalizeMealUiLine(),
+        notes = notes
+    )
+}
+
+private fun splitTopLevelAdditives(text: String): List<String> {
+    return splitTopLevel(
+        text
+            .normalizeAlternativeMarkers()
+            .normalizeBreadQualifierShorthand()
+    ) { source, index ->
+        additiveSeparatorLengthAt(source, index)
+    }
+}
+
+private fun splitTopLevelAlternatives(text: String): List<String> {
+    val normalized = text
+        .normalizeAlternativeMarkers()
+        .normalizeBreadQualifierShorthand()
+
+    val splitByWords = splitTopLevel(normalized) { source, index ->
+        alternativeWordSeparatorLengthAt(source, index)
+    }
+
+    return splitByWords
+        .flatMap { part ->
+            splitBreadAwareAlternatives(part)
+        }
+        .map(::normalizeInlineAlternativeText)
+        .map(::restoreCollapsedWhitespace)
+        .filter { it.isNotBlank() }
+}
+
+private fun splitBreadAwareAlternatives(text: String): List<String> {
+    val normalized = text.normalizeBreadQualifierShorthand()
+
+    splitSlashAlternativesKeepingCarbGroup(normalized)?.let { grouped ->
+        return grouped
+            .map(String::normalizeMealUiLine)
+            .filter(String::isNotBlank)
+    }
+
+    return splitHeuristicSlashAlternatives(normalized)
+        .map(String::normalizeMealUiLine)
+        .filter(String::isNotBlank)
+}
+
+private const val BREAD_QUALIFIER_SLASH_PLACEHOLDER = "__BREAD_QUALIFIER_SLASH__"
+
+private val BREAD_WITH_OR_REGEX = Regex(
+    pattern = """((?:\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|mg|ml|cl|l)\s+di\s+)?(?:pane|panino)\s+)(scuro|integrale)\s+o\s+(?:(?:pane|panino)\s+)?(scuro|integrale)(.*)""",
+    options = setOf(RegexOption.IGNORE_CASE)
+)
+
+private val BREAD_WITH_SLASH_REGEX = Regex(
+    pattern = """((?:\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|mg|ml|cl|l)\s+di\s+)?(?:pane|panino)\s+)(scuro|integrale)\s*/\s*(?:(?:pane|panino)\s+)?(scuro|integrale)(.*)""",
+    options = setOf(RegexOption.IGNORE_CASE)
+)
+
+private val IMPLICIT_BREAD_SHORTHAND_REGEX = Regex(
+    pattern = """((?:\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|mg|ml|cl|l)\s+di\s+)?(?:pane|panino)\s+)scuro\s+integrale(.*)""",
+    options = setOf(RegexOption.IGNORE_CASE)
+)
+
+private val CANONICAL_BREAD_QUALIFIER_REGEX = Regex(
+    pattern = """((?:\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|mg|ml|cl|l)\s+di\s+)?(?:pane|panino)\s+)(scuro|integrale)/(scuro|integrale)(.*)""",
+    options = setOf(RegexOption.IGNORE_CASE)
+)
+
+private fun String.normalizeBreadQualifierShorthand(): String {
+    val slashNormalized = BREAD_WITH_SLASH_REGEX.replace(this) { match ->
+        val prefix = match.groupValues[1]
+        val first = match.groupValues[2]
+        val second = match.groupValues[3]
+        val suffix = match.groupValues[4]
+        "$prefix$first/$second$suffix"
+    }
+
+    val orNormalized = BREAD_WITH_OR_REGEX.replace(slashNormalized) { match ->
+        val prefix = match.groupValues[1]
+        val first = match.groupValues[2]
+        val second = match.groupValues[3]
+        val suffix = match.groupValues[4]
+        "$prefix$first/$second$suffix"
+    }
+
+    return IMPLICIT_BREAD_SHORTHAND_REGEX.replace(orNormalized) { match ->
+        val prefix = match.groupValues[1]
+        val suffix = match.groupValues[2]
+        prefix + "scuro/integrale" + suffix
+    }
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+private fun protectBreadQualifierSlash(text: String): String {
+    return CANONICAL_BREAD_QUALIFIER_REGEX.replace(text) { match ->
+        val prefix = match.groupValues[1]
+        val first = match.groupValues[2]
+        val second = match.groupValues[3]
+        val suffix = match.groupValues[4]
+        "$prefix$first$BREAD_QUALIFIER_SLASH_PLACEHOLDER$second$suffix"
+    }
+}
+
+private fun restoreProtectedBreadQualifierSlash(text: String): String {
+    return text.replace(BREAD_QUALIFIER_SLASH_PLACEHOLDER, "/")
+}
+
+private fun splitSlashAlternativesKeepingCarbGroup(text: String): List<String>? {
+    val normalized = protectBreadQualifierSlash(
+        text
+            .normalizeBreadQualifierShorthand()
+            .normalizeMealUiLine()
+    )
+
+    if (!normalized.contains("/")) return null
+
+    val parts = normalized
+        .split("/")
+        .map(::restoreProtectedBreadQualifierSlash)
+        .map(String::trim)
+        .filter(String::isNotBlank)
+
+    if (parts.size < 2) return null
+
+    val result = mutableListOf<String>()
+    val current = mutableListOf<String>()
+
+    parts.forEach { part ->
+        if (current.isEmpty()) {
+            current += part
+        } else {
+            val currentJoined = current.joinToString(" / ").normalizeMealUiLine()
+            val currentHasQuantity = containsAlternativeQuantity(currentJoined)
+
+            val nextStartsBreadAlternative =
+                currentHasQuantity &&
+                        (
+                                part.contains("pane", ignoreCase = true) ||
+                                        part.contains("panino", ignoreCase = true) ||
+                                        part.equals("scuro", ignoreCase = true) ||
+                                        part.equals("integrale", ignoreCase = true)
+                                )
+
+            if (nextStartsBreadAlternative) {
+                result += currentJoined
+                current.clear()
+                current += part
+            } else {
+                current += part
+            }
+        }
+    }
+
+    if (current.isNotEmpty()) {
+        result += current.joinToString(" / ").normalizeMealUiLine()
+    }
+
+    return result.takeIf { it.size > 1 }
+}
+
+private fun splitTopLevel(
+    text: String,
+    separatorLengthAt: (String, Int) -> Int
+): List<String> {
+    val result = mutableListOf<String>()
+    val current = StringBuilder()
+    var depth = 0
+    var index = 0
+
+    fun flushCurrent() {
+        val value = current.toString().normalizeMealUiLine()
+        if (value.isNotBlank()) {
+            result += value
+        }
+        current.clear()
+    }
+
+    while (index < text.length) {
+        val char = text[index]
+
+        when {
+            char == '(' -> {
+                depth += 1
+                current.append(char)
+                index += 1
+            }
+
+            char == ')' -> {
+                if (depth > 0) depth -= 1
+                current.append(char)
+                index += 1
+            }
+
+            depth == 0 -> {
+                val separatorLength = separatorLengthAt(text, index)
+                if (separatorLength > 0) {
+                    flushCurrent()
+                    index += separatorLength
+                } else {
+                    current.append(char)
+                    index += 1
+                }
+            }
+
+            else -> {
+                current.append(char)
+                index += 1
+            }
+        }
+    }
+
+    flushCurrent()
     return result
 }
 
-private fun restoreConnectedMealPhrases(text: String): String {
-    var result = text
-    PROTECTED_MEAL_PHRASES.forEachIndexed { index, phrase ->
-        result = result.replace("__MEAL_KEEP_${index}__", phrase)
+private fun additiveSeparatorLengthAt(text: String, index: Int): Int {
+    return when {
+        text[index] == '+' -> 1
+        text.regionMatches(index, " e ", 0, 3, ignoreCase = true) -> 3
+        else -> 0
     }
-    return result
 }
 
-private fun shouldAppendMealContinuation(
-    previous: String,
-    current: String
+private fun alternativeWordSeparatorLengthAt(text: String, index: Int): Int {
+    return when {
+        text.regionMatches(index, " e/o ", 0, 5, ignoreCase = true) -> 5
+        text.regionMatches(index, " oppure ", 0, 8, ignoreCase = true) -> 8
+        text.regionMatches(index, " in alternativa ", 0, 16, ignoreCase = true) -> 16
+        text.regionMatches(index, " alternativa ", 0, 13, ignoreCase = true) -> 13
+        text.regionMatches(index, " o ", 0, 3, ignoreCase = true) -> 3
+        else -> 0
+    }
+}
+
+private fun splitHeuristicSlashAlternatives(text: String): List<String> {
+    val source = protectBreadQualifierSlash(text.normalizeBreadQualifierShorthand())
+    val result = mutableListOf<String>()
+    val current = StringBuilder()
+    var depth = 0
+    var index = 0
+
+    fun flushCurrent() {
+        val value = restoreProtectedBreadQualifierSlash(current.toString()).normalizeMealUiLine()
+        if (value.isNotBlank()) {
+            result += value
+        }
+        current.clear()
+    }
+
+    while (index < source.length) {
+        val char = source[index]
+
+        when {
+            char == '(' -> {
+                depth += 1
+                current.append(char)
+                index += 1
+            }
+
+            char == ')' -> {
+                if (depth > 0) depth -= 1
+                current.append(char)
+                index += 1
+            }
+
+            depth == 0 && char == '/' -> {
+                val left = restoreProtectedBreadQualifierSlash(current.toString()).normalizeMealUiLine()
+                val right = restoreProtectedBreadQualifierSlash(source.substring(index + 1).trimStart())
+
+                if (shouldSplitSlashAlternative(left, right)) {
+                    flushCurrent()
+                    index += 1
+                    while (index < source.length && source[index].isWhitespace()) {
+                        index += 1
+                    }
+                } else {
+                    current.append(char)
+                    index += 1
+                }
+            }
+
+            else -> {
+                current.append(char)
+                index += 1
+            }
+        }
+    }
+
+    flushCurrent()
+    return result.ifEmpty { listOf(restoreProtectedBreadQualifierSlash(source).normalizeMealUiLine()) }
+}
+
+private fun shouldSplitSlashAlternative(
+    left: String,
+    right: String
 ): Boolean {
-    val normalizedCurrent = current.normalizeMealUiLine().lowercase()
+    if (left.isBlank() || right.isBlank()) return false
+
+    val leftNormalized = left.normalizeMealUiLine()
+    val rightNormalized = right.normalizeMealUiLine()
+
     if (
-        normalizedCurrent.startsWith("oppure") ||
-        normalizedCurrent.startsWith("in alternativa") ||
-        normalizedCurrent.startsWith("alternativa") ||
-        normalizedCurrent.startsWith("nb") ||
-        normalizedCurrent.startsWith("max ") ||
-        normalizedCurrent.startsWith("nutrienti") ||
-        normalizedCurrent.startsWith("tot ")
+        leftNormalized.contains("pane", ignoreCase = true) &&
+        (
+                rightNormalized.equals("scuro", ignoreCase = true) ||
+                        rightNormalized.equals("integrale", ignoreCase = true)
+                )
     ) {
         return false
     }
 
-    val firstChar = current.firstOrNull() ?: return false
+    val leftHasQuantity = containsAlternativeQuantity(leftNormalized)
+    val rightStartsWithQuantity = startsWithAlternativeQuantity(rightNormalized)
 
-    val currentLooksLikeContinuation =
-        firstChar.isLowerCase() ||
-                firstChar.isDigit() ||
-                firstChar == '(' ||
-                firstChar == '%' ||
-                current.length <= 18
+    if (rightStartsWithQuantity) return true
+    if (leftHasQuantity) return true
 
-    val normalizedPrevious = previous.normalizeMealUiLine().lowercase()
-    val previousLooksOpen =
-        previous.endsWith(",") ||
-                previous.endsWith(":") ||
-                previous.endsWith("/") ||
-                previous.endsWith("-") ||
-                normalizedPrevious.endsWith(" o") ||
-                normalizedPrevious.endsWith(" ed")
+    return false
+}
 
-    return currentLooksLikeContinuation || previousLooksOpen
+private fun containsAlternativeQuantity(text: String): Boolean {
+    return ALTERNATIVE_QUANTITY_REGEX.containsMatchIn(text)
+}
+
+private fun startsWithAlternativeQuantity(text: String): Boolean {
+    return ALTERNATIVE_LEADING_QUANTITY_REGEX.containsMatchIn(text)
+}
+
+private fun normalizeInlineAlternativeText(text: String): String {
+    return text
+        .replace(Regex("(?i)/\\s+di\\s+(?=farro\\b|orzo\\b|riso\\b|couscous\\b|pane\\b|patate\\b)"), "/ ")
+        .replace(Regex("\\s*/\\s*"), "/")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+private fun isStandaloneAlternativeSeparatorLine(line: String): Boolean {
+    return line == "/" ||
+            line.equals("oppure", ignoreCase = true) ||
+            line.equals("alternativa", ignoreCase = true) ||
+            line.equals("in alternativa", ignoreCase = true)
 }
 
 private fun startsWithAlternativePrefix(text: String): Boolean {
@@ -265,14 +715,48 @@ private fun startsWithAlternativePrefix(text: String): Boolean {
 }
 
 private fun removeAlternativePrefix(text: String): String {
-    return ALTERNATIVE_PREFIX_REGEX.replace(text, "").trim()
+    return ALTERNATIVE_PREFIX_REGEX.replace(text, "").normalizeMealUiLine()
 }
 
-private fun splitInlineAlternatives(text: String): List<String> {
-    return text
-        .split(ALTERNATIVE_SPLIT_REGEX)
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
+private fun String.normalizeAlternativeMarkers(): String {
+    return replace(
+        Regex("\\b(oppure|in alternativa|alternativa)\\s*:\\s*", RegexOption.IGNORE_CASE),
+        "$1 "
+    )
+}
+
+private fun restoreCollapsedWhitespace(text: String): String {
+    return text.replace(Regex("\\s+"), " ").trim()
+}
+
+private fun MutableParsedMealComponent.merge(other: MutableParsedMealComponent) {
+    alternatives += other.alternatives
+    exampleNotes += other.exampleNotes
+    genericNotes += other.genericNotes
+    weeklyQuantityNotes += other.weeklyQuantityNotes
+    mealQuantityNotes += other.mealQuantityNotes
+
+    deduplicateInPlace(alternatives)
+    deduplicateInPlace(exampleNotes)
+    deduplicateInPlace(genericNotes)
+    deduplicateInPlace(weeklyQuantityNotes)
+    deduplicateInPlace(mealQuantityNotes)
+}
+
+private fun MutableParsedMealComponent.toImmutable(): ParsedMealComponent {
+    return ParsedMealComponent(
+        alternatives = alternatives.distinct(),
+        exampleNotes = exampleNotes.distinct(),
+        genericNotes = genericNotes.distinct(),
+        weeklyQuantityNotes = weeklyQuantityNotes.distinct(),
+        mealQuantityNotes = mealQuantityNotes.distinct()
+    )
+}
+
+private fun <T> deduplicateInPlace(list: MutableList<T>) {
+    val distinctValues = list.distinct()
+    list.clear()
+    list.addAll(distinctValues)
 }
 
 private fun inferMealVisualInfo(text: String): MealVisualInfo {
@@ -398,26 +882,42 @@ private fun isStandaloneMealHeading(line: String): Boolean {
     }
 }
 
+private data class ParentheticalExtraction(
+    val baseText: String,
+    val notes: List<String>
+)
+
+private data class ParsedComponentParseResult(
+    val component: MutableParsedMealComponent,
+    val attachAsAlternativeToPrevious: Boolean
+)
+
+private data class MutableParsedMealComponent(
+    val alternatives: MutableList<String> = mutableListOf(),
+    val exampleNotes: MutableList<String> = mutableListOf(),
+    val genericNotes: MutableList<String> = mutableListOf(),
+    val weeklyQuantityNotes: MutableList<String> = mutableListOf(),
+    val mealQuantityNotes: MutableList<String> = mutableListOf()
+)
+
+private val BULLET_PREFIX_REGEX = Regex("""^[•\-–—]\s*""")
+
 private val ALTERNATIVE_PREFIX_REGEX = Regex(
     pattern = "^(?:oppure|in alternativa|alternativa)\\s*:?\\s+",
     option = RegexOption.IGNORE_CASE
 )
 
-private val ALTERNATIVE_SPLIT_REGEX = Regex(
-    pattern = "\\s+(?:oppure|in alternativa|alternativa)\\s*:?\\s+",
+private val EXAMPLE_PREFIX_REGEX = Regex(
+    pattern = "^(?:es\\.?|ad\\s+es\\.?)\\s*",
     option = RegexOption.IGNORE_CASE
 )
 
-private val PROTECTED_MEAL_PHRASES = listOf(
-    "scuro o integrale",
-    "integrale o scuro",
-    "pane scuro o integrale",
-    "pane integrale o scuro",
-    "cotta e/o cruda",
-    "cotte e/o crude",
-    "cotto e/o crudo",
-    "cotti e/o crudi",
-    "cruda e/o cotta",
-    "crude e/o cotte",
-    "caffè latte"
+private val ALTERNATIVE_QUANTITY_REGEX = Regex(
+    pattern = """\b(?:n\.?\s*\d+|\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|ml|l|uov[ao]|fette?|cucchiai?|cucchiaini?))\b""",
+    options = setOf(RegexOption.IGNORE_CASE)
+)
+
+private val ALTERNATIVE_LEADING_QUANTITY_REGEX = Regex(
+    pattern = """^(?:n\.?\s*\d+|\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|ml|l|uov[ao]|fette?|cucchiai?|cucchiaini?))\b""",
+    options = setOf(RegexOption.IGNORE_CASE)
 )
