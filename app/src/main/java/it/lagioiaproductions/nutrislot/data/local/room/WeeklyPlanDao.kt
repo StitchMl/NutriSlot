@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WeeklyPlanDao {
@@ -66,4 +67,24 @@ interface WeeklyPlanDao {
 
     @Query("DELETE FROM meal_consumptions WHERE id IN (:consumptionIds)")
     suspend fun deleteMealConsumptionsByIds(consumptionIds: List<String>)
+
+    @Query(
+        """
+        SELECT * FROM shopping_list_items
+        ORDER BY isPurchased ASC, createdAtEpochMillis ASC, id ASC
+        """
+    )
+    fun observeShoppingListItems(): Flow<List<ShoppingListItemEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertShoppingListItem(item: ShoppingListItemEntity): Long
+
+    @Query("UPDATE shopping_list_items SET isPurchased = NOT isPurchased WHERE id = :itemId")
+    suspend fun toggleShoppingListItemPurchased(itemId: Long)
+
+    @Query("DELETE FROM shopping_list_items WHERE id = :itemId")
+    suspend fun deleteShoppingListItemById(itemId: Long)
+
+    @Query("DELETE FROM shopping_list_items")
+    suspend fun clearShoppingList()
 }
