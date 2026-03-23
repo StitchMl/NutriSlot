@@ -9,16 +9,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -28,73 +33,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import it.lagioiaproductions.nutrislot.ui.shared.ShoppingListItemUi
-
-@Composable
-internal fun ShoppingItemsBoard(
-    activeItems: List<ShoppingListItemUi>,
-    completedItems: List<ShoppingListItemUi>,
-    onTogglePurchased: (Long) -> Unit,
-    onRemoveItem: (Long) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        SectionLabel(
-            title = "Da acquistare",
-            count = activeItems.size
-        )
-
-        when {
-            activeItems.isNotEmpty() -> {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    activeItems.forEach { item ->
-                        CompactShoppingRow(
-                            item = item,
-                            onTogglePurchased = { onTogglePurchased(item.id) },
-                            onRemoveClick = { onRemoveItem(item.id) }
-                        )
-                    }
-                }
-            }
-
-            completedItems.isNotEmpty() -> {
-                CompletedAllActiveState()
-            }
-
-            else -> {
-                EmptyShoppingState()
-            }
-        }
-
-        if (completedItems.isNotEmpty()) {
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
-            )
-
-            SectionLabel(
-                title = "Acquistati",
-                count = completedItems.size
-            )
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                completedItems.forEach { item ->
-                    CompactShoppingRow(
-                        item = item,
-                        onTogglePurchased = { onTogglePurchased(item.id) },
-                        onRemoveClick = { onRemoveItem(item.id) }
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 internal fun CompactShoppingRow(
@@ -157,12 +95,18 @@ internal fun CompactShoppingRow(
                     }
                 }
 
-                TextButton(
-                    onClick = onRemoveClick
+                FilledIconButton(
+                    onClick = onRemoveClick,
+                    modifier = Modifier.size(32.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 ) {
-                    Text(
-                        text = "Rimuovi",
-                        color = MaterialTheme.colorScheme.primary
+                    Icon(
+                        imageVector = Icons.Default.Cancel,
+                        contentDescription = "Rimuovi",
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -186,31 +130,6 @@ internal fun CompactShoppingRow(
                 }
             }
         }
-    }
-}
-
-@Composable
-internal fun EmojiBubble(
-    emoji: String,
-    isPurchased: Boolean
-) {
-    Surface(
-        shape = CircleShape,
-        color = if (isPurchased) {
-            MaterialTheme.colorScheme.surfaceVariant
-        } else {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-        },
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-        )
-    ) {
-        Text(
-            text = emoji,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            style = MaterialTheme.typography.titleMedium
-        )
     }
 }
 
@@ -374,24 +293,5 @@ internal fun AlternativeOptionRow(
                 }
             }
         }
-    }
-}
-
-@Composable
-internal fun SmallTag(text: String) {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
-        )
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary
-        )
     }
 }

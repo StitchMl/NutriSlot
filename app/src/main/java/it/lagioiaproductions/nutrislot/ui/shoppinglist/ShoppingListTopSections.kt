@@ -8,10 +8,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,17 +47,6 @@ internal fun ShoppingListHeader() {
                 lineHeight = 38.sp
             ),
             color = MaterialTheme.colorScheme.primary
-        )
-
-        Text(
-            text = "Una semplice lista per fare la spesa",
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontFamily = FontFamily.Cursive,
-                fontWeight = FontWeight.Normal,
-                fontSize = 24.sp,
-                lineHeight = 30.sp
-            ),
-            color = MaterialTheme.colorScheme.onBackground
         )
     }
 }
@@ -127,12 +122,19 @@ internal fun AddShoppingItemSection(
             onValueChange = onDraftChange,
             onAddClick = onAddClick
         )
-
-        TextButton(
+        FilledIconButton(
             onClick = onOpenScannerClick,
-            modifier = Modifier.align(Alignment.Start)
+            modifier = Modifier.size(32.dp),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                contentColor = MaterialTheme.colorScheme.onSurface
+            )
         ) {
-            Text("Apri scanner prodotti")
+            Icon(
+                imageVector = Icons.Default.DocumentScanner,
+                contentDescription = "Apri scanner prodotti",
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
