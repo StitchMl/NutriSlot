@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
@@ -47,8 +45,8 @@ internal fun WeeklySlotCard(
         parseMealSectionVisuals(slotUi.displayedMealText)
     }
 
-    val preview = remember(parsedSections, slotUi.mealSlotType) {
-        buildMealPreview(
+    val content = remember(parsedSections, slotUi.mealSlotType) {
+        buildCalendarMealContent(
             parsedSections = parsedSections,
             fallbackTitle = slotUi.mealSlotType.displayName
         )
@@ -83,6 +81,10 @@ internal fun WeeklySlotCard(
         }
     }
 
+    val showNutritionInline = remember(slotUi.nutritionSummary, content.lines.size) {
+        !slotUi.nutritionSummary.isNullOrBlank() && content.lines.size <= 2
+    }
+
     val cardShape = MaterialTheme.shapes.medium
 
     ElevatedCard(
@@ -98,7 +100,7 @@ internal fun WeeklySlotCard(
         )
     ) {
         Row(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxWidth()
         ) {
             Box(
                 modifier = Modifier
@@ -109,9 +111,9 @@ internal fun WeeklySlotCard(
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 10.dp, vertical = 7.dp),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -139,7 +141,7 @@ internal fun WeeklySlotCard(
 
                         Text(
                             text = buildString {
-                                preview.primaryEmoji?.let {
+                                content.primaryEmoji?.let {
                                     append(it)
                                     append("  ")
                                 }
@@ -162,23 +164,24 @@ internal fun WeeklySlotCard(
                 }
 
                 Text(
-                    text = preview.title,
+                    text = content.title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = visualStyle.title,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    color = visualStyle.title
                 )
 
-                preview.sectionChips.take(2).forEach { chip ->
-                    SectionChip(
-                        chip = chip,
-                        accent = visualStyle.accent,
-                        contentColor = visualStyle.meta
+                if (content.alternativeCount > 0) {
+                    CompactBadge(
+                        text = when (content.alternativeCount) {
+                            1 -> "1 alternativa"
+                            else -> "${content.alternativeCount} alternative"
+                        },
+                        background = visualStyle.accent.copy(alpha = 0.12f),
+                        content = visualStyle.meta
                     )
                 }
 
-                preview.supportingLines.forEachIndexed { index, line ->
+                content.lines.forEachIndexed { index, line ->
                     Text(
                         text = line,
                         style = if (index == 0) {
@@ -187,38 +190,25 @@ internal fun WeeklySlotCard(
                             MaterialTheme.typography.labelSmall
                         },
                         fontWeight = if (index == 0) FontWeight.Medium else FontWeight.Normal,
-                        color = if (index == 0) visualStyle.body else visualStyle.meta,
-                        maxLines = if (index == 0) 2 else 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = if (index == 0) visualStyle.body else visualStyle.meta
                     )
                 }
 
-                slotUi.nutritionSummary
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { nutritionSummary ->
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = visualStyle.accent.copy(alpha = 0.10f)
-                        ) {
-                            Text(
-                                text = "Nutrienti: $nutritionSummary",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = visualStyle.meta,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                if (showNutritionInline) {
+                    slotUi.nutritionSummary?.let { nutritionSummary ->
+                        CompactBadge(
+                            text = "Nutrienti: $nutritionSummary",
+                            background = visualStyle.accent.copy(alpha = 0.10f),
+                            content = visualStyle.meta
+                        )
                     }
+                }
 
                 footerNote?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.labelSmall,
-                        color = visualStyle.meta,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = visualStyle.meta
                     )
                 }
 
@@ -236,126 +226,81 @@ internal fun WeeklySlotCard(
 }
 
 @Composable
-private fun SectionChip(
-    chip: SectionChipUi,
-    accent: Color,
-    contentColor: Color
+private fun CompactBadge(
+    text: String,
+    background: Color,
+    content: Color
 ) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
-        color = accent.copy(alpha = 0.10f)
+        color = background
     ) {
         Text(
-            text = "${chip.emoji} ${chip.label}",
+            text = text,
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = contentColor,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            color = content,
+            fontWeight = FontWeight.Medium
         )
     }
 }
 
-private data class MealPreviewUi(
+private data class CalendarMealContentUi(
     val primaryEmoji: String?,
     val title: String,
-    val supportingLines: List<String>,
-    val sectionChips: List<SectionChipUi>
+    val lines: List<String>,
+    val alternativeCount: Int
 )
 
-private data class SectionChipUi(
-    val emoji: String,
-    val label: String
-)
-
-private fun buildMealPreview(
+private fun buildCalendarMealContent(
     parsedSections: List<ParsedMealSectionUi>,
     fallbackTitle: String
-): MealPreviewUi {
+): CalendarMealContentUi {
     if (parsedSections.isEmpty()) {
-        return MealPreviewUi(
+        return CalendarMealContentUi(
             primaryEmoji = null,
             title = fallbackTitle,
-            supportingLines = emptyList(),
-            sectionChips = emptyList()
+            lines = emptyList(),
+            alternativeCount = 0
         )
     }
 
     val primarySection = parsedSections.first()
-    val firstLineSplit = splitPrimaryLine(primarySection.lines.firstOrNull().orEmpty())
-    val title = firstLineSplit.title.ifBlank { fallbackTitle }
+    val title = normalizeCalendarLine(
+        primarySection.lines.firstOrNull().orEmpty()
+    ).ifBlank { fallbackTitle }
 
-    val candidateSupportLines = buildList {
-        firstLineSplit.remainder?.let { add(it) }
-        addAll(primarySection.lines.drop(1))
-    }
-        .map(::normalizePreviewLine)
+    val detailLines = mutableListOf<String>()
+
+    primarySection.lines
+        .drop(1)
+        .map(::normalizeCalendarLine)
         .filter { it.isNotBlank() }
-        .distinctBy { it.lowercase() }
-        .take(2)
+        .forEach(detailLines::add)
 
-    val sectionChips = parsedSections
-        .take(3)
-        .map { section ->
-            SectionChipUi(
-                emoji = section.visualInfo.emoji,
-                label = ellipsize(
-                    text = section.lines.firstOrNull()
-                        ?.takeIf { it.isNotBlank() }
-                        ?: mealSemanticLabel(section.visualInfo.semanticKey),
-                    maxLength = 22
-                )
-            )
-        }
-        .distinctBy { "${it.emoji}|${it.label}" }
+    parsedSections.drop(1).forEachIndexed { index, section ->
+        val altHeadline = section.lines.firstOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: mealSemanticLabel(section.visualInfo.semanticKey)
 
-    return MealPreviewUi(
+        detailLines += "Alternativa ${index + 2}: ${section.visualInfo.emoji} ${normalizeCalendarLine(altHeadline)}"
+
+        section.lines
+            .drop(1)
+            .map(::normalizeCalendarLine)
+            .filter { it.isNotBlank() }
+            .forEach(detailLines::add)
+    }
+
+    return CalendarMealContentUi(
         primaryEmoji = primarySection.visualInfo.emoji,
-        title = ellipsize(title, 52),
-        supportingLines = candidateSupportLines,
-        sectionChips = sectionChips
+        title = title,
+        lines = detailLines,
+        alternativeCount = (parsedSections.size - 1).coerceAtLeast(0)
     )
 }
 
-private data class PrimaryLineSplit(
-    val title: String,
-    val remainder: String?
-)
-
-private fun splitPrimaryLine(line: String): PrimaryLineSplit {
-    val normalized = normalizePreviewLine(line)
-    if (normalized.isBlank()) {
-        return PrimaryLineSplit("", null)
-    }
-
-    val markers = listOf(" oppure ", " + ")
-    val splitIndex = markers
-        .map { marker -> normalized.indexOf(marker) }
-        .filter { it > 28 }
-        .minOrNull()
-
-    if (splitIndex == null) {
-        return PrimaryLineSplit(normalized, null)
-    }
-
-    val title = normalized.substring(0, splitIndex).trim().let {
-        if (it.endsWith("…")) it else "$it…"
-    }
-
-    val rawRemainder = normalized.substring(splitIndex).trim()
-    val remainder = rawRemainder
-        .removePrefix("oppure")
-        .removePrefix("+")
-        .trim()
-
-    return PrimaryLineSplit(
-        title = title.ifBlank { normalized },
-        remainder = remainder.ifBlank { null }
-    )
-}
-
-private fun normalizePreviewLine(line: String): String {
+private fun normalizeCalendarLine(line: String): String {
     return line
         .stripMealNutritionBlock()
         .removePrefix("•")
@@ -366,11 +311,6 @@ private fun normalizePreviewLine(line: String): String {
         .replace(Regex("\\s+"), " ")
         .removeSuffix(".")
         .trim()
-}
-
-private fun ellipsize(text: String, maxLength: Int): String {
-    if (text.length <= maxLength) return text
-    return text.take(maxLength - 1).trimEnd() + "…"
 }
 
 private data class FoodVisualStyle(

@@ -60,9 +60,9 @@ private val CalendarSlotOrder = listOf(
 )
 
 private val TimeRailWidth = 78.dp
-private val DayColumnWidth = 196.dp
+private val DayColumnWidth = 220.dp
 private val DayHeaderHeight = 88.dp
-private val MinTimeBandHeight = 132.dp
+private val MinTimeBandHeight = 188.dp
 private val CalendarBottomScrollPadding = 104.dp
 
 @Composable
@@ -465,14 +465,13 @@ private fun CalendarGridCell(
     Box(
         modifier = Modifier
             .width(dayWidth)
-            .fillMaxHeight()
             .heightIn(min = MinTimeBandHeight)
             .border(1.dp, borderColor)
             .padding(4.dp)
     ) {
         slotUi?.let {
             WeeklySlotCard(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxWidth(),
                 slotUi = it,
                 onManageClick = { onOpenSlotAction(it.slotId) },
                 onEditClick = { onOpenSlotEdit(it.slotId) },

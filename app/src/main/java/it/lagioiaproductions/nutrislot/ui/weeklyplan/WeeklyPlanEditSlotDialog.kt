@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -109,14 +110,18 @@ fun EditSlotDialog(
                                         Text(
                                             text = "${section.visualInfo.emoji} ${section.lines.firstOrNull() ?: mealSemanticLabel(section.visualInfo.semanticKey)}",
                                             style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
                                         )
 
                                         section.lines.drop(1).take(3).forEach { line ->
                                             Text(
                                                 text = line,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -144,7 +149,7 @@ fun EditSlotDialog(
                     label = { Text("Riepilogo nutrienti") },
                     minLines = 2,
                     supportingText = {
-                        Text("Questa parte resta salvabile, ma non verrà usata per la lista della spesa.")
+                        Text("Questa parte resta salvabile, ma non viene usata per la lista della spesa.")
                     }
                 )
             }
