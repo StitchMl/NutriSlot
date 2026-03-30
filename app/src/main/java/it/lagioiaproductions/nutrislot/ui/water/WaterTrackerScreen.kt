@@ -1,5 +1,3 @@
-@file:Suppress("AssignedValueIsNeverRead")
-
 package it.lagioiaproductions.nutrislot.ui.water
 
 import androidx.compose.foundation.background
@@ -23,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+@Suppress("AssignedValueIsNeverRead")
 @Composable
 fun WaterTrackerScreen(
     uiState: WaterTrackerUiState,

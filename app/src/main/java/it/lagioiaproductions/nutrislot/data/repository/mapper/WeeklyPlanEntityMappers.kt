@@ -5,6 +5,7 @@ import it.lagioiaproductions.nutrislot.data.local.room.MealConsumptionEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealOptionEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealRuleEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealSlotEntity
+import it.lagioiaproductions.nutrislot.data.local.room.WeeklyFrequencyTargetEntity
 import it.lagioiaproductions.nutrislot.data.local.room.WeeklyPlanEntity
 import it.lagioiaproductions.nutrislot.domain.model.MealAssignment
 import it.lagioiaproductions.nutrislot.domain.model.MealConsumption
@@ -14,6 +15,7 @@ import it.lagioiaproductions.nutrislot.domain.model.MealRule
 import it.lagioiaproductions.nutrislot.domain.model.MealSlot
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.domain.model.WeeklyFrequencyTarget
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlan
 
 internal fun WeeklyPlanEntity.toDomain(): WeeklyPlan {
@@ -76,6 +78,21 @@ internal fun MealRuleEntity.toDomain(): MealRule {
         label = label,
         requiredComponents = deserializeStringList(requiredComponentsSerialized),
         pageNumber = pageNumber
+    )
+}
+
+internal fun WeeklyFrequencyTargetEntity.toDomain(): WeeklyFrequencyTarget {
+    return WeeklyFrequencyTarget(
+        id = id,
+        planId = planId,
+        title = title,
+        canonicalKey = canonicalKey,
+        portionText = portionText,
+        minimumTimesPerWeek = minimumTimesPerWeek,
+        maximumTimesPerWeek = maximumTimesPerWeek,
+        matchTerms = deserializeStringList(matchTermsSerialized),
+        pageNumber = pageNumber,
+        sourceText = sourceText
     )
 }
 

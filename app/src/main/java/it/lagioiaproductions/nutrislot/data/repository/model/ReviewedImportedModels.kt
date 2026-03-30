@@ -28,3 +28,14 @@ data class ReviewedImportedMealRule(
     val requiredComponents: List<String>,
     val pageNumber: Int?
 )
+
+data class ReviewedImportedWeeklyFrequencyTarget(
+    val title: String,
+    val canonicalKey: String,
+    val portionText: String?,
+    val minimumTimesPerWeek: Int?,
+    val maximumTimesPerWeek: Int?,
+    val matchTerms: List<String>,
+    val pageNumber: Int?,
+    val sourceText: String?
+)

@@ -2,67 +2,48 @@ package it.lagioiaproductions.nutrislot.ui.scanner
 
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
 
-internal data class ScannerProductUi(
-    val id: Int,
+internal data class ScannedProductUi(
     val name: String,
-    val subtitle: String,
-    val barcode: String,
-    val calories: Int,
-    val protein: Int,
-    val carbs: Int,
-    val fibre: Int
+    val brand: String? = null,
+    val subtitle: String? = null,
+    val barcode: String? = null,
+    val calories: Int? = null,
+    val protein: Int? = null,
+    val carbs: Int? = null,
+    val fibre: Int? = null,
+    val summary: String? = null,
+    val nutritionSource: NutritionSource = NutritionSource.UNKNOWN
 )
 
-internal enum class ScannerMode(
-    val label: String
-) {
-    BARCODE("Barcode"),
-    MANUAL("Ricerca manuale")
+internal enum class NutritionSource {
+    LABEL,
+    ESTIMATED,
+    UNKNOWN
 }
 
-internal fun scannerDemoProducts(): List<ScannerProductUi> {
-    return listOf(
-        ScannerProductUi(
-            id = 1,
-            name = "Cereali integrali",
-            subtitle = "Porzione 45 g • colazione",
-            barcode = "8001234567890",
-            calories = 200,
-            protein = 8,
-            carbs = 32,
-            fibre = 5
-        ),
-        ScannerProductUi(
-            id = 2,
-            name = "Yogurt greco bianco",
-            subtitle = "Vasetto 170 g • snack",
-            barcode = "8005550001112",
-            calories = 145,
-            protein = 15,
-            carbs = 6,
-            fibre = 0
-        ),
-        ScannerProductUi(
-            id = 3,
-            name = "Pane proteico",
-            subtitle = "2 fette • pranzo",
-            barcode = "8019993334445",
-            calories = 180,
-            protein = 14,
-            carbs = 18,
-            fibre = 7
-        )
-    )
-}
+internal val ScannedProductUi.hasNutritionValues: Boolean
+    get() = calories != null || protein != null || carbs != null || fibre != null
 
-internal fun ScannerProductUi.toLinkedProduct(): LinkedScannedProductUi {
+internal val ScannedProductUi.nutritionSourceLabel: String
+    get() = when (nutritionSource) {
+        NutritionSource.LABEL -> "Valori letti dall'etichetta"
+        NutritionSource.ESTIMATED -> "Valori stimati da Gemini"
+        NutritionSource.UNKNOWN -> "Valutazione parziale"
+    }
+
+internal fun ScannedProductUi.toLinkedProduct(): LinkedScannedProductUi {
+    val computedSubtitle = buildList {
+        brand?.trim()?.takeIf { it.isNotBlank() }?.let(::add)
+        subtitle?.trim()?.takeIf { it.isNotBlank() }?.let(::add)
+    }.joinToString(" - ")
+
     return LinkedScannedProductUi(
-        name = name,
-        subtitle = subtitle,
-        barcode = barcode,
-        calories = calories,
-        protein = protein,
-        carbs = carbs,
-        fibre = fibre
+        name = name.ifBlank { "Prodotto scannerizzato" },
+        subtitle = computedSubtitle,
+        barcode = barcode.orEmpty(),
+        calories = calories ?: 0,
+        protein = protein ?: 0,
+        carbs = carbs ?: 0,
+        fibre = fibre ?: 0
     )
 }

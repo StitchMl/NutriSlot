@@ -1,43 +1,8 @@
 package it.lagioiaproductions.nutrislot.navigation
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -46,7 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import it.lagioiaproductions.nutrislot.ui.calories.CalorieTrackerScreen
-import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileUiState
+import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileRoute
 import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileViewModel
 import it.lagioiaproductions.nutrislot.ui.importpreview.ImportPreviewScreen
 import it.lagioiaproductions.nutrislot.ui.root.AppRootScaffold
@@ -54,23 +19,18 @@ import it.lagioiaproductions.nutrislot.ui.root.AppTopLevelDestination
 import it.lagioiaproductions.nutrislot.ui.scanner.ScannerScreen
 import it.lagioiaproductions.nutrislot.ui.shared.AppBridgeViewModel
 import it.lagioiaproductions.nutrislot.ui.shoppinglist.ShoppingListRoute
-import it.lagioiaproductions.nutrislot.ui.toolshub.ToolsHubScreen
 import it.lagioiaproductions.nutrislot.ui.water.WaterTrackerRoute
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanScreen
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanViewModel
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistScreen
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
-import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
-import it.lagioiaproductions.nutrislot.data.local.room.ShoppingListItemEntity
-import kotlinx.coroutines.launch
+import it.lagioiaproductions.nutrislot.ui.weight.WeightScreen
 
 private object Routes {
     const val IMPORT_FILE = "import_file"
     const val IMPORT_PREVIEW = "import_preview"
     const val SCANNER = "scanner"
     const val CALORIE_TRACKER = "calorie_tracker"
+    const val WEIGHT_TRACKER = "weight_tracker"
     const val WEEKLY_QUANTITY_CHECKLIST = "weekly_quantity_checklist"
 }
 
@@ -88,86 +48,14 @@ fun AppNavGraph(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    val context = LocalContext.current
-    val shoppingDao = remember(context) {
-        NutriSlotDatabase.getInstance(context).weeklyPlanDao()
-    }
-    val scope = rememberCoroutineScope()
+    val shoppingActions = rememberShoppingListQuickActions()
 
-    fun addTextsToShoppingDb(rawItems: List<String>) {
-        scope.launch {
-            rawItems
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinct()
-                .forEachIndexed { index, item ->
-                    shoppingDao.insertShoppingListItem(
-                        ShoppingListItemEntity(
-                            name = item,
-                            isPurchased = false,
-                            createdAtEpochMillis = System.currentTimeMillis() + index
-                        )
-                    )
-                }
-        }
-    }
-
-    fun addSingleTextToShoppingDb(rawItem: String) {
-        val cleaned = rawItem.trim()
-        if (cleaned.isBlank()) return
-
-        scope.launch {
-            shoppingDao.insertShoppingListItem(
-                ShoppingListItemEntity(
-                    name = cleaned,
-                    isPurchased = false,
-                    createdAtEpochMillis = System.currentTimeMillis()
-                )
-            )
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        weeklyPlanViewModel.loadLatestPlan()
-    }
-
-    LaunchedEffect(weeklyPlanUiState.pendingCalorieSyncEvent?.id) {
-        weeklyPlanUiState.pendingCalorieSyncEvent?.let { event ->
-            bridgeViewModel.addWeeklyPlanConsumptionToCalories(
-                consumptionId = event.consumptionId,
-                mealText = event.mealText,
-                mealSlotLabel = event.mealSlotLabel
-            )
-            weeklyPlanViewModel.consumePendingCalorieSyncEvent()
-        }
-    }
-
-    LaunchedEffect(weeklyPlanUiState.pendingCalorieUndoEvent?.id) {
-        weeklyPlanUiState.pendingCalorieUndoEvent?.let { event ->
-            bridgeViewModel.removeWeeklyPlanConsumptionFromCalories(
-                consumptionId = event.consumptionId
-            )
-            weeklyPlanViewModel.consumePendingCalorieUndoEvent()
-        }
-    }
-
-    DisposableEffect(lifecycleOwner, currentDestination?.route) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (
-                event == Lifecycle.Event.ON_RESUME &&
-                currentDestination?.route == AppTopLevelDestination.Planner.route
-            ) {
-                weeklyPlanViewModel.loadLatestPlan()
-            }
-        }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
+    WeeklyPlanNavigationEffects(
+        isPlannerVisible = currentDestination?.route == AppTopLevelDestination.Planner.route,
+        weeklyPlanUiState = weeklyPlanUiState,
+        weeklyPlanViewModel = weeklyPlanViewModel,
+        bridgeViewModel = bridgeViewModel
+    )
 
     AppRootScaffold(
         currentDestination = currentDestination,
@@ -178,6 +66,21 @@ fun AppNavGraph(
                 }
                 launchSingleTop = true
                 restoreState = true
+            }
+        },
+        onOpenCalorieClick = {
+            navController.navigate(Routes.CALORIE_TRACKER) {
+                launchSingleTop = true
+            }
+        },
+        onOpenScannerClick = {
+            navController.navigate(Routes.SCANNER) {
+                launchSingleTop = true
+            }
+        },
+        onOpenWeightClick = {
+            navController.navigate(Routes.WEIGHT_TRACKER) {
+                launchSingleTop = true
             }
         }
     ) {
@@ -198,9 +101,9 @@ fun AppNavGraph(
                     onConsumeReplacement = weeklyPlanViewModel::consumeReplacement,
                     onSelectCalendarDay = weeklyPlanViewModel::selectCalendarDay,
                     onToggleConsumedSlotsVisibility = weeklyPlanViewModel::toggleConsumedSlotsVisibility,
-                    onAddMealToShopping = ::addTextsToShoppingDb,
-                    onAddDayToShopping = ::addTextsToShoppingDb,
-                    onAddWeekToShopping = ::addTextsToShoppingDb,
+                    onAddMealToShopping = shoppingActions.addItems,
+                    onAddDayToShopping = shoppingActions.addItems,
+                    onAddWeekToShopping = shoppingActions.addItems,
                     onOpenWeeklyQuantityChecklist = {
                         navController.navigate(Routes.WEEKLY_QUANTITY_CHECKLIST) {
                             launchSingleTop = true
@@ -219,7 +122,12 @@ fun AppNavGraph(
             composable(Routes.WEEKLY_QUANTITY_CHECKLIST) {
                 WeeklyQuantityChecklistScreen(
                     items = weeklyPlanUiState.weeklyQuantityChecklist,
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    onOpenWaterTracker = {
+                        navController.navigate(AppTopLevelDestination.Water.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 
@@ -236,22 +144,11 @@ fun AppNavGraph(
                 WaterTrackerRoute()
             }
 
-            composable(AppTopLevelDestination.Tools.route) {
-                ToolsHubScreen(
-                    onOpenScannerClick = {
-                        navController.navigate(Routes.SCANNER)
-                    },
-                    onOpenCalorieClick = {
-                        navController.navigate(Routes.CALORIE_TRACKER)
-                    }
-                )
-            }
-
             composable(Routes.SCANNER) {
                 ScannerScreen(
                     onBackClick = { navController.popBackStack() },
                     onAddToShoppingList = { product ->
-                        addSingleTextToShoppingDb(product.name)
+                        shoppingActions.addItem(product.name)
                         bridgeViewModel.sendProductToShopping(product)
 
                         navController.navigate(AppTopLevelDestination.Grocery.route) {
@@ -289,8 +186,18 @@ fun AppNavGraph(
                 )
             }
 
+            composable(Routes.WEIGHT_TRACKER) {
+                WeightScreen(
+                    onBackClick = { navController.popBackStack() },
+                    entries = bridgeUiState.weightEntries,
+                    summary = bridgeUiState.weightSummary,
+                    onAddWeightEntry = bridgeViewModel::addWeightEntry,
+                    onDeleteWeightEntry = bridgeViewModel::removeWeightEntry
+                )
+            }
+
             composable(Routes.IMPORT_FILE) {
-                ImportFileScreen(
+                ImportFileRoute(
                     uiState = importUiState,
                     onBackClick = { navController.popBackStack() },
                     onFileSelected = importFileViewModel::importFromUri,
@@ -319,239 +226,6 @@ fun AppNavGraph(
                     onToggleShowOnlyFilledSlots = importFileViewModel::toggleShowOnlyFilledSlots
                 )
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ImportFileScreen(
-    uiState: ImportFileUiState,
-    onBackClick: () -> Unit,
-    onFileSelected: (Uri) -> Unit,
-    onGoToPreviewClick: () -> Unit
-) {
-    val pdfLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            onFileSelected(uri)
-        }
-    }
-
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text("Importa piano")
-                }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "Carica un PDF del piano settimanale",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Text(
-                        text = "Il parser è pensato per PDF testuali e strutturati simili a quelli di riferimento. Se il file è molto diverso, servirà revisione manuale.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Button(
-                        onClick = { pdfLauncher.launch(arrayOf("application/pdf")) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FileOpen,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Seleziona file PDF")
-                    }
-
-                    FilledTonalButton(
-                        onClick = onBackClick,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Torna al planner")
-                    }
-                }
-            }
-
-            if (uiState.isLoading) {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        CircularProgressIndicator()
-
-                        Text(
-                            text = "Import e parsing in corso...",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-
-            uiState.selectedFileName?.let { fileName ->
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "File selezionato",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-
-                        Text(
-                            text = fileName,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-
-            uiState.infoMessage?.let { info ->
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = info,
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-
-            uiState.errorMessage?.let { errorMessage ->
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Errore import",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.SemiBold
-                        )
-
-                        Text(
-                            text = errorMessage,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-
-            if (uiState.hasEditableDraft) {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "Anteprima pronta",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-
-                        Text(
-                            text = buildDraftSummary(uiState),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        HorizontalDivider()
-
-                        PreviewActionSection(
-                            onGoToPreviewClick = onGoToPreviewClick,
-                            onBackClick = onBackClick
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun buildDraftSummary(uiState: ImportFileUiState): String {
-    val slotCount = uiState.editableCells.count { it.mealText.isNotBlank() }
-    val warningCount = uiState.warnings.size
-
-    return buildString {
-        append("Pasti estratti: ")
-        append(slotCount)
-
-        if (warningCount > 0) {
-            append(" • Warning: ")
-            append(warningCount)
-        }
-    }
-}
-
-@Composable
-private fun PreviewActionSection(
-    onGoToPreviewClick: () -> Unit,
-    onBackClick: () -> Unit
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Button(
-            onClick = onGoToPreviewClick,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.Visibility,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text("Apri anteprima")
-        }
-
-        FilledTonalButton(
-            onClick = onBackClick,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text("Torna indietro")
         }
     }
 }

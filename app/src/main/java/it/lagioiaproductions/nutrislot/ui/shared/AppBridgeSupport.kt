@@ -73,121 +73,6 @@ internal object AppBridgeSupport {
         }
     }
 
-    fun addShoppingItemsFromTexts(
-        current: AppBridgeUiState,
-        items: List<String>,
-        nextShoppingItemId: Long,
-        nextFeedbackId: Long
-    ): ShoppingMutationResult {
-        val cleanedItems = items
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .distinctBy { it.lowercase() }
-
-        if (cleanedItems.isEmpty()) {
-            return mutationResult(
-                state = current.copy(
-                    shoppingFeedback = ShoppingFeedbackUi(
-                        id = nextFeedbackId,
-                        message = "Nessun articolo valido da aggiungere."
-                    )
-                ),
-                nextShoppingItemId = nextShoppingItemId,
-                nextFeedbackId = nextFeedbackId
-            )
-        }
-
-        val existingNames = current.shoppingItems
-            .map { it.name.lowercase() }
-            .toSet()
-        val newNames = cleanedItems.filterNot { it.lowercase() in existingNames }
-
-        if (newNames.isEmpty()) {
-            return mutationResult(
-                state = current.copy(
-                    shoppingFeedback = ShoppingFeedbackUi(
-                        id = nextFeedbackId,
-                        message = "Tutti gli articoli selezionati sono già presenti."
-                    )
-                ),
-                nextShoppingItemId = nextShoppingItemId,
-                nextFeedbackId = nextFeedbackId
-            )
-        }
-
-        val newItems = newNames.mapIndexed { index, name ->
-            ShoppingListItemUi(
-                id = nextShoppingItemId + index,
-                name = name
-            )
-        }
-        val message = if (newItems.size == 1) {
-            "1 articolo aggiunto alla lista della spesa."
-        } else {
-            "${newItems.size} articoli aggiunti alla lista della spesa."
-        }
-
-        return mutationResult(
-            state = current.copy(
-                shoppingItems = newItems + current.shoppingItems,
-                shoppingFeedback = ShoppingFeedbackUi(
-                    id = nextFeedbackId,
-                    message = message
-                )
-            ),
-            nextShoppingItemId = nextShoppingItemId + newItems.size,
-            nextFeedbackId = nextFeedbackId
-        )
-    }
-
-    fun addManualShoppingItem(
-        current: AppBridgeUiState,
-        text: String,
-        nextShoppingItemId: Long,
-        nextFeedbackId: Long
-    ): ShoppingMutationResult {
-        val normalized = text.trim()
-
-        return when {
-            normalized.isBlank() -> mutationResult(
-                state = current.copy(
-                    shoppingFeedback = ShoppingFeedbackUi(
-                        id = nextFeedbackId,
-                        message = "Inserisci un articolo valido."
-                    )
-                ),
-                nextShoppingItemId = nextShoppingItemId,
-                nextFeedbackId = nextFeedbackId
-            )
-            current.shoppingItems.any { it.name.equals(normalized, ignoreCase = true) } -> mutationResult(
-                state = current.copy(
-                    shoppingFeedback = ShoppingFeedbackUi(
-                        id = nextFeedbackId,
-                        message = "L'articolo è già nella lista della spesa."
-                    )
-                ),
-                nextShoppingItemId = nextShoppingItemId,
-                nextFeedbackId = nextFeedbackId
-            )
-            else -> mutationResult(
-                state = current.copy(
-                    shoppingItems = listOf(
-                        ShoppingListItemUi(
-                            id = nextShoppingItemId,
-                            name = normalized
-                        )
-                    ) + current.shoppingItems,
-                    shoppingFeedback = ShoppingFeedbackUi(
-                        id = nextFeedbackId,
-                        message = "Articolo aggiunto alla lista della spesa."
-                    )
-                ),
-                nextShoppingItemId = nextShoppingItemId + 1,
-                nextFeedbackId = nextFeedbackId
-            )
-        }
-    }
-
     fun inferSectionFromScannerProduct(product: LinkedScannedProductUi): CalorieJournalSection {
         val source = "${product.name} ${product.subtitle}".lowercase()
         return when {
@@ -256,10 +141,6 @@ internal object AppBridgeSupport {
 
     fun currentTimeLabel(): String {
         return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-    }
-
-    fun todayDayKey(): String {
-        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 
     private fun mutationResult(

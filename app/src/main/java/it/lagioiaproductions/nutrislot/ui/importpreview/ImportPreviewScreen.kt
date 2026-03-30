@@ -1,5 +1,3 @@
-@file:Suppress("AssignedValueIsNeverRead")
-
 package it.lagioiaproductions.nutrislot.ui.importpreview
 
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -16,6 +14,7 @@ import androidx.compose.ui.Modifier
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileUiState
 
+@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportPreviewScreen(

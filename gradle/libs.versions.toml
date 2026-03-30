@@ -1,14 +1,14 @@
 [versions]
 agp = "9.1.0"
-androidxComposeBom = "2026.03.00"
+androidxComposeBom = "2026.03.01"
 lifecycleRuntimeCompose = "2.10.0"
 activityCompose = "1.13.0"
 kotlin = "2.3.20"
 navigationCompose = "2.9.7"
 room = "2.8.4"
 datastore = "1.2.1"
-workRuntime = "2.11.1"
-foundation = "1.10.5"
+workRuntime = "2.11.2"
+foundation = "1.10.6"
 
 [libraries]
 androidx-compose-bom-v20260300 = { module = "androidx.compose:compose-bom", version.ref = "androidxComposeBom" }

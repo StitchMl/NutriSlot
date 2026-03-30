@@ -1,5 +1,7 @@
 package it.lagioiaproductions.nutrislot.ui.scanner
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,21 +10,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,34 +32,31 @@ fun ScannerScreen(
     onAddToShoppingList: (LinkedScannedProductUi) -> Unit,
     onSendToCalorieTracker: (LinkedScannedProductUi) -> Unit
 ) {
-    var selectedMode by remember { mutableStateOf(ScannerMode.BARCODE) }
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedProductId by remember { mutableStateOf<Int?>(null) }
-    var scanCounter by remember { mutableIntStateOf(0) }
-    val demoProducts = remember { scannerDemoProducts() }
-    val uiState = rememberScannerUiState(
-        demoProducts = demoProducts,
-        searchQuery = searchQuery,
-        selectedProductId = selectedProductId
-    )
+    val viewModel: ScannerViewModel = viewModel()
+    val uiState by viewModel.uiState.collectAsState()
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        viewModel.onCameraBitmap(bitmap)
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        viewModel.onGalleryUri(uri)
+    }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = { Text("Scanner") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Indietro"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {}) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = "Impostazioni scanner"
                         )
                     }
                 }
@@ -70,36 +67,33 @@ fun ScannerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            ScannerIntroCard(
-                scanCounter = scanCounter,
-                selectedProduct = uiState.selectedProduct
+            ScannerHeroCard(
+                previewBitmap = uiState.previewBitmap,
+                isAnalyzing = uiState.isAnalyzing,
+                onTakePhotoClick = { cameraLauncher.launch(null) },
+                onPickFromGalleryClick = { galleryLauncher.launch("image/*") },
+                onAnalyzeClick = viewModel::analyzeCurrentImage,
+                onClearImageClick = viewModel::clearImage
             )
-            ScannerSearchControls(
-                selectedMode = selectedMode,
-                searchQuery = searchQuery,
-                onModeChange = { selectedMode = it },
-                onSearchQueryChange = { searchQuery = it }
-            )
-            ScannerSimulationCard(
-                selectedMode = selectedMode,
-                onSimulateClick = {
-                    scanCounter += 1
-                    selectedProductId = uiState.filteredProducts.firstOrNull()?.id
-                        ?: demoProducts.firstOrNull()?.id
-                    }
-            )
-            ScannerResultsSection(
-                filteredProducts = uiState.filteredProducts,
-                selectedProductId = selectedProductId,
-                onSelectProduct = { selectedProductId = it }
-            )
-            uiState.selectedProduct?.let { selectedProduct ->
+
+            ScannerStatusCard(text = uiState.infoMessage)
+
+            if (uiState.isAnalyzing) {
+                ScannerLoadingCard()
+            }
+
+            uiState.errorMessage?.let { errorMessage ->
+                ScannerErrorCard(errorMessage = errorMessage)
+            }
+
+            uiState.scannedProduct?.let { selectedProduct ->
                 SelectedScannerProductCard(
                     selectedProduct = selectedProduct,
+                    previewBitmap = uiState.previewBitmap,
                     onAddToShoppingList = {
                         onAddToShoppingList(selectedProduct.toLinkedProduct())
                     },
@@ -108,6 +102,13 @@ fun ScannerScreen(
                     }
                 )
             }
+
+            Text(
+                text = "Per ottenere una scheda più vicina alle app di scansione alimenti, fotografa il fronte del prodotto e poi la tabella nutrizionale in modo nitido.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
         }
     }
 }

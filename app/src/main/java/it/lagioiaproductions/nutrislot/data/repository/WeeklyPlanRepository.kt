@@ -1,5 +1,3 @@
-@file:Suppress("unused")
-
 package it.lagioiaproductions.nutrislot.data.repository
 
 import it.lagioiaproductions.nutrislot.data.local.room.MealAssignmentEntity
@@ -7,6 +5,7 @@ import it.lagioiaproductions.nutrislot.data.local.room.MealConsumptionEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealOptionEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealRuleEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealSlotEntity
+import it.lagioiaproductions.nutrislot.data.local.room.WeeklyFrequencyTargetEntity
 import it.lagioiaproductions.nutrislot.data.local.room.WeeklyPlanDao
 import it.lagioiaproductions.nutrislot.data.local.room.WeeklyPlanEntity
 import it.lagioiaproductions.nutrislot.data.repository.mapper.areMealSlotTypesCompatible
@@ -16,6 +15,7 @@ import it.lagioiaproductions.nutrislot.data.repository.mapper.toDomain
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealCell
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealOption
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealRule
+import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedWeeklyFrequencyTarget
 import it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanning
 import it.lagioiaproductions.nutrislot.data.repository.planning.WeeklyPlanningCalculator
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
@@ -32,7 +32,8 @@ class WeeklyPlanRepository(
         sourceFileName: String?,
         cells: List<ReviewedImportedMealCell>,
         extraOptions: List<ReviewedImportedMealOption> = emptyList(),
-        mealRules: List<ReviewedImportedMealRule> = emptyList()
+        mealRules: List<ReviewedImportedMealRule> = emptyList(),
+        weeklyTargets: List<ReviewedImportedWeeklyFrequencyTarget> = emptyList()
     ): String {
         val planId = UUID.randomUUID().toString()
         val createdAt = System.currentTimeMillis()
@@ -87,11 +88,27 @@ class WeeklyPlanRepository(
             )
         }
 
+        val weeklyTargetEntities = weeklyTargets.mapIndexed { index, target ->
+            WeeklyFrequencyTargetEntity(
+                id = "${planId}_TARGET_$index",
+                planId = planId,
+                title = target.title,
+                canonicalKey = target.canonicalKey,
+                portionText = target.portionText,
+                minimumTimesPerWeek = target.minimumTimesPerWeek,
+                maximumTimesPerWeek = target.maximumTimesPerWeek,
+                matchTermsSerialized = serializeStringList(target.matchTerms),
+                pageNumber = target.pageNumber,
+                sourceText = target.sourceText
+            )
+        }
+
         weeklyPlanDao.insertImportedPlan(
             plan = weeklyPlanEntity,
             slots = mealSlotEntities,
             options = optionEntities,
-            rules = ruleEntities
+            rules = ruleEntities,
+            weeklyTargets = weeklyTargetEntities
         )
 
         return planId
@@ -140,55 +157,6 @@ class WeeklyPlanRepository(
         }
 
         return latestConsumptionForTarget.id
-    }
-
-    suspend fun applyAiNutritionTextEnrichment(
-        planId: String,
-        cells: List<ReviewedImportedMealCell>,
-        extraOptions: List<ReviewedImportedMealOption>
-    ): Pair<Int, Int> {
-        val plan = weeklyPlanDao.getPlanById(planId)
-            ?: throw IllegalStateException("Piano non trovato.")
-
-        val updatedSlotEntities = cells.map { cell ->
-            MealSlotEntity(
-                id = "${plan.id}_${cell.dayOfWeek.name}_${cell.mealSlotType.name}",
-                planId = plan.id,
-                dayOfWeek = cell.dayOfWeek.name,
-                mealSlotType = cell.mealSlotType.name,
-                plannedMealText = normalizeMealText(cell.mealText)
-            )
-        }
-
-        val updatedOptionEntities = extraOptions.mapIndexed { index, option ->
-            MealOptionEntity(
-                id = "${plan.id}_OPTION_$index",
-                planId = plan.id,
-                mealSlotType = option.mealSlotType.name,
-                title = option.title,
-                mealText = normalizeMealText(option.mealText),
-                sourceType = option.sourceType.name,
-                tagsSerialized = serializeStringList(option.tags),
-                pageNumber = option.pageNumber
-            )
-        }
-
-        if (updatedSlotEntities.isNotEmpty()) {
-            weeklyPlanDao.insertMealSlots(updatedSlotEntities)
-        }
-
-        if (updatedOptionEntities.isNotEmpty()) {
-            weeklyPlanDao.insertMealOptions(updatedOptionEntities)
-        }
-
-        val updatedSlotsCount = updatedSlotEntities.count {
-            it.plannedMealText.contains("Nutrienti: ")
-        }
-        val updatedOptionsCount = updatedOptionEntities.count {
-            it.mealText.contains("Nutrienti: ")
-        }
-
-        return updatedSlotsCount to updatedOptionsCount
     }
 
     suspend fun assignMealToSlot(
@@ -428,6 +396,7 @@ class WeeklyPlanRepository(
         val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(planId)
         val optionEntities = weeklyPlanDao.getMealOptionsForPlan(planId)
         val ruleEntities = weeklyPlanDao.getMealRulesForPlan(planId)
+        val weeklyTargetEntities = weeklyPlanDao.getWeeklyFrequencyTargetsForPlan(planId)
 
         return WeeklyPlanSnapshot(
             plan = planEntity.toDomain(),
@@ -435,7 +404,8 @@ class WeeklyPlanRepository(
             consumptions = consumptionEntities.map { it.toDomain() },
             assignments = assignmentEntities.map { it.toDomain() },
             mealOptions = optionEntities.map { it.toDomain() },
-            mealRules = ruleEntities.map { it.toDomain() }
+            mealRules = ruleEntities.map { it.toDomain() },
+            weeklyTargets = weeklyTargetEntities.map { it.toDomain() }
         )
     }
 

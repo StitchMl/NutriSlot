@@ -11,6 +11,7 @@ class PdfMealPlanImporter {
     private val pageScanner = PdfPageScanner()
     private val weeklyTableParser = PdfWeeklyTableParser()
     private val additionalContentExtractor = PdfAdditionalContentExtractor()
+    private val weeklyTargetExtractor = PdfWeeklyFrequencyTargetExtractor()
 
     fun importFromUri(
         context: Context,
@@ -51,6 +52,7 @@ class PdfMealPlanImporter {
 
         val additionalOptions = additionalContentExtractor.extractAdditionalMealOptions(pageScans)
         val mealRules = additionalContentExtractor.extractMealRules(pageScans)
+        val weeklyTargets = weeklyTargetExtractor.extractWeeklyTargets(pageScans)
         val weeklyParseResult = weeklyTableParser.tryParseWeeklyTable(pageScans)
 
         return if (weeklyParseResult != null) {
@@ -60,6 +62,7 @@ class PdfMealPlanImporter {
                 collectedTexts = weeklyParseResult.collectedTexts,
                 additionalOptions = additionalOptions,
                 mealRules = mealRules,
+                weeklyTargets = weeklyTargets,
                 warnings = weeklyParseResult.warnings
             )
         } else {
@@ -67,7 +70,8 @@ class PdfMealPlanImporter {
                 sourceFileName = sourceFileName,
                 rawExtractedText = rawExtractedText,
                 additionalOptions = additionalOptions,
-                mealRules = mealRules
+                mealRules = mealRules,
+                weeklyTargets = weeklyTargets
             )
         }
     }

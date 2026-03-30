@@ -1,7 +1,6 @@
 package it.lagioiaproductions.nutrislot.data.importer
 
 import it.lagioiaproductions.nutrislot.domain.model.ImportWarning
-import it.lagioiaproductions.nutrislot.domain.model.MealOptionSourceType
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 
@@ -37,7 +36,3 @@ internal data class SlotHeadingMatch(
     val inlineText: String?
 )
 
-internal data class AdditionalOptionSection(
-    val slotType: MealSlotType,
-    val sourceType: MealOptionSourceType
-)

@@ -73,17 +73,6 @@ class WaterPreferencesRepository(
         }
     }
 
-    suspend fun removeConsumedMl(amountMl: Int) {
-        val normalizedAmount = amountMl.coerceAtLeast(1)
-
-        context.waterDataStore.edit { prefs ->
-            syncDayIfNeeded(prefs)
-
-            val currentConsumed = (prefs[Keys.consumedMl] ?: 0).coerceAtLeast(0)
-            prefs[Keys.consumedMl] = (currentConsumed - normalizedAmount).coerceAtLeast(0)
-        }
-    }
-
     suspend fun resetConsumedMl() {
         context.waterDataStore.edit { prefs ->
             prefs[Keys.lastTrackedDayKey] = currentDayKey()

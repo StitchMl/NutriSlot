@@ -1,5 +1,3 @@
-@file:Suppress("RedundantSuspendModifier")
-
 package it.lagioiaproductions.nutrislot.data.work
 
 import android.content.Context
@@ -42,6 +40,7 @@ class NutritionEnrichmentWorker(
 
             val nutritionCache = linkedMapOf<String, ImportedMealNutrition?>()
 
+            @Suppress("RedundantSuspendModifier")
             suspend fun estimateCached(text: String): ImportedMealNutrition? {
                 val baseText = stripAiNutritionFooter(text)
                 if (baseText.isBlank()) return null

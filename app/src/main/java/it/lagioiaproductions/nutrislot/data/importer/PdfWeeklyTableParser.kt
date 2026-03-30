@@ -7,6 +7,7 @@ import it.lagioiaproductions.nutrislot.domain.model.ImportedMealCell
 import it.lagioiaproductions.nutrislot.domain.model.ImportedMealOption
 import it.lagioiaproductions.nutrislot.domain.model.ImportedMealRule
 import it.lagioiaproductions.nutrislot.domain.model.ImportedPlanDraft
+import it.lagioiaproductions.nutrislot.domain.model.ImportedWeeklyFrequencyTarget
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import kotlin.math.abs
@@ -88,6 +89,7 @@ internal class PdfWeeklyTableParser {
         collectedTexts: Map<Pair<WeekDay, MealSlotType>, List<String>>,
         additionalOptions: List<ImportedMealOption>,
         mealRules: List<ImportedMealRule>,
+        weeklyTargets: List<ImportedWeeklyFrequencyTarget>,
         warnings: List<ImportWarning>
     ): ImportedPlanDraft {
         val cells = buildCanonicalCells(collectedTexts)
@@ -127,6 +129,7 @@ internal class PdfWeeklyTableParser {
             cells = cells,
             additionalOptions = additionalOptions,
             mealRules = mealRules,
+            weeklyTargets = weeklyTargets,
             warnings = finalWarnings,
             status = status
         )
@@ -136,7 +139,8 @@ internal class PdfWeeklyTableParser {
         sourceFileName: String,
         rawExtractedText: String,
         additionalOptions: List<ImportedMealOption>,
-        mealRules: List<ImportedMealRule>
+        mealRules: List<ImportedMealRule>,
+        weeklyTargets: List<ImportedWeeklyFrequencyTarget>
     ): ImportedPlanDraft {
         val normalizedLines = rawExtractedText
             .replace("\r\n", "\n")
@@ -153,6 +157,7 @@ internal class PdfWeeklyTableParser {
                 cells = buildEmptyCanonicalCells(),
                 additionalOptions = additionalOptions,
                 mealRules = mealRules,
+                weeklyTargets = weeklyTargets,
                 warnings = listOf(
                     ImportWarning(
                         message = "Il PDF non contiene testo estraibile oppure è scannerizzato."
@@ -241,6 +246,7 @@ internal class PdfWeeklyTableParser {
             collectedTexts = collectedTexts,
             additionalOptions = additionalOptions,
             mealRules = mealRules,
+            weeklyTargets = weeklyTargets,
             warnings = warnings
         )
     }

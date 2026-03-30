@@ -15,9 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MealAssignmentEntity::class,
         MealOptionEntity::class,
         MealRuleEntity::class,
+        WeeklyFrequencyTargetEntity::class,
         ShoppingListItemEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class NutriSlotDatabase : RoomDatabase() {
@@ -57,6 +58,43 @@ abstract class NutriSlotDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `weekly_frequency_targets` (
+                        `id` TEXT NOT NULL,
+                        `planId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `canonicalKey` TEXT NOT NULL,
+                        `portionText` TEXT,
+                        `minimumTimesPerWeek` INTEGER,
+                        `maximumTimesPerWeek` INTEGER,
+                        `matchTermsSerialized` TEXT NOT NULL,
+                        `pageNumber` INTEGER,
+                        `sourceText` TEXT,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`planId`) REFERENCES `weekly_plans`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `index_weekly_frequency_targets_planId`
+                    ON `weekly_frequency_targets` (`planId`)
+                    """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `index_weekly_frequency_targets_planId_canonicalKey`
+                    ON `weekly_frequency_targets` (`planId`, `canonicalKey`)
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getInstance(context: Context): NutriSlotDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -64,7 +102,7 @@ abstract class NutriSlotDatabase : RoomDatabase() {
                     NutriSlotDatabase::class.java,
                     "nutrislot.db"
                 )
-                    .addMigrations(MIGRATION_3_4)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { database ->
                         INSTANCE = database

@@ -54,7 +54,9 @@ internal class PdfPageScanner {
             wordSeparator = " "
         }
 
-        return stripper.getText(document)
+        return PdfImportTextNormalization.repairExtractedText(
+            stripper.getText(document)
+        )
     }
 
     private fun extractPositionedWords(
@@ -81,7 +83,7 @@ internal class PdfPageScanner {
 
                     if (word.isNotBlank() && first != null && last != null) {
                         words += PositionedWord(
-                            text = word,
+                            text = PdfImportTextNormalization.repairExtractedText(word),
                             xStart = first.xDirAdj,
                             xEnd = last.xDirAdj + last.widthDirAdj,
                             y = first.yDirAdj

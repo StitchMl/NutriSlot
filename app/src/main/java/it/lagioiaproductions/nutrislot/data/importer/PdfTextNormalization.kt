@@ -11,6 +11,11 @@ internal object PdfImportTextNormalization {
     const val LINE_MERGE_TOLERANCE = 4.5f
     const val CONTINUATION_MIN_SLOT_HEADINGS = 8
 
+    private const val BROKEN_RIGHT_APOSTROPHE = "\u00E2\u20AC\u2122"
+    private const val BROKEN_EN_DASH = "\u00E2\u20AC\u201C"
+    private const val BROKEN_EM_DASH = "\u00E2\u20AC\u201D"
+    private const val BROKEN_BULLET = "\u00E2\u20AC\u2022"
+
     val weekDayAliases: Map<WeekDay, List<String>> = mapOf(
         WeekDay.MONDAY to listOf("lunedi", "lun"),
         WeekDay.TUESDAY to listOf("martedi", "mar"),
@@ -39,8 +44,27 @@ internal object PdfImportTextNormalization {
         MealSlotType.DINNER to listOf("cena")
     )
 
+    fun repairExtractedText(text: String): String {
+        if (text.isBlank()) return text
+
+        val repaired = if (text.any { it == '\u00C3' || it == '\u00E2' }) {
+            runCatching {
+                text.toByteArray(Charsets.ISO_8859_1).toString(Charsets.UTF_8)
+            }.getOrDefault(text)
+        } else {
+            text
+        }
+
+        return repaired
+            .replace('\u00A0', ' ')
+            .replace(BROKEN_RIGHT_APOSTROPHE, "'")
+            .replace(BROKEN_EN_DASH, "-")
+            .replace(BROKEN_EM_DASH, "-")
+            .replace(BROKEN_BULLET, "-")
+    }
+
     fun normalizeMealText(text: String): String {
-        return text
+        return repairExtractedText(text)
             .replace("\r\n", "\n")
             .replace("\r", "\n")
             .lines()
@@ -50,11 +74,8 @@ internal object PdfImportTextNormalization {
     }
 
     fun normalizeForMatching(text: String): String {
-        return Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD)
+        return Normalizer.normalize(repairExtractedText(text).lowercase(), Normalizer.Form.NFD)
             .replace("\\p{M}+".toRegex(), "")
-            .replace('’', '\'')
-            .replace('–', '-')
-            .replace('—', '-')
             .replace('\u00A0', ' ')
             .replace("\\s+".toRegex(), " ")
             .trim()
@@ -85,13 +106,11 @@ internal object PdfImportTextNormalization {
                     return SlotHeadingMatch(slot = slot, inlineText = null)
                 }
 
-                val prefixes = listOf("$alias:", "$alias -", "$alias –", "$alias —")
+                val prefixes = listOf("$alias:", "$alias -")
                 prefixes.firstOrNull { prefix -> normalizedLine.startsWith(prefix) }?.let {
-                    val inlineText = originalLine
+                    val inlineText = repairExtractedText(originalLine)
                         .substringAfter(":", missingDelimiterValue = originalLine)
                         .substringAfter(" - ", missingDelimiterValue = originalLine)
-                        .substringAfter(" – ", missingDelimiterValue = originalLine)
-                        .substringAfter(" — ", missingDelimiterValue = originalLine)
                         .trim()
 
                     return SlotHeadingMatch(

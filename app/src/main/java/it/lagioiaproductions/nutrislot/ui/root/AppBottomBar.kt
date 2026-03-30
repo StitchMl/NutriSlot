@@ -1,5 +1,6 @@
 package it.lagioiaproductions.nutrislot.ui.root
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -15,11 +16,13 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 @Composable
 fun AppBottomBar(
     currentDestination: NavDestination?,
-    onDestinationSelected: (AppTopLevelDestination) -> Unit
+    onDestinationSelected: (AppTopLevelDestination) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     NavigationBar(
+        modifier = modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp
+        tonalElevation = 10.dp
     ) {
         AppTopLevelDestination.entries.forEach { destination ->
             val isSelected = currentDestination

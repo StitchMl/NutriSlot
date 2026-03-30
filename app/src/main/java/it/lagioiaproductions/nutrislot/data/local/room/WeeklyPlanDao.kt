@@ -28,17 +28,22 @@ interface WeeklyPlanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMealRules(rules: List<MealRuleEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWeeklyFrequencyTargets(targets: List<WeeklyFrequencyTargetEntity>)
+
     @Transaction
     suspend fun insertImportedPlan(
         plan: WeeklyPlanEntity,
         slots: List<MealSlotEntity>,
         options: List<MealOptionEntity>,
-        rules: List<MealRuleEntity>
+        rules: List<MealRuleEntity>,
+        weeklyTargets: List<WeeklyFrequencyTargetEntity>
     ) {
         insertWeeklyPlan(plan)
         insertMealSlots(slots)
         insertMealOptions(options)
         insertMealRules(rules)
+        insertWeeklyFrequencyTargets(weeklyTargets)
     }
 
     @Query("SELECT * FROM weekly_plans WHERE id = :planId LIMIT 1")
@@ -61,6 +66,9 @@ interface WeeklyPlanDao {
 
     @Query("SELECT * FROM meal_rules WHERE planId = :planId")
     suspend fun getMealRulesForPlan(planId: String): List<MealRuleEntity>
+
+    @Query("SELECT * FROM weekly_frequency_targets WHERE planId = :planId")
+    suspend fun getWeeklyFrequencyTargetsForPlan(planId: String): List<WeeklyFrequencyTargetEntity>
 
     @Query("DELETE FROM meal_assignments WHERE id IN (:assignmentIds)")
     suspend fun deleteMealAssignmentsByIds(assignmentIds: List<String>)

@@ -1,7 +1,6 @@
-@file:Suppress("unused")
-
 package it.lagioiaproductions.nutrislot.ui.shared
 
+@Suppress("unused")
 enum class CalorieJournalSection(
     val label: String,
     val emoji: String,
@@ -53,10 +52,26 @@ data class ShoppingFeedbackUi(
     val message: String
 )
 
+data class WeightEntryUi(
+    val id: Long,
+    val weightKg: Float,
+    val dateKey: String,
+    val note: String = "",
+    val createdAtEpochMillis: Long
+)
+
+data class WeightSummaryUi(
+    val latestWeightKg: Float? = null,
+    val previousWeightKg: Float? = null,
+    val deltaFromPreviousKg: Float? = null
+)
+
 data class AppBridgeUiState(
     val latestScannedProduct: LinkedScannedProductUi? = null,
     val shoppingItems: List<ShoppingListItemUi> = emptyList(),
     val shoppingFeedback: ShoppingFeedbackUi? = null,
     val pendingCalorieProduct: LinkedScannedProductUi? = null,
-    val calorieJournalByDate: Map<String, CalorieDayLogUi> = emptyMap()
+    val calorieJournalByDate: Map<String, CalorieDayLogUi> = emptyMap(),
+    val weightEntries: List<WeightEntryUi> = emptyList(),
+    val weightSummary: WeightSummaryUi = WeightSummaryUi()
 )

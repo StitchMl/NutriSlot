@@ -16,7 +16,8 @@ data class WeeklyPlanSnapshot(
     val consumptions: List<MealConsumption>,
     val assignments: List<MealAssignment> = emptyList(),
     val mealOptions: List<MealOption> = emptyList(),
-    val mealRules: List<MealRule> = emptyList()
+    val mealRules: List<MealRule> = emptyList(),
+    val weeklyTargets: List<WeeklyFrequencyTarget> = emptyList()
 )
 
 @Suppress("unused")

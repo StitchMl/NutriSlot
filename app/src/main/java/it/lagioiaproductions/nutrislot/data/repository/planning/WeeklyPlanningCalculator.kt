@@ -3,11 +3,7 @@ package it.lagioiaproductions.nutrislot.data.repository.planning
 import it.lagioiaproductions.nutrislot.data.local.room.MealAssignmentEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealConsumptionEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealSlotEntity
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
+import it.lagioiaproductions.nutrislot.domain.model.currentWeekWindow
 
 internal object WeeklyPlanningCalculator {
 
@@ -59,12 +55,6 @@ internal object WeeklyPlanningCalculator {
     }
 
     fun isInCurrentWeek(epochMillis: Long): Boolean {
-        val zoneId = ZoneId.systemDefault()
-        val date = Instant.ofEpochMilli(epochMillis).atZone(zoneId).toLocalDate()
-        val today = LocalDate.now(zoneId)
-        val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val nextWeekStart = weekStart.plusWeeks(1)
-
-        return !date.isBefore(weekStart) && date.isBefore(nextWeekStart)
+        return currentWeekWindow().contains(epochMillis)
     }
 }

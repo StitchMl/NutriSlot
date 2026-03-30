@@ -1,8 +1,5 @@
 package it.lagioiaproductions.nutrislot.ui.water
 
-import kotlin.math.roundToInt
-
-@Suppress("unused")
 data class WaterTrackerUiState(
     val targetMl: Int = 2000,
     val consumedMl: Int = 0,
@@ -18,9 +15,6 @@ data class WaterTrackerUiState(
 
     val progressVisual: Float
         get() = progressRaw.coerceIn(0f, 1f)
-
-    val progressPercent: Int
-        get() = (progressRaw * 100f).roundToInt().coerceAtLeast(0)
 
     val remainingMl: Int
         get() = if (!isGoalConfigured) 0 else (targetMl - consumedMl).coerceAtLeast(0)

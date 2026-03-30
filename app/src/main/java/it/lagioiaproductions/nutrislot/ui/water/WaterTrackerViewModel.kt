@@ -1,5 +1,3 @@
-@file:Suppress("unused")
-
 package it.lagioiaproductions.nutrislot.ui.water
 
 import androidx.lifecycle.ViewModel
@@ -42,13 +40,6 @@ class WaterTrackerViewModel(
         if (amountMl <= 0) return
         viewModelScope.launch {
             repository.addConsumedMl(amountMl, saveAsPresetIfMissing)
-        }
-    }
-
-    fun removeWater(amountMl: Int) {
-        if (amountMl <= 0) return
-        viewModelScope.launch {
-            repository.removeConsumedMl(amountMl)
         }
     }
 

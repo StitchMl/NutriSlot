@@ -1,5 +1,3 @@
-@file:Suppress("unused")
-
 package it.lagioiaproductions.nutrislot.ui.water
 
 import androidx.compose.ui.graphics.Color
@@ -30,6 +28,4 @@ object WaterTrackerColors {
     val TextSecondary = Color(0xFFB9C3D4)
     val TextDark = Color(0xFF111318)
 
-    val Success = Color(0xFF8BE3FF)
-    val Danger = Color(0xFFFFA1A1)
 }

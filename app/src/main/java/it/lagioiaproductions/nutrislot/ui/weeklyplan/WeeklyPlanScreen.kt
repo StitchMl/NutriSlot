@@ -1,5 +1,3 @@
-@file:Suppress("SameParameterValue", "unused")
-
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import androidx.compose.material3.Scaffold

@@ -1,36 +1,11 @@
 package it.lagioiaproductions.nutrislot.ui.scanner
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import android.graphics.Bitmap
 
 internal data class ScannerUiState(
-    val filteredProducts: List<ScannerProductUi>,
-    val selectedProduct: ScannerProductUi?
+    val previewBitmap: Bitmap? = null,
+    val isAnalyzing: Boolean = false,
+    val infoMessage: String = "Scatta una foto del prodotto oppure carica un'immagine nitida dell'etichetta.",
+    val errorMessage: String? = null,
+    val scannedProduct: ScannedProductUi? = null
 )
-
-@Composable
-internal fun rememberScannerUiState(
-    demoProducts: List<ScannerProductUi>,
-    searchQuery: String,
-    selectedProductId: Int?
-): ScannerUiState {
-    val filteredProducts = remember(demoProducts, searchQuery) {
-        demoProducts.filter { product ->
-            searchQuery.isBlank() ||
-                    product.name.contains(searchQuery, ignoreCase = true) ||
-                    product.subtitle.contains(searchQuery, ignoreCase = true) ||
-                    product.barcode.contains(searchQuery)
-        }
-    }
-
-    val selectedProduct = remember(filteredProducts, demoProducts, selectedProductId) {
-        filteredProducts.firstOrNull { it.id == selectedProductId }
-            ?: demoProducts.firstOrNull { it.id == selectedProductId }
-            ?: filteredProducts.firstOrNull()
-    }
-
-    return ScannerUiState(
-        filteredProducts = filteredProducts,
-        selectedProduct = selectedProduct
-    )
-}

@@ -1,23 +1,23 @@
-@file:Suppress("SameParameterValue")
-
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import android.app.Application
 import android.content.Context
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
 import it.lagioiaproductions.nutrislot.data.repository.WeeklyPlanRepository
+import it.lagioiaproductions.nutrislot.data.water.WaterPreferencesRepository
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.core.content.edit
 
 class WeeklyPlanViewModel(
     application: Application
@@ -33,19 +33,22 @@ class WeeklyPlanViewModel(
         WeeklyPlanPreferences.PREFERENCES_NAME,
         Context.MODE_PRIVATE
     )
+    private val waterRepository = WaterPreferencesRepository(application.applicationContext)
+    private val customizationManager = WeeklyPlanCustomizationManager(preferences)
+    private val mutationExecutor = WeeklyPlanMutationExecutor(repository)
+    private val stateFactory = WeeklyPlanStateFactory(customizationManager)
 
     private var currentSnapshot: WeeklyPlanSnapshot? = null
+    private var hydrationSnapshot: WeeklyChecklistHydrationSnapshot? = null
     private var nextCalorieSyncEventId: Long = 1L
     private var nextCalorieUndoEventId: Long = 1L
 
     private val _uiState = MutableStateFlow(
-        WeeklyPlanUiState(
-            isLoading = true,
-            showConsumedSlotsInCalendar = preferences.getBoolean(
+        stateFactory.initialState(
+            showConsumedSlots = preferences.getBoolean(
                 WeeklyPlanPreferences.PREF_SHOW_CONSUMED_SLOTS,
                 false
-            ),
-            pendingCalorieUndoEvent = null
+            )
         )
     )
     val uiState: StateFlow<WeeklyPlanUiState> = _uiState.asStateFlow()
@@ -62,70 +65,37 @@ class WeeklyPlanViewModel(
 
     fun loadLatestPlan() {
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    errorMessage = null,
-                    editSlotDialog = null
-                )
+            _uiState.update { state ->
+                stateFactory.loadingState(state)
             }
 
             runCatching {
                 withContext(Dispatchers.IO) {
-                    repository.getLatestWeeklyPlanSnapshot()
+                    waterRepository.ensureCurrentDay()
+                    mutationExecutor.loadLatestSnapshot() to waterRepository.preferencesFlow
+                        .first()
+                        .toChecklistHydrationSnapshot()
                 }
-            }.onSuccess { snapshot ->
+            }.onSuccess { (snapshot, latestHydrationSnapshot) ->
                 currentSnapshot = snapshot
+                hydrationSnapshot = latestHydrationSnapshot
 
                 val today = currentWeekDay()
-                val currentShowConsumed = _uiState.value.showConsumedSlotsInCalendar
-                val currentSelectedDay = _uiState.value.selectedCalendarDay
-
-                if (snapshot == null) {
-                    _uiState.value = WeeklyPlanUiState(
-                        isLoading = false,
-                        hasLoadedOnce = true,
-                        currentWeekReferenceDay = today,
-                        selectedCalendarDay = today,
-                        showConsumedSlotsInCalendar = currentShowConsumed,
-                        slots = emptyList(),
-                        errorMessage = null,
-                        pendingCalorieSyncEvent = null,
-                        pendingCalorieUndoEvent = null
-                    )
-                } else {
-                    val baseState = snapshot.toUiState(
-                        actionMessage = null,
-                        actionErrorMessage = null,
-                        isApplyingSlotAction = false,
-                        slotActionDialog = null,
-                        currentWeekReferenceDay = today,
-                        selectedCalendarDay = currentSelectedDay,
-                        showConsumedSlotsInCalendar = currentShowConsumed
-                    ).copy(
-                        pendingCalorieSyncEvent = null,
-                        editSlotDialog = null
-                    )
-
-                    _uiState.value = applyManualDecorations(
-                        snapshot = snapshot,
-                        state = baseState
-                    )
-                }
+                _uiState.value = buildLoadResultState(
+                    stateFactory = stateFactory,
+                    previousState = _uiState.value,
+                    snapshot = snapshot,
+                    referenceDay = today,
+                    hydrationSnapshot = latestHydrationSnapshot
+                )
             }.onFailure { throwable ->
                 currentSnapshot = null
 
-                _uiState.value = WeeklyPlanUiState(
-                    isLoading = false,
-                    hasLoadedOnce = true,
-                    currentWeekReferenceDay = currentWeekDay(),
-                    selectedCalendarDay = currentWeekDay(),
-                    showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar,
-                    slots = emptyList(),
-                    errorMessage = throwable.message
-                        ?: "Errore sconosciuto durante il caricamento del piano.",
-                    pendingCalorieSyncEvent = null,
-                    pendingCalorieUndoEvent = null
+                _uiState.value = buildLoadFailureState(
+                    stateFactory = stateFactory,
+                    previousState = _uiState.value,
+                    referenceDay = currentWeekDay(),
+                    throwable = throwable
                 )
             }
         }
@@ -156,16 +126,10 @@ class WeeklyPlanViewModel(
 
     fun openSlotAction(slotId: String) {
         val snapshot = currentSnapshot ?: return
-        val targetUi = _uiState.value.slots
-            .firstOrNull { it.slotId == slotId }
-            ?: buildWeeklySlotUis(snapshot)
-                .firstOrNull { it.slotId == slotId }
-            ?: return
-
-        val dialog = buildSlotActionDialog(
-            snapshot = snapshot,
-            targetUi = targetUi
-        )
+        val dialog = snapshot.buildTargetSlotActionDialog(
+            slotId = slotId,
+            currentSlots = _uiState.value.slots
+        ) ?: return
 
         _uiState.update { state ->
             state.copy(
@@ -192,13 +156,7 @@ class WeeklyPlanViewModel(
         _uiState.update { state ->
             state.copy(
                 slotActionDialog = null,
-                editSlotDialog = EditSlotDialogUi(
-                    slotId = slotUi.slotId,
-                    dayLabel = slotUi.dayOfWeek.displayName,
-                    mealSlotLabel = slotUi.mealSlotType.displayName,
-                    mealText = slotUi.displayedMealText,
-                    nutritionText = slotUi.nutritionSummary.orEmpty()
-                )
+                editSlotDialog = buildEditSlotDialog(slotUi)
             )
         }
     }
@@ -215,45 +173,33 @@ class WeeklyPlanViewModel(
     ) {
         val snapshot = currentSnapshot ?: return
         val dialog = _uiState.value.editSlotDialog ?: return
-        val planId = snapshot.plan.id
 
-        preferences.edit {
-            putString(WeeklyPlanPreferences.slotMealPreferenceKey(planId, dialog.slotId), mealText.trim())
-                .putString(WeeklyPlanPreferences.slotNutritionPreferenceKey(planId, dialog.slotId), nutritionText.trim())
-        }
+        customizationManager.saveSlotCustomization(
+            planId = snapshot.plan.id,
+            slotId = dialog.slotId,
+            mealText = mealText,
+            nutritionText = nutritionText
+        )
 
-        _uiState.update { state ->
-            applyManualDecorations(
-                snapshot = snapshot,
-                state = state.copy(
-                    editSlotDialog = null,
-                    actionMessage = "Box aggiornato.",
-                    actionErrorMessage = null
-                )
-            )
-        }
+        applyCustomizationUpdate(
+            snapshot = snapshot,
+            actionMessage = "Box aggiornato."
+        )
     }
 
     fun resetEditSlot() {
         val snapshot = currentSnapshot ?: return
         val dialog = _uiState.value.editSlotDialog ?: return
-        val planId = snapshot.plan.id
 
-        preferences.edit {
-            remove(WeeklyPlanPreferences.slotMealPreferenceKey(planId, dialog.slotId))
-                .remove(WeeklyPlanPreferences.slotNutritionPreferenceKey(planId, dialog.slotId))
-        }
+        customizationManager.resetSlotCustomization(
+            planId = snapshot.plan.id,
+            slotId = dialog.slotId
+        )
 
-        _uiState.update { state ->
-            applyManualDecorations(
-                snapshot = snapshot,
-                state = state.copy(
-                    editSlotDialog = null,
-                    actionMessage = "Personalizzazione rimossa.",
-                    actionErrorMessage = null
-                )
-            )
-        }
+        applyCustomizationUpdate(
+            snapshot = snapshot,
+            actionMessage = "Personalizzazione rimossa."
+        )
     }
 
     fun consumeAsPlanned() {
@@ -266,10 +212,10 @@ class WeeklyPlanViewModel(
         val dialog = _uiState.value.slotActionDialog ?: return
 
         applyReplacementAssignment(
-            planId = snapshot.plan.id,
+            snapshot = snapshot,
             targetSlotId = dialog.targetSlotId,
             sourceSlotId = sourceSlotId,
-            successMessage = "Pasto riassegnato. Rimane nello slot finché non lo segni come completato."
+            successMessage = "Pasto riassegnato. Rimane nello slot finche non lo segni come completato."
         )
     }
 
@@ -278,7 +224,7 @@ class WeeklyPlanViewModel(
         val dialog = _uiState.value.slotActionDialog ?: return
 
         applyCatalogOptionAssignment(
-            planId = snapshot.plan.id,
+            snapshot = snapshot,
             targetSlotId = dialog.targetSlotId,
             optionId = optionId,
             successMessage = "Opzione extra assegnata allo slot."
@@ -298,305 +244,180 @@ class WeeklyPlanViewModel(
 
     private fun consumeSlotAsPlannedByTargetSlotId(targetSlotId: String) {
         val snapshot = currentSnapshot ?: return
-        val targetUi = _uiState.value.slots.firstOrNull { it.slotId == targetSlotId } ?: return
-        val targetSlot = snapshot.slots.firstOrNull { it.id == targetSlotId } ?: return
-        val planning = buildActiveWeekPlanning(snapshot)
-
-        val currentAssignedSourceSlotId =
-            planning.pendingSourceByTarget[targetSlotId]
-                ?: targetSlot.id.takeIf { targetSlot.plannedMealText.isNotBlank() }
-                ?: return
+        val command = snapshot.buildPlannedSlotConsumptionCommand(
+            targetSlotId = targetSlotId,
+            currentSlots = _uiState.value.slots
+        ) ?: return
 
         applyConsumption(
-            planId = snapshot.plan.id,
-            targetSlotId = targetSlotId,
-            sourceSlotId = currentAssignedSourceSlotId,
+            snapshot = snapshot,
+            targetSlotId = command.targetSlotId,
+            sourceSlotId = command.sourceSlotId,
+            targetDayOfWeek = command.targetDayOfWeek,
             successMessage = "Pasto segnato come completato nella settimana corrente.",
-            consumedMealText = targetUi.displayedMealText,
-            consumedMealSlotLabel = targetUi.mealSlotType.displayName
+            consumedMealText = command.consumedMealText,
+            consumedMealSlotLabel = command.consumedMealSlotLabel
         )
     }
 
     private fun undoCompletedMealByTargetSlotId(targetSlotId: String) {
         val snapshot = currentSnapshot ?: return
 
-        viewModelScope.launch {
-            _uiState.update { state ->
-                state.copy(
-                    isApplyingSlotAction = true,
-                    actionErrorMessage = null,
-                    actionMessage = null
+        executePlanMutation(
+            fallbackErrorMessage = "Errore sconosciuto durante l'annullamento del consumo.",
+            mutation = {
+                mutationExecutor.undoConsumption(
+                    planId = snapshot.plan.id,
+                    targetSlotId = targetSlotId
+                )
+            },
+            onSuccess = { result ->
+                applySnapshotUpdate(
+                    snapshot = result.updatedSnapshot,
+                    payload = buildCalorieUndoPayload(
+                        actionMessage = "Consumo annullato con successo.",
+                        eventId = nextCalorieUndoEventId++,
+                        consumptionId = result.removedConsumptionId
+                    )
                 )
             }
-
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    val removedConsumptionId = repository.undoMealConsumption(
-                        planId = snapshot.plan.id,
-                        targetSlotId = targetSlotId
-                    )
-
-                    val updatedSnapshot = repository.getWeeklyPlanSnapshot(snapshot.plan.id)
-                        ?: throw IllegalStateException(
-                            "Impossibile ricaricare il piano dopo l'annullamento."
-                        )
-
-                    removedConsumptionId to updatedSnapshot
-                }
-            }.onSuccess { (removedConsumptionId, updatedSnapshot) ->
-                currentSnapshot = updatedSnapshot
-
-                val baseState = updatedSnapshot.toUiState(
-                    actionMessage = "Consumo annullato con successo.",
-                    actionErrorMessage = null,
-                    isApplyingSlotAction = false,
-                    slotActionDialog = null,
-                    currentWeekReferenceDay = _uiState.value.currentWeekReferenceDay,
-                    selectedCalendarDay = _uiState.value.selectedCalendarDay,
-                    showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
-                ).copy(
-                    pendingCalorieSyncEvent = null,
-                    pendingCalorieUndoEvent = WeeklyPlanCalorieUndoUi(
-                        id = nextCalorieUndoEventId++,
-                        consumptionId = removedConsumptionId
-                    ),
-                    editSlotDialog = null
-                )
-
-                _uiState.value = applyManualDecorations(
-                    snapshot = updatedSnapshot,
-                    state = baseState
-                )
-            }.onFailure { throwable ->
-                _uiState.update { state ->
-                    state.copy(
-                        isApplyingSlotAction = false,
-                        actionErrorMessage = throwable.message
-                            ?: "Errore sconosciuto durante l'annullamento del consumo."
-                    )
-                }
-            }
-        }
+        )
     }
 
     private fun applyReplacementAssignment(
-        planId: String,
+        snapshot: WeeklyPlanSnapshot,
         targetSlotId: String,
         sourceSlotId: String,
         successMessage: String
     ) {
-        viewModelScope.launch {
-            _uiState.update { state ->
-                state.copy(
-                    isApplyingSlotAction = true,
-                    actionErrorMessage = null,
-                    actionMessage = null
+        executePlanMutation(
+            fallbackErrorMessage = "Errore sconosciuto durante l'aggiornamento dello slot.",
+            mutation = {
+                mutationExecutor.assignReplacement(
+                    planId = snapshot.plan.id,
+                    targetSlotId = targetSlotId,
+                    sourceSlotId = sourceSlotId
                 )
-            }
-
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    repository.assignMealToSlot(
-                        planId = planId,
-                        targetSlotId = targetSlotId,
-                        sourceSlotId = sourceSlotId
-                    )
-
-                    repository.getWeeklyPlanSnapshot(planId)
-                        ?: throw IllegalStateException("Impossibile ricaricare il piano dopo l'aggiornamento.")
-                }
-            }.onSuccess { updatedSnapshot ->
-                currentSnapshot = updatedSnapshot
-
-                val baseState = updatedSnapshot.toUiState(
-                    actionMessage = successMessage,
-                    actionErrorMessage = null,
-                    isApplyingSlotAction = false,
-                    slotActionDialog = null,
-                    currentWeekReferenceDay = _uiState.value.currentWeekReferenceDay,
-                    selectedCalendarDay = _uiState.value.selectedCalendarDay,
-                    showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
-                ).copy(
-                    pendingCalorieSyncEvent = null,
-                    editSlotDialog = null
-                )
-
-                _uiState.value = applyManualDecorations(
+            },
+            onSuccess = { updatedSnapshot ->
+                applySnapshotUpdate(
                     snapshot = updatedSnapshot,
-                    state = baseState
+                    payload = buildMessagePayload(successMessage)
                 )
-            }.onFailure { throwable ->
-                _uiState.update { state ->
-                    state.copy(
-                        isApplyingSlotAction = false,
-                        actionErrorMessage = throwable.message
-                            ?: "Errore sconosciuto durante l'aggiornamento dello slot."
-                    )
-                }
             }
-        }
+        )
     }
 
     private fun applyConsumption(
-        planId: String,
+        snapshot: WeeklyPlanSnapshot,
         targetSlotId: String,
         sourceSlotId: String,
+        targetDayOfWeek: WeekDay,
         successMessage: String,
         consumedMealText: String,
         consumedMealSlotLabel: String
     ) {
-        viewModelScope.launch {
-            _uiState.update { state ->
-                state.copy(
-                    isApplyingSlotAction = true,
-                    actionErrorMessage = null,
-                    actionMessage = null
+        executePlanMutation(
+            fallbackErrorMessage = "Errore sconosciuto durante l'aggiornamento dello slot.",
+            mutation = {
+                mutationExecutor.recordConsumption(
+                    planId = snapshot.plan.id,
+                    targetSlotId = targetSlotId,
+                    sourceSlotId = sourceSlotId
                 )
-            }
-
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    val newConsumption = repository.recordMealConsumption(
-                        planId = planId,
-                        targetSlotId = targetSlotId,
-                        sourceSlotId = sourceSlotId
-                    )
-
-                    val updatedSnapshot = repository.getWeeklyPlanSnapshot(planId)
-                        ?: throw IllegalStateException("Impossibile ricaricare il piano dopo l'aggiornamento.")
-
-                    newConsumption to updatedSnapshot
-                }
-            }.onSuccess { (newConsumption, updatedSnapshot) ->
-                currentSnapshot = updatedSnapshot
-
-                val baseState = updatedSnapshot.toUiState(
-                    actionMessage = successMessage,
-                    actionErrorMessage = null,
-                    isApplyingSlotAction = false,
-                    slotActionDialog = null,
-                    currentWeekReferenceDay = _uiState.value.currentWeekReferenceDay,
-                    selectedCalendarDay = _uiState.value.selectedCalendarDay,
-                    showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
-                ).copy(
-                    pendingCalorieSyncEvent = WeeklyPlanCalorieSyncUi(
-                        id = nextCalorieSyncEventId++,
-                        consumptionId = newConsumption.id,
+            },
+            onSuccess = { result ->
+                applySnapshotUpdate(
+                    snapshot = result.updatedSnapshot,
+                    payload = buildCalorieSyncPayload(
+                        actionMessage = successMessage,
+                        eventId = nextCalorieSyncEventId++,
+                        consumptionId = result.consumptionId,
                         mealText = consumedMealText,
-                        mealSlotLabel = consumedMealSlotLabel
-                    ),
-                    pendingCalorieUndoEvent = null,
-                    editSlotDialog = null
-                )
-
-                _uiState.value = applyManualDecorations(
-                    snapshot = updatedSnapshot,
-                    state = baseState
-                )
-            }.onFailure { throwable ->
-                _uiState.update { state ->
-                    state.copy(
-                        isApplyingSlotAction = false,
-                        actionErrorMessage = throwable.message
-                            ?: "Errore sconosciuto durante l'aggiornamento dello slot."
+                        mealSlotLabel = consumedMealSlotLabel,
+                        targetDayOfWeek = targetDayOfWeek
                     )
-                }
+                )
             }
-        }
+        )
     }
 
     private fun applyCatalogOptionAssignment(
-        planId: String,
+        snapshot: WeeklyPlanSnapshot,
         targetSlotId: String,
         optionId: String,
         successMessage: String
     ) {
+        executePlanMutation(
+            fallbackErrorMessage = "Errore sconosciuto durante l'assegnazione dell'opzione extra.",
+            mutation = {
+                mutationExecutor.assignCatalogOption(
+                    planId = snapshot.plan.id,
+                    targetSlotId = targetSlotId,
+                    optionId = optionId
+                )
+            },
+            onSuccess = { updatedSnapshot ->
+                applySnapshotUpdate(
+                    snapshot = updatedSnapshot,
+                    payload = buildMessagePayload(successMessage)
+                )
+            }
+        )
+    }
+
+    private fun applyCustomizationUpdate(
+        snapshot: WeeklyPlanSnapshot,
+        actionMessage: String
+    ) {
+        _uiState.update { state ->
+            stateFactory.customizedState(
+                snapshot = snapshot,
+                previousState = state,
+                actionMessage = actionMessage,
+                hydrationSnapshot = hydrationSnapshot
+            )
+        }
+    }
+
+    private fun applySnapshotUpdate(
+        snapshot: WeeklyPlanSnapshot,
+        payload: WeeklyPlanSnapshotStatePayload
+    ) {
+        currentSnapshot = snapshot
+        _uiState.value = stateFactory.snapshotState(
+            snapshot = snapshot,
+            previousState = _uiState.value,
+            payload = payload,
+            hydrationSnapshot = hydrationSnapshot
+        )
+    }
+
+    private fun <T> executePlanMutation(
+        fallbackErrorMessage: String,
+        mutation: suspend () -> T,
+        onSuccess: (T) -> Unit
+    ) {
         viewModelScope.launch {
             _uiState.update { state ->
-                state.copy(
-                    isApplyingSlotAction = true,
-                    actionErrorMessage = null,
-                    actionMessage = null
-                )
+                stateFactory.actionInProgress(state)
             }
 
             runCatching {
                 withContext(Dispatchers.IO) {
-                    repository.assignCatalogOptionToSlot(
-                        planId = planId,
-                        targetSlotId = targetSlotId,
-                        optionId = optionId
-                    )
-
-                    repository.getWeeklyPlanSnapshot(planId)
-                        ?: throw IllegalStateException(
-                            "Impossibile ricaricare il piano dopo l'aggiornamento."
-                        )
+                    mutation()
                 }
-            }.onSuccess { updatedSnapshot ->
-                currentSnapshot = updatedSnapshot
-
-                val baseState = updatedSnapshot.toUiState(
-                    actionMessage = successMessage,
-                    actionErrorMessage = null,
-                    isApplyingSlotAction = false,
-                    slotActionDialog = null,
-                    currentWeekReferenceDay = _uiState.value.currentWeekReferenceDay,
-                    selectedCalendarDay = _uiState.value.selectedCalendarDay,
-                    showConsumedSlotsInCalendar = _uiState.value.showConsumedSlotsInCalendar
-                ).copy(
-                    pendingCalorieSyncEvent = null,
-                    editSlotDialog = null
-                )
-
-                _uiState.value = applyManualDecorations(
-                    snapshot = updatedSnapshot,
-                    state = baseState
-                )
+            }.onSuccess { result ->
+                onSuccess(result)
             }.onFailure { throwable ->
                 _uiState.update { state ->
-                    state.copy(
-                        isApplyingSlotAction = false,
-                        actionErrorMessage = throwable.message
-                            ?: "Errore sconosciuto durante l'assegnazione dell'opzione extra."
+                    stateFactory.actionFailure(
+                        previousState = state,
+                        throwable = throwable,
+                        fallbackMessage = fallbackErrorMessage
                     )
                 }
             }
         }
-    }
-
-    private fun applyManualDecorations(
-        snapshot: WeeklyPlanSnapshot,
-        state: WeeklyPlanUiState
-    ): WeeklyPlanUiState {
-        val nutritionSummaryBySlotType = snapshot.mealRules
-            .groupBy { it.mealSlotType }
-            .mapValues { (_, rules) ->
-                rules.firstOrNull()
-                    ?.requiredComponents
-                    ?.takeIf { it.isNotEmpty() }
-                    ?.joinToString(separator = " + ")
-            }
-
-        val decoratedSlots = state.slots.map { slot ->
-            val customMealText = preferences.readStoredPreference(
-                key = WeeklyPlanPreferences.slotMealPreferenceKey(snapshot.plan.id, slot.slotId)
-            )
-            val customNutritionText = preferences.readStoredPreference(
-                key = WeeklyPlanPreferences.slotNutritionPreferenceKey(snapshot.plan.id, slot.slotId)
-            )
-
-            slot.copy(
-                displayedMealText = customMealText ?: slot.displayedMealText,
-                nutritionSummary = customNutritionText
-                    ?: nutritionSummaryBySlotType[slot.mealSlotType],
-                hasCustomizations = customMealText != null || customNutritionText != null
-            )
-        }
-
-        return state.copy(
-            slots = decoratedSlots,
-            weeklyQuantityChecklist = WeeklyQuantityChecklistBuilder.build(decoratedSlots)
-        )
     }
 }

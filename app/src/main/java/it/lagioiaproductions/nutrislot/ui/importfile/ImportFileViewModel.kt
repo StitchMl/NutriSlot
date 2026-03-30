@@ -1,5 +1,3 @@
-@file:Suppress("RedundantSuspendModifier")
-
 package it.lagioiaproductions.nutrislot.ui.importfile
 
 import android.app.Application
@@ -15,6 +13,7 @@ import it.lagioiaproductions.nutrislot.data.repository.WeeklyPlanRepository
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealCell
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealOption
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealRule
+import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedWeeklyFrequencyTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -134,6 +133,19 @@ class ImportFileViewModel(
             )
         }
 
+        val reviewedWeeklyTargets = draft?.weeklyTargets.orEmpty().map { target ->
+            ReviewedImportedWeeklyFrequencyTarget(
+                title = target.title,
+                canonicalKey = target.canonicalKey,
+                portionText = target.portionText,
+                minimumTimesPerWeek = target.minimumTimesPerWeek,
+                maximumTimesPerWeek = target.maximumTimesPerWeek,
+                matchTerms = target.matchTerms,
+                pageNumber = target.pageNumber,
+                sourceText = target.sourceText
+            )
+        }
+
         viewModelScope.launch {
             _uiState.update {
                 it.copy(
@@ -149,7 +161,8 @@ class ImportFileViewModel(
                         sourceFileName = sourceFileName,
                         cells = reviewedCells,
                         extraOptions = reviewedOptions,
-                        mealRules = reviewedRules
+                        mealRules = reviewedRules,
+                        weeklyTargets = reviewedWeeklyTargets
                     )
                 }
             }.onSuccess { planId ->

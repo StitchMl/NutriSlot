@@ -6,6 +6,7 @@ data class ImportedPlanDraft(
     val cells: List<ImportedMealCell>,
     val additionalOptions: List<ImportedMealOption> = emptyList(),
     val mealRules: List<ImportedMealRule> = emptyList(),
+    val weeklyTargets: List<ImportedWeeklyFrequencyTarget> = emptyList(),
     val warnings: List<ImportWarning>,
     val status: ImportStatus
 )
