@@ -94,7 +94,7 @@ internal object AppBridgeSupport {
     }
 
     fun splitMealText(mealText: String): Pair<String, String> {
-        val cleanedLines = mealText
+        val cleanedLines = stripMealNutritionFooter(mealText)
             .replace("\r\n", "\n")
             .replace("\r", "\n")
             .lines()
@@ -153,5 +153,16 @@ internal object AppBridgeSupport {
             nextShoppingItemId = nextShoppingItemId,
             nextFeedbackId = nextFeedbackId + 1
         )
+    }
+
+    private fun stripMealNutritionFooter(
+        mealText: String
+    ): String {
+        val markerIndex = mealText.indexOf("Nutrienti:", ignoreCase = true)
+        return if (markerIndex >= 0) {
+            mealText.substring(0, markerIndex).trim()
+        } else {
+            mealText.trim()
+        }
     }
 }

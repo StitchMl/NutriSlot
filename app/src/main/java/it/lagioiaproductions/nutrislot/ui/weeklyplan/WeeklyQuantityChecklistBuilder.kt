@@ -10,8 +10,6 @@ internal data class WeeklyChecklistHydrationSnapshot(
 )
 
 internal object WeeklyQuantityChecklistBuilder {
-    private const val MAX_WEEKLY_CHECKLIST_ITEMS = 14
-
     private val ignoredChecklistKeys = setOf(
         "olio",
         "olio evo"
@@ -49,7 +47,6 @@ internal object WeeklyQuantityChecklistBuilder {
                     { it.title }
                 )
             )
-            .take(MAX_WEEKLY_CHECKLIST_ITEMS)
     }
 
     private fun shouldShowChecklistTarget(

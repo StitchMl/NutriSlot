@@ -313,6 +313,27 @@ class WeeklyPlanRepository(
         )
     }
 
+    suspend fun updateSlotPlannedMealText(
+        planId: String,
+        slotId: String,
+        mealText: String
+    ) {
+        val plan = weeklyPlanDao.getPlanById(planId)
+            ?: throw IllegalStateException("Piano non trovato.")
+
+        val targetSlot = weeklyPlanDao.getSlotsForPlan(plan.id)
+            .firstOrNull { it.id == slotId }
+            ?: throw IllegalStateException("Slot non trovato.")
+
+        weeklyPlanDao.insertMealSlots(
+            slots = listOf(
+                targetSlot.copy(
+                    plannedMealText = normalizeMealText(mealText)
+                )
+            )
+        )
+    }
+
     suspend fun recordMealConsumption(
         planId: String,
         targetSlotId: String,

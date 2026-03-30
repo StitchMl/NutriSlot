@@ -127,15 +127,19 @@ private fun buildInlineTargetSpec(
 ): WeeklyChecklistTargetSpec? {
     val rule = WeeklyFrequencyTargetSupport.parseFrequencyTargetRule(note) ?: return null
 
-    val resolvedTitle = extractTitleFromWeeklyNote(note)
+    val rawTitle = extractTitleFromWeeklyNote(note)
         ?: component.alternatives
             .asSequence()
             .map(::cleanupWeeklyTargetTitle)
             .firstOrNull { it.isNotBlank() }
         ?: return null
 
-    val canonicalKey = WeeklyFrequencyTargetSupport.normalizeKey(resolvedTitle)
-    if (canonicalKey.isBlank()) return null
+    val canonicalKey = WeeklyFrequencyTargetSupport.resolveKnownCanonicalKey(rawTitle) ?: return null
+    if (!WeeklyFrequencyTargetSupport.isReasonableKnownTargetTitle(rawTitle, canonicalKey)) {
+        return null
+    }
+
+    val resolvedTitle = WeeklyFrequencyTargetSupport.formatTitle(canonicalKey)
 
     val sourceText = buildString {
         append(resolvedTitle)
@@ -147,10 +151,6 @@ private fun buildInlineTargetSpec(
         title = resolvedTitle,
         sourceText = sourceText
     )
-
-    if (matchTerms.size == 1 && resolvedTitle.split(" ").size > 3) {
-        return null
-    }
 
     return WeeklyChecklistTargetSpec(
         canonicalKey = canonicalKey,

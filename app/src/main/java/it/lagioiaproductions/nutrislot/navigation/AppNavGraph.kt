@@ -114,8 +114,10 @@ fun AppNavGraph(
                     onUndoCompletedMeal = weeklyPlanViewModel::undoCompletedMeal,
                     onConsumeShoppingFeedback = bridgeViewModel::clearShoppingFeedback,
                     onSaveSlotEdit = weeklyPlanViewModel::saveEditSlot,
+                    onSaveSlotEditForNextWeeks = weeklyPlanViewModel::saveEditSlotForNextWeeks,
                     onDismissSlotEdit = weeklyPlanViewModel::dismissEditSlot,
-                    onResetSlotEdit = weeklyPlanViewModel::resetEditSlot
+                    onResetSlotEdit = weeklyPlanViewModel::resetEditSlot,
+                    onRecalculateSlotNutritionWithGemini = weeklyPlanViewModel::recalculateEditSlotNutritionWithGemini
                 )
             }
 

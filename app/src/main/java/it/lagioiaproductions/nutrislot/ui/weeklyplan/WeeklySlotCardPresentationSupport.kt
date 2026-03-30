@@ -167,7 +167,5 @@ private fun shouldShowInlineNutrition(
     slotUi: WeeklySlotUi,
     content: CalendarMealContentUi
 ): Boolean {
-    return !slotUi.nutritionSummary.isNullOrBlank() &&
-            content.detailLines.size <= 1 &&
-            content.alternativeLines.isEmpty()
+    return !slotUi.nutritionSummary.isNullOrBlank()
 }

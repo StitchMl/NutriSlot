@@ -27,8 +27,10 @@ fun WeeklyPlanScreen(
     onUndoCompletedMeal: () -> Unit,
     onConsumeShoppingFeedback: () -> Unit,
     onSaveSlotEdit: (mealText: String, nutritionText: String) -> Unit,
+    onSaveSlotEditForNextWeeks: (mealText: String, nutritionText: String) -> Unit,
     onDismissSlotEdit: () -> Unit,
-    onResetSlotEdit: () -> Unit
+    onResetSlotEdit: () -> Unit,
+    onRecalculateSlotNutritionWithGemini: (mealText: String) -> Unit
 ) {
     val hasLoadedPlan = uiState.planId != null || uiState.slots.isNotEmpty()
     val plannerFeedbackState = rememberPlannerShoppingFeedbackState(
@@ -109,7 +111,9 @@ fun WeeklyPlanScreen(
                 dialogUi = dialogUi,
                 onDismiss = onDismissSlotEdit,
                 onSave = onSaveSlotEdit,
-                onReset = onResetSlotEdit
+                onSaveForNextWeeks = onSaveSlotEditForNextWeeks,
+                onReset = onResetSlotEdit,
+                onRecalculateNutritionWithGemini = onRecalculateSlotNutritionWithGemini
             )
         }
     }

@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import it.lagioiaproductions.nutrislot.BuildConfig
+import it.lagioiaproductions.nutrislot.data.ai.GeminiNutritionEstimator
 import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
 import it.lagioiaproductions.nutrislot.data.repository.WeeklyPlanRepository
 import it.lagioiaproductions.nutrislot.data.water.WaterPreferencesRepository
@@ -14,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -37,6 +40,7 @@ class WeeklyPlanViewModel(
     private val customizationManager = WeeklyPlanCustomizationManager(preferences)
     private val mutationExecutor = WeeklyPlanMutationExecutor(repository)
     private val stateFactory = WeeklyPlanStateFactory(customizationManager)
+    private val nutritionEstimator = GeminiNutritionEstimator(BuildConfig.GEMINI_API_KEY)
 
     private var currentSnapshot: WeeklyPlanSnapshot? = null
     private var hydrationSnapshot: WeeklyChecklistHydrationSnapshot? = null
@@ -52,6 +56,10 @@ class WeeklyPlanViewModel(
         )
     )
     val uiState: StateFlow<WeeklyPlanUiState> = _uiState.asStateFlow()
+
+    init {
+        observeHydrationPreferences()
+    }
 
     fun toggleSlotCompletedFromCalendar(slotId: String) {
         val slotUi = _uiState.value.slots.firstOrNull { it.slotId == slotId } ?: return
@@ -173,18 +181,130 @@ class WeeklyPlanViewModel(
     ) {
         val snapshot = currentSnapshot ?: return
         val dialog = _uiState.value.editSlotDialog ?: return
+        val normalizedMealText = stripStoredMealNutrition(mealText)
+        val normalizedNutritionText = normalizeNutritionSummary(nutritionText)
 
         customizationManager.saveSlotCustomization(
             planId = snapshot.plan.id,
             slotId = dialog.slotId,
-            mealText = mealText,
-            nutritionText = nutritionText
+            mealText = normalizedMealText,
+            nutritionText = normalizedNutritionText
         )
 
         applyCustomizationUpdate(
             snapshot = snapshot,
             actionMessage = "Box aggiornato."
         )
+    }
+
+    fun saveEditSlotForNextWeeks(
+        mealText: String,
+        nutritionText: String
+    ) {
+        val snapshot = currentSnapshot ?: return
+        val dialog = _uiState.value.editSlotDialog ?: return
+        val storedMealText = mergeMealTextWithNutritionSummary(
+            mealText = mealText,
+            nutritionSummary = nutritionText
+        )
+
+        executePlanMutation(
+            fallbackErrorMessage = "Errore sconosciuto durante il salvataggio del pasto.",
+            mutation = {
+                mutationExecutor.updateSlotBaseMeal(
+                    planId = snapshot.plan.id,
+                    slotId = dialog.slotId,
+                    mealText = storedMealText
+                )
+            },
+            onSuccess = { updatedSnapshot ->
+                customizationManager.resetSlotCustomization(
+                    planId = snapshot.plan.id,
+                    slotId = dialog.slotId
+                )
+
+                applySnapshotUpdate(
+                    snapshot = updatedSnapshot,
+                    payload = buildMessagePayload(
+                        actionMessage = "Pasto salvato anche come base per le prossime settimane."
+                    )
+                )
+            }
+        )
+    }
+
+    fun recalculateEditSlotNutritionWithGemini(
+        mealText: String
+    ) {
+        val dialog = _uiState.value.editSlotDialog ?: return
+        val cleanedMealText = stripStoredMealNutrition(mealText)
+
+        if (cleanedMealText.isBlank()) {
+            _uiState.update { state ->
+                state.copy(
+                    editSlotDialog = dialog.copy(
+                        mealText = cleanedMealText,
+                        isGeminiRecalculating = false,
+                        geminiMessage = "Scrivi prima il pasto da analizzare con Gemini."
+                    )
+                )
+            }
+            return
+        }
+
+        _uiState.update { state ->
+            state.copy(
+                editSlotDialog = dialog.copy(
+                    mealText = cleanedMealText,
+                    isGeminiRecalculating = true,
+                    geminiMessage = "Ricalcolo nutrienti in corso con Gemini..."
+                )
+            )
+        }
+
+        viewModelScope.launch {
+            val estimateResult = withContext(Dispatchers.IO) {
+                nutritionEstimator.estimateNutritionForMealDetailed(cleanedMealText)
+            }
+
+            val latestDialog = _uiState.value.editSlotDialog ?: return@launch
+            if (latestDialog.slotId != dialog.slotId) return@launch
+
+            val updatedNutritionText = estimateResult.nutrition
+                ?.toNutritionSummary()
+                ?.takeIf { it.isNotBlank() }
+
+            if (updatedNutritionText != null) {
+                currentSnapshot?.let { snapshot ->
+                    customizationManager.saveSlotCustomization(
+                        planId = snapshot.plan.id,
+                        slotId = dialog.slotId,
+                        mealText = cleanedMealText,
+                        nutritionText = updatedNutritionText
+                    )
+                }
+            }
+
+            _uiState.update { state ->
+                state.copy(
+                    editSlotDialog = latestDialog.copy(
+                        mealText = cleanedMealText,
+                        nutritionText = updatedNutritionText ?: latestDialog.nutritionText,
+                        isGeminiRecalculating = false,
+                        geminiMessage = if (updatedNutritionText != null) {
+                            "Nutrienti aggiornati e applicati al weekly plan."
+                        } else {
+                            estimateResult.errorMessage
+                                ?: "Gemini non ha restituito una stima valida per questo pasto."
+                        }
+                    )
+                )
+            }
+
+            if (updatedNutritionText != null) {
+                rebuildCurrentStateWithLatestHydration()
+            }
+        }
     }
 
     fun resetEditSlot() {
@@ -418,6 +538,44 @@ class WeeklyPlanViewModel(
                     )
                 }
             }
+        }
+    }
+
+    private fun observeHydrationPreferences() {
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    waterRepository.ensureCurrentDay()
+                }
+            }
+
+            waterRepository.preferencesFlow.collect { storedPreferences ->
+                hydrationSnapshot = storedPreferences.toChecklistHydrationSnapshot()
+                rebuildCurrentStateWithLatestHydration()
+            }
+        }
+    }
+
+    private fun rebuildCurrentStateWithLatestHydration() {
+        val snapshot = currentSnapshot ?: return
+
+        _uiState.update { state ->
+            stateFactory.snapshotState(
+                snapshot = snapshot,
+                previousState = state,
+                payload = WeeklyPlanSnapshotStatePayload(
+                    actionMessage = state.actionMessage,
+                    actionErrorMessage = state.actionErrorMessage,
+                    isApplyingSlotAction = state.isApplyingSlotAction,
+                    slotActionDialog = state.slotActionDialog,
+                    currentWeekReferenceDay = state.currentWeekReferenceDay,
+                    selectedCalendarDay = state.selectedCalendarDay,
+                    pendingCalorieSyncEvent = state.pendingCalorieSyncEvent,
+                    pendingCalorieUndoEvent = state.pendingCalorieUndoEvent,
+                    editSlotDialog = state.editSlotDialog
+                ),
+                hydrationSnapshot = hydrationSnapshot
+            )
         }
     }
 }

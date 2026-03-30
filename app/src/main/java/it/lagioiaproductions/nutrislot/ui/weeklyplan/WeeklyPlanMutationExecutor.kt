@@ -55,6 +55,23 @@ internal class WeeklyPlanMutationExecutor(
         )
     }
 
+    suspend fun updateSlotBaseMeal(
+        planId: String,
+        slotId: String,
+        mealText: String
+    ): WeeklyPlanSnapshot {
+        repository.updateSlotPlannedMealText(
+            planId = planId,
+            slotId = slotId,
+            mealText = mealText
+        )
+
+        return loadRequiredSnapshot(
+            planId = planId,
+            failureMessage = "Impossibile ricaricare il piano dopo il salvataggio del pasto."
+        )
+    }
+
     suspend fun recordConsumption(
         planId: String,
         targetSlotId: String,

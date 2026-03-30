@@ -48,10 +48,12 @@ internal class WeeklyPlanCustomizationManager(
             val customNutritionText = preferences.readStoredPreference(
                 key = WeeklyPlanPreferences.slotNutritionPreferenceKey(snapshot.plan.id, slot.slotId)
             )
+            val displayedMealText = customMealText ?: slot.displayedMealText
 
             slot.copy(
-                displayedMealText = customMealText ?: slot.displayedMealText,
+                displayedMealText = displayedMealText,
                 nutritionSummary = customNutritionText
+                    ?: extractStoredNutritionSummary(displayedMealText)
                     ?: nutritionSummaryBySlotType[slot.mealSlotType],
                 hasCustomizations = customMealText != null || customNutritionText != null
             )

@@ -2,24 +2,34 @@ package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,10 +45,16 @@ fun EditSlotDialog(
     dialogUi: EditSlotDialogUi,
     onDismiss: () -> Unit,
     onSave: (mealText: String, nutritionText: String) -> Unit,
-    onReset: () -> Unit
+    onSaveForNextWeeks: (mealText: String, nutritionText: String) -> Unit,
+    onReset: () -> Unit,
+    onRecalculateNutritionWithGemini: (mealText: String) -> Unit
 ) {
-    var mealText by remember(dialogUi.slotId) { mutableStateOf(dialogUi.mealText) }
-    var nutritionText by remember(dialogUi.slotId) { mutableStateOf(dialogUi.nutritionText) }
+    var mealText by remember(dialogUi.slotId, dialogUi.mealText) {
+        mutableStateOf(dialogUi.mealText)
+    }
+    var nutritionText by remember(dialogUi.slotId, dialogUi.nutritionText) {
+        mutableStateOf(dialogUi.nutritionText)
+    }
 
     val parsedSections = remember(mealText) {
         parseMealSectionVisuals(mealText)
@@ -152,41 +168,128 @@ fun EditSlotDialog(
                         Text("Questa parte resta salvabile, ma non viene usata per la lista della spesa.")
                     }
                 )
+
+                EditSlotActionBar(
+                    isGeminiRecalculating = dialogUi.isGeminiRecalculating,
+                    canActOnMeal = mealText.isNotBlank(),
+                    onRecalculateNutritionWithGemini = {
+                        onRecalculateNutritionWithGemini(mealText)
+                    },
+                    onSave = { onSave(mealText, nutritionText) },
+                    onSaveForNextWeeks = { onSaveForNextWeeks(mealText, nutritionText) },
+                    onReset = onReset,
+                    onDismiss = onDismiss
+                )
+
+                dialogUi.geminiMessage
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { geminiMessage ->
+                        Text(
+                            text = geminiMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
             }
         },
-        confirmButton = {
-            Button(
-                onClick = { onSave(mealText, nutritionText) }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null
+        confirmButton = {},
+        dismissButton = {}
+    )
+}
+
+@Composable
+private fun EditSlotActionBar(
+    isGeminiRecalculating: Boolean,
+    canActOnMeal: Boolean,
+    onRecalculateNutritionWithGemini: () -> Unit,
+    onSave: () -> Unit,
+    onSaveForNextWeeks: () -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    ) {
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FilledTonalButton(
+                onClick = onRecalculateNutritionWithGemini,
+                enabled = !isGeminiRecalculating && canActOnMeal,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
+            ) {
+                if (isGeminiRecalculating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "Calcola nutrienti con Gemini"
+                    )
+                }
                 Text(
-                    text = " Salva",
+                    text = " AI",
                     style = MaterialTheme.typography.labelLarge
                 )
             }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onReset) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null
-                    )
-                    Text(" Ripristina")
-                }
-                TextButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = null
-                    )
-                    Text(" Chiudi")
-                }
+
+            FilledTonalIconButton(
+                onClick = onSave,
+                enabled = canActOnMeal,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Save,
+                    contentDescription = "Salva sul weekly plan corrente"
+                )
+            }
+
+            FilledTonalIconButton(
+                onClick = onSaveForNextWeeks,
+                enabled = canActOnMeal,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DateRange,
+                    contentDescription = "Salva anche per le prossime settimane"
+                )
+            }
+
+            OutlinedIconButton(
+                onClick = onReset
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Undo,
+                    contentDescription = "Ripristina"
+                )
+            }
+
+            OutlinedIconButton(
+                onClick = onDismiss
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Chiudi"
+                )
             }
         }
-    )
+    }
 }
 
 private fun slotTimeLabelFromLabel(mealSlotLabel: String): String {

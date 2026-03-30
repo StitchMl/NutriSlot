@@ -9,21 +9,37 @@ import java.net.URL
 import android.util.Log
 import java.io.IOException
 
+data class GeminiNutritionEstimateResult(
+    val nutrition: ImportedMealNutrition? = null,
+    val errorMessage: String? = null,
+    val retryable: Boolean = false
+)
+
 class GeminiNutritionEstimator(
     private val apiKey: String
 ) {
 
     fun estimateNutritionForMeal(mealText: String): ImportedMealNutrition? {
+        return estimateNutritionForMealDetailed(mealText).nutrition
+    }
+
+    fun estimateNutritionForMealDetailed(mealText: String): GeminiNutritionEstimateResult {
         val trimmedApiKey = apiKey.trim()
         if (trimmedApiKey.isBlank()) {
             Log.e(TAG, "Gemini API key vuota.")
-            return null
+            return GeminiNutritionEstimateResult(
+                errorMessage = "Gemini API key vuota.",
+                retryable = false
+            )
         }
 
         val normalizedMealText = mealText.trim()
         if (normalizedMealText.isBlank()) {
             Log.w(TAG, "Meal text vuoto, salto la richiesta.")
-            return null
+            return GeminiNutritionEstimateResult(
+                errorMessage = "Testo del pasto vuoto.",
+                retryable = false
+            )
         }
 
         return try {
@@ -65,11 +81,18 @@ class GeminiNutritionEstimator(
             connection.disconnect()
 
             if (statusCode !in 200..299) {
+                val errorMessage = buildErrorMessage(
+                    statusCode = statusCode,
+                    responseText = responseText
+                )
                 Log.e(
                     TAG,
-                    "Gemini HTTP $statusCode. Response=$responseText"
+                    "Gemini HTTP $statusCode. Message=$errorMessage Response=$responseText"
                 )
-                return null
+                return GeminiNutritionEstimateResult(
+                    errorMessage = errorMessage,
+                    retryable = statusCode !in listOf(400, 401, 403)
+                )
             }
 
             Log.d(
@@ -77,15 +100,29 @@ class GeminiNutritionEstimator(
                 "Gemini success. Response=${responseText.take(1200)}"
             )
 
-            parseResponse(responseText).also { parsed ->
-                Log.d(TAG, "Gemini parsed nutrition=$parsed")
+            val parsed = parseResponse(responseText)
+            Log.d(TAG, "Gemini parsed nutrition=$parsed")
+
+            if (parsed != null) {
+                GeminiNutritionEstimateResult(nutrition = parsed)
+            } else {
+                GeminiNutritionEstimateResult(
+                    errorMessage = "Gemini non ha restituito nutrienti validi per questo pasto.",
+                    retryable = false
+                )
             }
         } catch (e: IOException) {
             Log.e(TAG, "Gemini IO error", e)
-            null
+            GeminiNutritionEstimateResult(
+                errorMessage = "Errore di rete durante la chiamata a Gemini.",
+                retryable = true
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Gemini unexpected error", e)
-            null
+            GeminiNutritionEstimateResult(
+                errorMessage = "Errore inatteso durante la chiamata a Gemini.",
+                retryable = true
+            )
         }
     }
 
@@ -187,6 +224,30 @@ class GeminiNutritionEstimator(
         )
 
         return nutrition.takeIf { it.hasAnyValue }
+    }
+
+    private fun buildErrorMessage(
+        statusCode: Int,
+        responseText: String
+    ): String {
+        val normalizedResponse = responseText.lowercase()
+
+        return when {
+            statusCode == 403 && normalizedResponse.contains("reported as leaked") ->
+                "La Gemini API key configurata è stata segnalata come compromessa. Aggiornala in gradle.properties."
+
+            statusCode == 401 || statusCode == 403 ->
+                "Gemini ha rifiutato la API key configurata."
+
+            statusCode == 429 ->
+                "Gemini è temporaneamente occupato. Riprova tra poco."
+
+            statusCode == 400 ->
+                "La richiesta inviata a Gemini non è valida."
+
+            else ->
+                "Gemini ha risposto con HTTP $statusCode."
+        }
     }
 
     companion object {

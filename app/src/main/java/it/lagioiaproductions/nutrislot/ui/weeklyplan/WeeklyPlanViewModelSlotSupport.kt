@@ -16,7 +16,7 @@ internal fun buildEditSlotDialog(slotUi: WeeklySlotUi): EditSlotDialogUi {
         slotId = slotUi.slotId,
         dayLabel = slotUi.dayOfWeek.displayName,
         mealSlotLabel = slotUi.mealSlotType.displayName,
-        mealText = slotUi.displayedMealText,
+        mealText = stripStoredMealNutrition(slotUi.displayedMealText),
         nutritionText = slotUi.nutritionSummary.orEmpty()
     )
 }
@@ -60,7 +60,10 @@ internal fun WeeklyPlanSnapshot.buildPlannedSlotConsumptionCommand(
         targetSlotId = targetSlotId,
         sourceSlotId = sourceSlotId,
         targetDayOfWeek = targetSlot.dayOfWeek,
-        consumedMealText = targetUi.displayedMealText,
+        consumedMealText = mergeMealTextWithNutritionSummary(
+            mealText = targetUi.displayedMealText,
+            nutritionSummary = targetUi.nutritionSummary.orEmpty()
+        ),
         consumedMealSlotLabel = targetUi.mealSlotType.displayName
     )
 }

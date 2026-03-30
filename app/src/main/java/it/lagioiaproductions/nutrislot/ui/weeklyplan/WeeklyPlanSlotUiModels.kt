@@ -54,5 +54,7 @@ data class EditSlotDialogUi(
     val dayLabel: String,
     val mealSlotLabel: String,
     val mealText: String,
-    val nutritionText: String
+    val nutritionText: String,
+    val isGeminiRecalculating: Boolean = false,
+    val geminiMessage: String? = null
 )

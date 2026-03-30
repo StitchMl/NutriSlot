@@ -39,6 +39,8 @@ class NutritionEnrichmentWorker(
             val options = dao.getMealOptionsForPlan(plan.id)
 
             val nutritionCache = linkedMapOf<String, ImportedMealNutrition?>()
+            var latestGeminiErrorMessage: String? = null
+            var hasRetryableGeminiError = false
 
             @Suppress("RedundantSuspendModifier")
             suspend fun estimateCached(text: String): ImportedMealNutrition? {
@@ -49,9 +51,14 @@ class NutritionEnrichmentWorker(
                     return nutritionCache[baseText]
                 }
 
-                val estimated = estimator.estimateNutritionForMeal(baseText)
-                nutritionCache[baseText] = estimated
-                return estimated
+                val result = estimator.estimateNutritionForMealDetailed(baseText)
+                if (result.errorMessage != null) {
+                    latestGeminiErrorMessage = result.errorMessage
+                    hasRetryableGeminiError = result.retryable
+                }
+
+                nutritionCache[baseText] = result.nutrition
+                return result.nutrition
             }
 
             var updatedSlotsCount = 0
@@ -92,12 +99,28 @@ class NutritionEnrichmentWorker(
                 dao.insertMealOptions(updatedOptions)
             }
 
-            Result.success(
-                workDataOf(
-                    KEY_UPDATED_SLOTS to updatedSlotsCount,
-                    KEY_UPDATED_OPTIONS to updatedOptionsCount
+            if (
+                updatedSlotsCount == 0 &&
+                updatedOptionsCount == 0 &&
+                latestGeminiErrorMessage != null
+            ) {
+                if (hasRetryableGeminiError) {
+                    Result.retry()
+                } else {
+                    Result.failure(
+                        workDataOf(
+                            KEY_ERROR_MESSAGE to latestGeminiErrorMessage
+                        )
+                    )
+                }
+            } else {
+                Result.success(
+                    workDataOf(
+                        KEY_UPDATED_SLOTS to updatedSlotsCount,
+                        KEY_UPDATED_OPTIONS to updatedOptionsCount
+                    )
                 )
-            )
+            }
         }.getOrElse {
             Result.retry()
         }
@@ -107,6 +130,7 @@ class NutritionEnrichmentWorker(
         private const val KEY_PLAN_ID = "plan_id"
         private const val KEY_UPDATED_SLOTS = "updated_slots"
         private const val KEY_UPDATED_OPTIONS = "updated_options"
+        private const val KEY_ERROR_MESSAGE = "error_message"
 
         private fun uniqueWorkName(planId: String): String =
             "nutrition_enrichment_$planId"

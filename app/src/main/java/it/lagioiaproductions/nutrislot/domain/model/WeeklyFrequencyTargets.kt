@@ -78,7 +78,7 @@ internal object WeeklyFrequencyTargetSupport {
             "zucchine"
         ),
         "legumi" to listOf("legumi", "legume", "fagioli", "lenticchie", "ceci", "piselli", "fave", "lupini", "hummus", "humus"),
-        "patate" to listOf("patate"),
+        "patate" to listOf("patate", "patata"),
         "pesce" to listOf("pesce", "salmone", "tonno", "sgombro", "orata", "spigola", "merluzzo", "trota", "nasello", "sogliola", "gamberetti", "polpo", "calamari"),
         "piatto unico" to listOf("piatto unico"),
         "uova" to listOf("uova", "uovo", "frittata")
@@ -117,7 +117,7 @@ internal object WeeklyFrequencyTargetSupport {
         title: String,
         sourceText: String? = null
     ): List<String> {
-        val canonicalKey = normalizeKey(title)
+        val canonicalKey = resolveKnownCanonicalKey(title) ?: normalizeKey(title)
         val directAliases = aliasMap[canonicalKey]
         if (directAliases != null) return directAliases
 
@@ -131,6 +131,28 @@ internal object WeeklyFrequencyTargetSupport {
             ?.let { return it }
 
         return listOf(canonicalKey)
+    }
+
+    fun resolveKnownCanonicalKey(
+        title: String
+    ): String? {
+        val normalizedTitle = normalizeKey(title)
+        if (normalizedTitle.isBlank()) return null
+        if (aliasMap.containsKey(normalizedTitle)) return normalizedTitle
+        return findMatchingCanonicalKeys(normalizedTitle).singleOrNull()
+    }
+
+    fun isReasonableKnownTargetTitle(
+        title: String,
+        canonicalKey: String
+    ): Boolean {
+        val normalizedTitle = normalizeKey(title)
+        if (normalizedTitle.isBlank()) return false
+        if (normalizedTitle.any(Char::isDigit)) return false
+        if (normalizedTitle.split(" ").count { it.isNotBlank() } > 4) return false
+
+        val matchedKeys = findMatchingCanonicalKeys(normalizedTitle)
+        return matchedKeys.size == 1 && matchedKeys.single() == canonicalKey
     }
 
     fun parseFrequencyRule(
@@ -236,13 +258,38 @@ internal object WeeklyFrequencyTargetSupport {
     ): Boolean {
         return terms.any { term ->
             val normalizedTerm = normalizeKey(term)
-            normalizedTerm.isNotBlank() && (
-                normalizedMeal == normalizedTerm ||
-                        normalizedMeal.startsWith("$normalizedTerm ") ||
-                        normalizedMeal.contains(" $normalizedTerm ") ||
-                        normalizedMeal.endsWith(" $normalizedTerm")
-                )
+            normalizedTerm.isNotBlank() && containsNormalizedTerm(
+                normalizedText = normalizedMeal,
+                normalizedTerm = normalizedTerm
+            )
         }
+    }
+
+    private fun findMatchingCanonicalKeys(
+        normalizedText: String
+    ): List<String> {
+        return aliasMap.entries
+            .filter { (canonicalKey, aliases) ->
+                containsNormalizedTerm(normalizedText, canonicalKey) ||
+                        aliases.any { alias ->
+                            containsNormalizedTerm(
+                                normalizedText = normalizedText,
+                                normalizedTerm = normalizeKey(alias)
+                            )
+                        }
+            }
+            .map { (canonicalKey, _) -> canonicalKey }
+            .distinct()
+    }
+
+    private fun containsNormalizedTerm(
+        normalizedText: String,
+        normalizedTerm: String
+    ): Boolean {
+        return normalizedText == normalizedTerm ||
+                normalizedText.startsWith("$normalizedTerm ") ||
+                normalizedText.contains(" $normalizedTerm ") ||
+                normalizedText.endsWith(" $normalizedTerm")
     }
 
     private fun normalizeForRuleParsing(

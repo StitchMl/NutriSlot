@@ -115,10 +115,13 @@ internal class PdfWeeklyFrequencyTargetExtractor {
         pageNumber: Int
     ): TargetCandidate? {
         val rule = WeeklyFrequencyTargetSupport.parseFrequencyTargetRule(segment) ?: return null
-        val title = extractTargetTitle(segment).takeIf { it.isNotBlank() } ?: return null
+        val rawTitle = extractTargetTitle(segment).takeIf { it.isNotBlank() } ?: return null
+        val canonicalKey = WeeklyFrequencyTargetSupport.resolveKnownCanonicalKey(rawTitle) ?: return null
+        if (!WeeklyFrequencyTargetSupport.isReasonableKnownTargetTitle(rawTitle, canonicalKey)) {
+            return null
+        }
 
-        val canonicalKey = WeeklyFrequencyTargetSupport.normalizeKey(title)
-        if (canonicalKey.isBlank()) return null
+        val title = WeeklyFrequencyTargetSupport.formatTitle(canonicalKey)
 
         val sourceSummary = segment
             .replace(Regex("\\s+"), " ")
@@ -128,10 +131,6 @@ internal class PdfWeeklyFrequencyTargetExtractor {
             title = title,
             sourceText = sourceSummary
         )
-
-        if (matchTerms.size == 1 && title.split(" ").size > 4) {
-            return null
-        }
 
         return TargetCandidate(
             target = ImportedWeeklyFrequencyTarget(
@@ -145,7 +144,12 @@ internal class PdfWeeklyFrequencyTargetExtractor {
                 pageNumber = pageNumber,
                 sourceText = sourceSummary
             ),
-            score = computeCandidateScore(rule, segment)
+            score = computeCandidateScore(
+                rule = rule,
+                segment = segment,
+                rawTitle = rawTitle,
+                canonicalKey = canonicalKey
+            )
         )
     }
 
@@ -244,12 +248,21 @@ internal class PdfWeeklyFrequencyTargetExtractor {
 
     private fun computeCandidateScore(
         rule: WeeklyFrequencyTargetSupport.FrequencyTargetRule,
-        segment: String
+        segment: String,
+        rawTitle: String,
+        canonicalKey: String
     ): Int {
+        val normalizedTitle = WeeklyFrequencyTargetSupport.normalizeKey(rawTitle)
+        val titleWordCount = normalizedTitle.split(" ").count { it.isNotBlank() }
+
         return (if (rule.period == WeeklyFrequencyTargetSupport.FrequencyTargetPeriod.DAY) 3 else 2) +
                 (if (rule.measure == WeeklyFrequencyTargetSupport.FrequencyTargetMeasure.MILLILITERS) 2 else 0) +
                 (if (parentheticalDetailRegex.containsMatchIn(segment)) 1 else 0) +
-                (if (segment.contains("almeno", ignoreCase = true) || segment.contains("massimo", ignoreCase = true)) 1 else 0)
+                (if (segment.contains("almeno", ignoreCase = true) || segment.contains("massimo", ignoreCase = true)) 1 else 0) +
+                (if (normalizedTitle == canonicalKey) 4 else 0) +
+                (if (titleWordCount <= 2) 1 else 0) -
+                (if (segment.contains('+')) 4 else 0) -
+                (if (segment.length > 180) 2 else 0)
     }
 
     private fun looksLikeStandaloneFrequencyTarget(
