@@ -163,6 +163,7 @@ private fun canToggleWeeklySlotCompleted(slotUi: WeeklySlotUi): Boolean {
                     )
 }
 
+@Suppress("unused")
 private fun shouldShowInlineNutrition(
     slotUi: WeeklySlotUi,
     content: CalendarMealContentUi
