@@ -1,4 +1,6 @@
-﻿package it.lagioiaproductions.nutrislot.ui.weeklyplan
+﻿@file:Suppress("AssignedValueIsNeverRead")
+
+package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background

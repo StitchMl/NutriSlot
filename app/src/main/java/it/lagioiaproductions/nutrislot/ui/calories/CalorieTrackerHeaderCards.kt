@@ -1,6 +1,4 @@
-@file:Suppress("SameParameterValue", "SameParameterValue", "SameParameterValue",
-    "SameParameterValue", "SameParameterValue", "unused", "unused"
-)
+@file:Suppress("SameParameterValue")
 
 package it.lagioiaproductions.nutrislot.ui.calories
 

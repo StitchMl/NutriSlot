@@ -1,5 +1,3 @@
-@file:Suppress("unused", "unused", "unused", "unused", "unused", "unused")
-
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+@Suppress("unused")
 @Composable
 internal fun SlotActionDialog(
     dialogUi: SlotActionDialogUi,

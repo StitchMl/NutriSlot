@@ -46,11 +46,6 @@ internal object WeeklyFrequencyTargetSupport {
         val maximumValue: Int? = null
     )
 
-    data class WeeklyFrequencyRule(
-        val minimumTimesPerWeek: Int? = null,
-        val maximumTimesPerWeek: Int? = null
-    )
-
     private val aliasMap = mapOf(
         "acqua" to listOf("acqua"),
         "affettati" to listOf("affettati", "affettato", "prosciutto", "bresaola", "fesa di tacchino", "salume"),
@@ -153,21 +148,6 @@ internal object WeeklyFrequencyTargetSupport {
 
         val matchedKeys = findMatchingCanonicalKeys(normalizedTitle)
         return matchedKeys.size == 1 && matchedKeys.single() == canonicalKey
-    }
-
-    fun parseFrequencyRule(
-        text: String
-    ): WeeklyFrequencyRule? {
-        val rule = parseFrequencyTargetRule(text) ?: return null
-        if (rule.period != FrequencyTargetPeriod.WEEK) return null
-        if (rule.measure == FrequencyTargetMeasure.MILLILITERS) {
-            return null
-        }
-
-        return WeeklyFrequencyRule(
-            minimumTimesPerWeek = rule.minimumValue,
-            maximumTimesPerWeek = rule.maximumValue
-        )
     }
 
     fun parseFrequencyTargetRule(

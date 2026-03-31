@@ -1,3 +1,5 @@
+@file:Suppress("SameParameterValue")
+
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import it.lagioiaproductions.nutrislot.domain.model.ImportedMealNutrition

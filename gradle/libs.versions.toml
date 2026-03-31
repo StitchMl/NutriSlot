@@ -1,6 +1,7 @@
 [versions]
 agp = "9.1.0"
 androidxComposeBom = "2026.03.01"
+junit = "4.13.2"
 lifecycleRuntimeCompose = "2.10.0"
 activityCompose = "1.13.0"
 kotlin = "2.3.20"
@@ -32,6 +33,7 @@ androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntime" }
 
+junit = { module = "junit:junit", version.ref = "junit" }
 pdfbox-android = { module = "com.tom-roush:pdfbox-android", version = "2.0.27.0" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 

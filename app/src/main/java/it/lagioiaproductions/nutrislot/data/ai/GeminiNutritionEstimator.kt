@@ -1,3 +1,5 @@
+@file:Suppress("IntroduceWhenSubject")
+
 package it.lagioiaproductions.nutrislot.data.ai
 
 import it.lagioiaproductions.nutrislot.domain.model.ImportedMealNutrition
@@ -18,10 +20,6 @@ data class GeminiNutritionEstimateResult(
 class GeminiNutritionEstimator(
     private val apiKey: String
 ) {
-
-    fun estimateNutritionForMeal(mealText: String): ImportedMealNutrition? {
-        return estimateNutritionForMealDetailed(mealText).nutrition
-    }
 
     fun estimateNutritionForMealDetailed(mealText: String): GeminiNutritionEstimateResult {
         val trimmedApiKey = apiKey.trim()

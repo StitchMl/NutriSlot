@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -404,6 +403,7 @@ class WeeklyPlanViewModel(
         )
     }
 
+    @Suppress("SameParameterValue")
     private fun applyReplacementAssignment(
         snapshot: WeeklyPlanSnapshot,
         targetSlotId: String,
@@ -428,6 +428,7 @@ class WeeklyPlanViewModel(
         )
     }
 
+    @Suppress("SameParameterValue", "SameParameterValue")
     private fun applyConsumption(
         snapshot: WeeklyPlanSnapshot,
         targetSlotId: String,
@@ -462,6 +463,7 @@ class WeeklyPlanViewModel(
         )
     }
 
+    @Suppress("SameParameterValue")
     private fun applyCatalogOptionAssignment(
         snapshot: WeeklyPlanSnapshot,
         targetSlotId: String,
