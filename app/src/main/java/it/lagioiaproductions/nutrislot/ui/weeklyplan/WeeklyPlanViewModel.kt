@@ -375,7 +375,8 @@ class WeeklyPlanViewModel(
             targetDayOfWeek = command.targetDayOfWeek,
             successMessage = "Pasto segnato come completato nella settimana corrente.",
             consumedMealText = command.consumedMealText,
-            consumedMealSlotLabel = command.consumedMealSlotLabel
+            consumedMealSlotLabel = command.consumedMealSlotLabel,
+            usesCustomizedTargetMeal = command.usesCustomizedTargetMeal
         )
     }
 
@@ -436,7 +437,8 @@ class WeeklyPlanViewModel(
         targetDayOfWeek: WeekDay,
         successMessage: String,
         consumedMealText: String,
-        consumedMealSlotLabel: String
+        consumedMealSlotLabel: String,
+        usesCustomizedTargetMeal: Boolean
     ) {
         executePlanMutation(
             fallbackErrorMessage = "Errore sconosciuto durante l'aggiornamento dello slot.",
@@ -444,7 +446,8 @@ class WeeklyPlanViewModel(
                 mutationExecutor.recordConsumption(
                     planId = snapshot.plan.id,
                     targetSlotId = targetSlotId,
-                    sourceSlotId = sourceSlotId
+                    sourceSlotId = sourceSlotId,
+                    usesCustomizedTargetMeal = usesCustomizedTargetMeal
                 )
             },
             onSuccess = { result ->

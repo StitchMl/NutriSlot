@@ -23,9 +23,14 @@ internal fun WeeklyPlanSnapshot.buildActualConsumedSourceMap(): Map<String, Stri
 internal fun WeeklyPlanSnapshot.buildPendingAssignedSourceMap(
     actualSourceByTarget: Map<String, String>
 ): Map<String, String> {
+    val actualConsumedSourceIds = actualSourceByTarget.values.toSet()
+
     return activeWeekAssignments()
         .sortedBy(MealAssignment::assignedAtEpochMillis)
-        .filterNot { assignment -> actualSourceByTarget.containsKey(assignment.targetSlotId) }
+        .filterNot { assignment ->
+            actualSourceByTarget.containsKey(assignment.targetSlotId) ||
+                    assignment.sourceSlotId in actualConsumedSourceIds
+        }
         .associateLatestSourceByTarget(
             targetSlotIdOf = MealAssignment::targetSlotId,
             sourceSlotIdOf = MealAssignment::sourceSlotId

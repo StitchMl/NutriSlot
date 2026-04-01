@@ -18,6 +18,7 @@ import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMea
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedWeeklyFrequencyTarget
 import it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanning
 import it.lagioiaproductions.nutrislot.data.repository.planning.WeeklyPlanningCalculator
+import it.lagioiaproductions.nutrislot.data.repository.planning.isActualSourceConsumed
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
@@ -337,7 +338,8 @@ class WeeklyPlanRepository(
     suspend fun recordMealConsumption(
         planId: String,
         targetSlotId: String,
-        sourceSlotId: String
+        sourceSlotId: String,
+        usesCustomizedTargetMeal: Boolean = false
     ): MealConsumptionEntity {
         val plan = weeklyPlanDao.getPlanById(planId)
             ?: throw IllegalStateException("Piano non trovato.")
@@ -369,12 +371,14 @@ class WeeklyPlanRepository(
             throw IllegalStateException("Questo slot risulta già completato nella settimana corrente.")
         }
 
+        val consumesCustomizedTargetMeal = usesCustomizedTargetMeal && sourceSlotId == targetSlotId
+
         val pendingAssignmentForTarget = activeAssignments
             .sortedBy { it.assignedAtEpochMillis }
             .lastOrNull { it.targetSlotId == targetSlotId }
 
         val expectedSourceSlotId = pendingAssignmentForTarget?.sourceSlotId ?: targetSlotId
-        if (expectedSourceSlotId != sourceSlotId) {
+        if (!consumesCustomizedTargetMeal && expectedSourceSlotId != sourceSlotId) {
             throw IllegalStateException(
                 "Lo slot ha un pasto assegnato diverso. Aggiorna prima la selezione del pasto."
             )
@@ -385,7 +389,8 @@ class WeeklyPlanRepository(
             targetSlot = targetSlot,
             sourceSlot = sourceSlot,
             targetSlotId = targetSlotId,
-            sourceSlotId = sourceSlotId
+            sourceSlotId = sourceSlotId,
+            allowsCustomizedTargetMeal = consumesCustomizedTargetMeal
         )
 
         deleteCurrentAssignmentsForTargets(
@@ -502,17 +507,18 @@ class WeeklyPlanRepository(
         targetSlot: MealSlotEntity,
         sourceSlot: MealSlotEntity,
         targetSlotId: String,
-        sourceSlotId: String
+        sourceSlotId: String,
+        allowsCustomizedTargetMeal: Boolean = false
     ) {
         if (planning.actualSourceByTarget.containsKey(targetSlotId)) {
             throw IllegalStateException("Questo slot risulta già completato nella settimana corrente.")
         }
 
-        if (planning.actualSourceByTarget.containsKey(sourceSlotId)) {
+        if (!allowsCustomizedTargetMeal && planning.isActualSourceConsumed(sourceSlotId)) {
             throw IllegalStateException("Il pasto selezionato è già stato consumato nella settimana corrente.")
         }
 
-        if (sourceSlot.plannedMealText.isBlank()) {
+        if (!allowsCustomizedTargetMeal && sourceSlot.plannedMealText.isBlank()) {
             throw IllegalStateException("Lo slot sorgente non contiene un pasto disponibile.")
         }
 

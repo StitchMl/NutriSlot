@@ -156,11 +156,7 @@ private fun buildWeeklySlotFooterNote(slotUi: WeeklySlotUi): String? {
 }
 
 private fun canToggleWeeklySlotCompleted(slotUi: WeeklySlotUi): Boolean {
-    return slotUi.isActuallyCompletedThisWeek ||
-            (
-                    slotUi.displayedMealText.isNotBlank() &&
-                            slotUi.displayState != SlotDisplayState.Empty
-                    )
+    return slotUi.isActuallyCompletedThisWeek || slotUi.displayedMealText.isNotBlank()
 }
 
 @Suppress("unused")

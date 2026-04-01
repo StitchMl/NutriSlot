@@ -1,6 +1,7 @@
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import it.lagioiaproductions.nutrislot.data.repository.mapper.areMealSlotTypesCompatible
+import it.lagioiaproductions.nutrislot.data.repository.planning.isActualSourceConsumed
 import it.lagioiaproductions.nutrislot.domain.model.MealSlot
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
@@ -21,12 +22,11 @@ private class WeeklyPlanSlotActionDialogFactory(
     fun build(targetUi: WeeklySlotUi): SlotActionDialogUi {
         val targetSlot = snapshot.slots.first { it.id == targetUi.slotId }
         val targetIsActuallyCompleted = planning.actualSourceByTarget.containsKey(targetUi.slotId)
-        val pendingAssignedSourceSlotId = planning.pendingSourceByTarget[targetUi.slotId]
-        val currentAssignedSourceSlotId = resolveCurrentAssignedSourceSlotId(
-            targetSlot = targetSlot,
-            targetIsActuallyCompleted = targetIsActuallyCompleted,
-            pendingAssignedSourceSlotId = pendingAssignedSourceSlotId
-        )
+        val currentAssignedSourceSlotId = if (targetIsActuallyCompleted) {
+            null
+        } else {
+            snapshot.resolvePlannedConsumptionSource(targetUi).sourceSlotId
+        }
 
         return SlotActionDialogUi(
             targetSlotId = targetUi.slotId,
@@ -50,19 +50,6 @@ private class WeeklyPlanSlotActionDialogFactory(
             ),
             mealRuleSummary = buildMealRuleSummary(targetSlot.mealSlotType)
         )
-    }
-
-    private fun resolveCurrentAssignedSourceSlotId(
-        targetSlot: MealSlot,
-        targetIsActuallyCompleted: Boolean,
-        pendingAssignedSourceSlotId: String?
-    ): String? {
-        return when {
-            targetIsActuallyCompleted -> null
-            pendingAssignedSourceSlotId != null -> pendingAssignedSourceSlotId
-            targetSlot.plannedMealText.isNotBlank() -> targetSlot.id
-            else -> null
-        }
     }
 
     private fun buildReplacementOptions(
@@ -93,7 +80,7 @@ private class WeeklyPlanSlotActionDialogFactory(
     ): Boolean {
         return candidateSourceSlot.id != targetUi.slotId &&
                 candidateSourceSlot.plannedMealText.isNotBlank() &&
-                !planning.actualSourceByTarget.containsKey(candidateSourceSlot.id) &&
+                !planning.isActualSourceConsumed(candidateSourceSlot.id) &&
                 areMealSlotTypesCompatible(
                     targetType = targetSlot.mealSlotType,
                     sourceType = candidateSourceSlot.mealSlotType

@@ -75,12 +75,14 @@ internal class WeeklyPlanMutationExecutor(
     suspend fun recordConsumption(
         planId: String,
         targetSlotId: String,
-        sourceSlotId: String
+        sourceSlotId: String,
+        usesCustomizedTargetMeal: Boolean
     ): WeeklyPlanConsumptionMutationResult {
         val newConsumption = repository.recordMealConsumption(
             planId = planId,
             targetSlotId = targetSlotId,
-            sourceSlotId = sourceSlotId
+            sourceSlotId = sourceSlotId,
+            usesCustomizedTargetMeal = usesCustomizedTargetMeal
         )
 
         return WeeklyPlanConsumptionMutationResult(

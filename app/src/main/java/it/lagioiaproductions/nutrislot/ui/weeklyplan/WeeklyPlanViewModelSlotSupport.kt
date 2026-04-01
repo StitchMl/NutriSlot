@@ -8,7 +8,8 @@ internal data class PlannedSlotConsumptionCommand(
     val sourceSlotId: String,
     val targetDayOfWeek: WeekDay,
     val consumedMealText: String,
-    val consumedMealSlotLabel: String
+    val consumedMealSlotLabel: String,
+    val usesCustomizedTargetMeal: Boolean
 )
 
 internal fun buildEditSlotDialog(slotUi: WeeklySlotUi): EditSlotDialogUi {
@@ -50,10 +51,8 @@ internal fun WeeklyPlanSnapshot.buildPlannedSlotConsumptionCommand(
 ): PlannedSlotConsumptionCommand? {
     val targetUi = currentSlots.firstOrNull { it.slotId == targetSlotId } ?: return null
     val targetSlot = slots.firstOrNull { it.id == targetSlotId } ?: return null
-    val planning = buildActiveWeekPlanning(this)
-
-    val sourceSlotId = planning.pendingSourceByTarget[targetSlotId]
-        ?: targetSlot.id.takeIf { targetSlot.plannedMealText.isNotBlank() }
+    val sourceResolution = resolvePlannedConsumptionSource(targetUi)
+    val sourceSlotId = sourceResolution.sourceSlotId
         ?: return null
 
     return PlannedSlotConsumptionCommand(
@@ -64,6 +63,7 @@ internal fun WeeklyPlanSnapshot.buildPlannedSlotConsumptionCommand(
             mealText = targetUi.displayedMealText,
             nutritionSummary = targetUi.nutritionSummary.orEmpty()
         ),
-        consumedMealSlotLabel = targetUi.mealSlotType.displayName
+        consumedMealSlotLabel = targetUi.mealSlotType.displayName,
+        usesCustomizedTargetMeal = sourceResolution.usesCustomizedTargetMeal
     )
 }

@@ -18,6 +18,7 @@ internal object WeeklyPlanningCalculator {
             .forEach { consumption ->
                 actualSourceByTarget[consumption.targetSlotId] = consumption.sourceSlotId
             }
+        val actualConsumedSourceIds = actualSourceByTarget.values.toSet()
 
         val pendingSourceByTarget = linkedMapOf<String, String>()
         pendingAssignments
@@ -31,6 +32,10 @@ internal object WeeklyPlanningCalculator {
                     ?: return@forEach
 
                 if (sourceSlot.plannedMealText.isBlank()) {
+                    return@forEach
+                }
+
+                if (assignment.sourceSlotId in actualConsumedSourceIds) {
                     return@forEach
                 }
 

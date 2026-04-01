@@ -10,3 +10,11 @@ internal data class ActiveWeekPlanning(
     val pendingSourceByTarget: Map<String, String>,
     val usedSourceByTarget: List<SourceUsage>
 )
+
+internal fun ActiveWeekPlanning.isActualSourceConsumed(
+    sourceSlotId: String
+): Boolean {
+    return actualSourceByTarget.values.any { consumedSourceSlotId ->
+        consumedSourceSlotId == sourceSlotId
+    }
+}
