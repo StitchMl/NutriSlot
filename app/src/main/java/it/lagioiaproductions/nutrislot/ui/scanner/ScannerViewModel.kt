@@ -71,7 +71,9 @@ internal class ScannerViewModel(
         }
 
         if (!scanner.isConfigured) {
-            showError("GEMINI_API_KEY mancante o vuota.")
+            showError(
+                "GEMINI_API_KEY mancante o vuota. Configurala in secrets.properties, local.properties, nella variabile d'ambiente GEMINI_API_KEY o nel gradle.properties utente."
+            )
             return
         }
 

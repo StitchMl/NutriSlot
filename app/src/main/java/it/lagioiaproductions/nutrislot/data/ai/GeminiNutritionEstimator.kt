@@ -1,4 +1,4 @@
-@file:Suppress("IntroduceWhenSubject")
+﻿@file:Suppress("IntroduceWhenSubject")
 
 package it.lagioiaproductions.nutrislot.data.ai
 
@@ -132,8 +132,8 @@ class GeminiNutritionEstimator(
             Regole:
             - Restituisci solo il JSON richiesto dallo schema.
             - I valori devono essere interi.
-            - Se un valore non è stimabile con sufficiente affidabilità, restituisci null.
-            - Considera il pasto come una porzione standard realistica, salvo quantità esplicite nel testo.
+            - Se un valore non Ã¨ stimabile con sufficiente affidabilitÃ , restituisci null.
+            - Considera il pasto come una porzione standard realistica, salvo quantitÃ  esplicite nel testo.
             - Non inventare ingredienti non suggeriti dal testo.
             
             Testo del pasto:
@@ -232,16 +232,16 @@ class GeminiNutritionEstimator(
 
         return when {
             statusCode == 403 && normalizedResponse.contains("reported as leaked") ->
-                "La Gemini API key configurata è stata segnalata come compromessa. Aggiornala in gradle.properties."
+                "La Gemini API key configurata Ã¨ stata segnalata come compromessa. Aggiornala in secrets.properties, local.properties, nella variabile d'ambiente GEMINI_API_KEY o nel gradle.properties utente."
 
             statusCode == 401 || statusCode == 403 ->
                 "Gemini ha rifiutato la API key configurata."
 
             statusCode == 429 ->
-                "Gemini è temporaneamente occupato. Riprova tra poco."
+                "Gemini Ã¨ temporaneamente occupato. Riprova tra poco."
 
             statusCode == 400 ->
-                "La richiesta inviata a Gemini non è valida."
+                "La richiesta inviata a Gemini non Ã¨ valida."
 
             else ->
                 "Gemini ha risposto con HTTP $statusCode."
@@ -252,3 +252,4 @@ class GeminiNutritionEstimator(
         private const val TAG = "GeminiEstimator"
     }
 }
+

@@ -1,10 +1,38 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp") version "2.3.5"
 }
 
-val geminiApiKey = (providers.gradleProperty("GEMINI_API_KEY").orNull ?: "")
+fun loadOptionalProperties(path: String): Properties = Properties().apply {
+    val file = rootProject.file(path)
+    if (file.exists()) {
+        file.inputStream().use(::load)
+    }
+}
+
+fun firstNonBlank(vararg values: String?): String {
+    return values.firstOrNull { !it.isNullOrBlank() }.orEmpty()
+}
+
+val trackedGradleProperties = loadOptionalProperties("gradle.properties")
+check(trackedGradleProperties.getProperty("GEMINI_API_KEY").isNullOrBlank()) {
+    "Non salvare GEMINI_API_KEY nel gradle.properties del progetto. " +
+        "Usa secrets.properties (ignorato da git), local.properties, " +
+        "GEMINI_API_KEY nell'ambiente o il gradle.properties utente."
+}
+
+val secretsProperties = loadOptionalProperties("secrets.properties")
+val localProperties = loadOptionalProperties("local.properties")
+
+val geminiApiKey = firstNonBlank(
+    providers.environmentVariable("GEMINI_API_KEY").orNull,
+    secretsProperties.getProperty("GEMINI_API_KEY"),
+    localProperties.getProperty("GEMINI_API_KEY"),
+    providers.gradleProperty("GEMINI_API_KEY").orNull
+)
     .replace("\"", "\\\"")
 
 android {
