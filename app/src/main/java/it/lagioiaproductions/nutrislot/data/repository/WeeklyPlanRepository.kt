@@ -1,16 +1,14 @@
 package it.lagioiaproductions.nutrislot.data.repository
 
+import androidx.room.withTransaction
 import it.lagioiaproductions.nutrislot.data.local.room.MealAssignmentEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealConsumptionEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealOptionEntity
-import it.lagioiaproductions.nutrislot.data.local.room.MealRuleEntity
 import it.lagioiaproductions.nutrislot.data.local.room.MealSlotEntity
-import it.lagioiaproductions.nutrislot.data.local.room.WeeklyFrequencyTargetEntity
+import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
 import it.lagioiaproductions.nutrislot.data.local.room.WeeklyPlanDao
-import it.lagioiaproductions.nutrislot.data.local.room.WeeklyPlanEntity
 import it.lagioiaproductions.nutrislot.data.repository.mapper.areMealSlotTypesCompatible
 import it.lagioiaproductions.nutrislot.data.repository.mapper.normalizeMealText
-import it.lagioiaproductions.nutrislot.data.repository.mapper.serializeStringList
 import it.lagioiaproductions.nutrislot.data.repository.mapper.toDomain
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealCell
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealOption
@@ -20,13 +18,13 @@ import it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanni
 import it.lagioiaproductions.nutrislot.data.repository.planning.WeeklyPlanningCalculator
 import it.lagioiaproductions.nutrislot.data.repository.planning.isActualSourceConsumed
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
-import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
 import it.lagioiaproductions.nutrislot.domain.model.sortedForWeeklyDisplay
 import java.util.UUID
 
 class WeeklyPlanRepository(
-    private val weeklyPlanDao: WeeklyPlanDao
+    private val database: NutriSlotDatabase,
+    private val weeklyPlanDao: WeeklyPlanDao = database.weeklyPlanDao()
 ) {
 
     suspend fun saveReviewedImport(
@@ -35,90 +33,38 @@ class WeeklyPlanRepository(
         extraOptions: List<ReviewedImportedMealOption> = emptyList(),
         mealRules: List<ReviewedImportedMealRule> = emptyList(),
         weeklyTargets: List<ReviewedImportedWeeklyFrequencyTarget> = emptyList()
-    ): String {
-        val planId = UUID.randomUUID().toString()
-        val createdAt = System.currentTimeMillis()
-
-        val normalizedCellMap = cells.associateBy(
-            keySelector = { it.dayOfWeek to it.mealSlotType },
-            valueTransform = { normalizeMealText(it.mealText) }
-        )
-
-        val weeklyPlanEntity = WeeklyPlanEntity(
-            id = planId,
-            title = sourceFileName
-                ?.substringBeforeLast(".", missingDelimiterValue = sourceFileName)
-                ?.takeIf { it.isNotBlank() },
+    ): String = database.withTransaction {
+        val latestPlanId = weeklyPlanDao.getLatestPlan()?.id
+        val payload = buildImportedPlanPersistencePayload(
+            existingPlanId = latestPlanId,
             sourceFileName = sourceFileName,
-            createdAtEpochMillis = createdAt
+            cells = cells,
+            extraOptions = extraOptions,
+            mealRules = mealRules,
+            weeklyTargets = weeklyTargets
         )
 
-        val mealSlotEntities = WeekDay.orderedValues().flatMap { day ->
-            MealSlotType.orderedValues().map { mealSlotType ->
-                MealSlotEntity(
-                    id = "${planId}_${day.name}_${mealSlotType.name}",
-                    planId = planId,
-                    dayOfWeek = day.name,
-                    mealSlotType = mealSlotType.name,
-                    plannedMealText = normalizedCellMap[day to mealSlotType].orEmpty()
-                )
-            }
-        }
-
-        val optionEntities = extraOptions.mapIndexed { index, option ->
-            MealOptionEntity(
-                id = "${planId}_OPTION_$index",
-                planId = planId,
-                mealSlotType = option.mealSlotType.name,
-                title = option.title,
-                mealText = normalizeMealText(option.mealText),
-                sourceType = option.sourceType.name,
-                tagsSerialized = serializeStringList(option.tags),
-                pageNumber = option.pageNumber
-            )
-        }
-
-        val ruleEntities = mealRules.mapIndexed { index, rule ->
-            MealRuleEntity(
-                id = "${planId}_RULE_$index",
-                planId = planId,
-                mealSlotType = rule.mealSlotType.name,
-                label = rule.label,
-                requiredComponentsSerialized = serializeStringList(rule.requiredComponents),
-                pageNumber = rule.pageNumber
-            )
-        }
-
-        val weeklyTargetEntities = weeklyTargets.mapIndexed { index, target ->
-            WeeklyFrequencyTargetEntity(
-                id = "${planId}_TARGET_$index",
-                planId = planId,
-                title = target.title,
-                canonicalKey = target.canonicalKey,
-                portionText = target.portionText,
-                minimumTimesPerWeek = target.minimumTimesPerWeek,
-                maximumTimesPerWeek = target.maximumTimesPerWeek,
-                matchTermsSerialized = serializeStringList(target.matchTerms),
-                pageNumber = target.pageNumber,
-                sourceText = target.sourceText
-            )
+        if (payload.reusedExistingPlanId) {
+            weeklyPlanDao.deleteMealOptionsForPlan(payload.plan.id)
+            weeklyPlanDao.deleteMealRulesForPlan(payload.plan.id)
+            weeklyPlanDao.deleteWeeklyFrequencyTargetsForPlan(payload.plan.id)
         }
 
         weeklyPlanDao.insertImportedPlan(
-            plan = weeklyPlanEntity,
-            slots = mealSlotEntities,
-            options = optionEntities,
-            rules = ruleEntities,
-            weeklyTargets = weeklyTargetEntities
+            plan = payload.plan,
+            slots = payload.slots,
+            options = payload.options,
+            rules = payload.rules,
+            weeklyTargets = payload.weeklyTargets
         )
 
-        return planId
+        payload.plan.id
     }
 
     suspend fun undoMealConsumption(
         planId: String,
         targetSlotId: String
-    ): String {
+    ): String = database.withTransaction {
         val plan = weeklyPlanDao.getPlanById(planId)
             ?: throw IllegalStateException("Piano non trovato.")
 
@@ -134,9 +80,13 @@ class WeeklyPlanRepository(
             .maxByOrNull { it.consumedAtEpochMillis }
             ?: throw IllegalStateException("Nessun consumo da annullare per questo slot.")
 
+        val activeAssignments = assignmentEntities.filter { assignment ->
+            WeeklyPlanningCalculator.isInCurrentWeek(assignment.assignedAtEpochMillis)
+        }
+
         deleteCurrentAssignmentsForTargets(
             targetSlotIds = setOf(targetSlotId),
-            assignments = assignmentEntities
+            assignments = activeAssignments
         )
 
         weeklyPlanDao.deleteMealConsumptionsByIds(
@@ -157,14 +107,14 @@ class WeeklyPlanRepository(
             )
         }
 
-        return latestConsumptionForTarget.id
+        latestConsumptionForTarget.id
     }
 
     suspend fun assignMealToSlot(
         planId: String,
         targetSlotId: String,
         sourceSlotId: String
-    ) {
+    ) = database.withTransaction {
         val plan = weeklyPlanDao.getPlanById(planId)
             ?: throw IllegalStateException("Piano non trovato.")
 
@@ -224,7 +174,7 @@ class WeeklyPlanRepository(
 
         deleteCurrentAssignmentsForTargets(
             targetSlotIds = setOf(targetSlotId, sourceSlotId),
-            assignments = assignmentEntities
+            assignments = activeAssignments
         )
 
         val newAssignments = buildList {
@@ -268,7 +218,7 @@ class WeeklyPlanRepository(
         planId: String,
         targetSlotId: String,
         optionId: String
-    ) {
+    ) = database.withTransaction {
         val plan = weeklyPlanDao.getPlanById(planId)
             ?: throw IllegalStateException("Piano non trovato.")
 
@@ -276,15 +226,16 @@ class WeeklyPlanRepository(
         val consumptionEntities = weeklyPlanDao.getConsumptionsForPlan(plan.id)
         val assignmentEntities = weeklyPlanDao.getAssignmentsForPlan(plan.id)
         val optionEntities = weeklyPlanDao.getMealOptionsForPlan(plan.id)
+        val activeAssignments = assignmentEntities.filter { assignment ->
+            WeeklyPlanningCalculator.isInCurrentWeek(assignment.assignedAtEpochMillis)
+        }
 
         val planning = WeeklyPlanningCalculator.buildActiveWeekPlanning(
             slotEntities = slotEntities,
             actualConsumptions = consumptionEntities.filter { consumption ->
                 WeeklyPlanningCalculator.isInCurrentWeek(consumption.consumedAtEpochMillis)
             },
-            pendingAssignments = assignmentEntities.filter { assignment ->
-                WeeklyPlanningCalculator.isInCurrentWeek(assignment.assignedAtEpochMillis)
-            }
+            pendingAssignments = activeAssignments
         )
 
         val targetSlot = slotEntities.firstOrNull { it.id == targetSlotId }
@@ -302,7 +253,7 @@ class WeeklyPlanRepository(
 
         deleteCurrentAssignmentsForTargets(
             targetSlotIds = setOf(targetSlotId),
-            assignments = assignmentEntities
+            assignments = activeAssignments
         )
 
         val updatedTargetSlot = targetSlot.copy(
@@ -318,7 +269,7 @@ class WeeklyPlanRepository(
         planId: String,
         slotId: String,
         mealText: String
-    ) {
+    ) = database.withTransaction {
         val plan = weeklyPlanDao.getPlanById(planId)
             ?: throw IllegalStateException("Piano non trovato.")
 
@@ -340,7 +291,7 @@ class WeeklyPlanRepository(
         targetSlotId: String,
         sourceSlotId: String,
         usesCustomizedTargetMeal: Boolean = false
-    ): MealConsumptionEntity {
+    ): MealConsumptionEntity = database.withTransaction {
         val plan = weeklyPlanDao.getPlanById(planId)
             ?: throw IllegalStateException("Piano non trovato.")
 
@@ -407,7 +358,7 @@ class WeeklyPlanRepository(
         )
 
         weeklyPlanDao.insertMealConsumptions(consumptions = listOf(newConsumption))
-        return newConsumption
+        newConsumption
     }
 
     suspend fun getLatestWeeklyPlanSnapshot(): WeeklyPlanSnapshot? {

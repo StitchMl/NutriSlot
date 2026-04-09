@@ -14,6 +14,7 @@ import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMea
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealOption
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealRule
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedWeeklyFrequencyTarget
+import it.lagioiaproductions.nutrislot.widget.MealCalendarWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,11 +28,10 @@ class ImportFileViewModel(
 ) : AndroidViewModel(application) {
 
     private val importer = PdfMealPlanImporter()
+    private val database = NutriSlotDatabase.getInstance(application)
 
     private val repository = WeeklyPlanRepository(
-        weeklyPlanDao = NutriSlotDatabase
-            .getInstance(application)
-            .weeklyPlanDao()
+        database = database
     )
 
     private val _uiState = MutableStateFlow(ImportFileUiState())
@@ -185,6 +185,7 @@ class ImportFileViewModel(
                     context = getApplication(),
                     planId = planId
                 )
+                MealCalendarWidgetProvider.refresh(getApplication())
 
                 onSaved()
             }.onFailure { throwable ->

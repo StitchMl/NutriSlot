@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import it.lagioiaproductions.nutrislot.navigation.AppNavGraph
 import it.lagioiaproductions.nutrislot.notifications.water.WaterReminderNotificationManager
 import it.lagioiaproductions.nutrislot.ui.theme.NutriSlotTheme
+import it.lagioiaproductions.nutrislot.widget.MealCalendarWidgetProvider
 
 class MainActivity : ComponentActivity() {
 
@@ -31,6 +32,8 @@ class MainActivity : ComponentActivity() {
                 AppNavGraph()
             }
         }
+
+        MealCalendarWidgetProvider.refresh(this)
     }
 
     private fun requestNotificationPermissionIfNeeded() {

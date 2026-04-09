@@ -5,30 +5,31 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WeeklyPlanDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertWeeklyPlan(plan: WeeklyPlanEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertMealSlots(slots: List<MealSlotEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertMealConsumptions(consumptions: List<MealConsumptionEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertMealAssignments(assignments: List<MealAssignmentEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertMealOptions(options: List<MealOptionEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertMealRules(rules: List<MealRuleEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertWeeklyFrequencyTargets(targets: List<WeeklyFrequencyTargetEntity>)
 
     @Transaction
@@ -69,6 +70,15 @@ interface WeeklyPlanDao {
 
     @Query("SELECT * FROM weekly_frequency_targets WHERE planId = :planId")
     suspend fun getWeeklyFrequencyTargetsForPlan(planId: String): List<WeeklyFrequencyTargetEntity>
+
+    @Query("DELETE FROM meal_option_catalog WHERE planId = :planId")
+    suspend fun deleteMealOptionsForPlan(planId: String)
+
+    @Query("DELETE FROM meal_rules WHERE planId = :planId")
+    suspend fun deleteMealRulesForPlan(planId: String)
+
+    @Query("DELETE FROM weekly_frequency_targets WHERE planId = :planId")
+    suspend fun deleteWeeklyFrequencyTargetsForPlan(planId: String)
 
     @Query("DELETE FROM meal_assignments WHERE id IN (:assignmentIds)")
     suspend fun deleteMealAssignmentsByIds(assignmentIds: List<String>)

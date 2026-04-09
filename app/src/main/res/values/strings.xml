@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">NutriSlot</string>
+    <string name="meal_calendar_widget_title">Agenda pasti</string>
+    <string name="meal_calendar_widget_empty">Importa un piano o aggiungi pasti per vederli qui.</string>
+    <string name="meal_calendar_widget_subtitle_format">Settimana %1$s</string>
+    <string name="dots">…</string>
+    <string name="caricamento_agenda">Caricamento agenda…</string>
+    <string name="sto_aggiornando_i_pasti_della_settimana">Sto aggiornando i pasti della settimana</string>
+    <string name="meal_indicator">Meal Indicator</string>
 </resources>

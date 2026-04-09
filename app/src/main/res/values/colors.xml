@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_surface">#F4F7FB</color>
+    <color name="widget_surface_elevated">#FFFFFFFF</color>
+    <color name="widget_border">#D7DFEA</color>
+    <color name="widget_text_primary">#1D2733</color>
+    <color name="widget_text_secondary">#546273</color>
+    <color name="widget_text_muted">#7C8997</color>
+    <color name="widget_day_surface">#E5EBF4</color>
+    <color name="widget_day_text">#304255</color>
+    <color name="widget_day_today_text">#FFFFFFFF</color>
+    <color name="widget_today_surface">#2E6BFF</color>
+    <color name="widget_breakfast">#ED8C2B</color>
+    <color name="widget_snack">#D9A11C</color>
+    <color name="widget_lunch">#3A8F4F</color>
+    <color name="widget_dinner">#2D73C6</color>
+</resources>

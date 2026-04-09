@@ -32,6 +32,26 @@ internal class WeeklyPlanCustomizationManager(
         state: WeeklyPlanUiState,
         hydrationSnapshot: WeeklyChecklistHydrationSnapshot? = null
     ): WeeklyPlanUiState {
+        val decoratedSlots = decorateSlots(
+            snapshot = snapshot,
+            slots = state.slots
+        )
+
+        return state.copy(
+            slots = decoratedSlots,
+            weeklyQuantityChecklist = WeeklyQuantityChecklistBuilder.build(
+                slots = decoratedSlots,
+                weeklyTargets = snapshot.weeklyTargets,
+                referenceDay = state.currentWeekReferenceDay,
+                hydrationSnapshot = hydrationSnapshot
+            )
+        )
+    }
+
+    fun decorateSlots(
+        snapshot: WeeklyPlanSnapshot,
+        slots: List<WeeklySlotUi>
+    ): List<WeeklySlotUi> {
         val nutritionSummaryBySlotType = snapshot.mealRules
             .groupBy { it.mealSlotType }
             .mapValues { (_, rules) ->
@@ -41,7 +61,7 @@ internal class WeeklyPlanCustomizationManager(
                     ?.joinToString(separator = " + ")
             }
 
-        val decoratedSlots = state.slots.map { slot ->
+        return slots.map { slot ->
             val customMealText = preferences.readStoredPreference(
                 key = WeeklyPlanPreferences.slotMealPreferenceKey(snapshot.plan.id, slot.slotId)
             )
@@ -58,15 +78,5 @@ internal class WeeklyPlanCustomizationManager(
                 hasCustomizations = customMealText != null || customNutritionText != null
             )
         }
-
-        return state.copy(
-            slots = decoratedSlots,
-            weeklyQuantityChecklist = WeeklyQuantityChecklistBuilder.build(
-                slots = decoratedSlots,
-                weeklyTargets = snapshot.weeklyTargets,
-                referenceDay = state.currentWeekReferenceDay,
-                hydrationSnapshot = hydrationSnapshot
-            )
-        )
     }
 }

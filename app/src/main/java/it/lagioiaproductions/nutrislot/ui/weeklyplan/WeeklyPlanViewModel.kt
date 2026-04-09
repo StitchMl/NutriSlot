@@ -12,6 +12,7 @@ import it.lagioiaproductions.nutrislot.data.repository.WeeklyPlanRepository
 import it.lagioiaproductions.nutrislot.data.water.WaterPreferencesRepository
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.widget.MealCalendarWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,16 +20,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class WeeklyPlanViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
+    private val database = NutriSlotDatabase.getInstance(application)
     private val repository = WeeklyPlanRepository(
-        weeklyPlanDao = NutriSlotDatabase
-            .getInstance(application)
-            .weeklyPlanDao()
+        database = database
     )
 
     private val preferences = application.getSharedPreferences(
@@ -45,6 +47,7 @@ class WeeklyPlanViewModel(
     private var hydrationSnapshot: WeeklyChecklistHydrationSnapshot? = null
     private var nextCalorieSyncEventId: Long = 1L
     private var nextCalorieUndoEventId: Long = 1L
+    private val planOperationMutex = Mutex()
 
     private val _uiState = MutableStateFlow(
         stateFactory.initialState(
@@ -77,11 +80,13 @@ class WeeklyPlanViewModel(
             }
 
             runCatching {
-                withContext(Dispatchers.IO) {
-                    waterRepository.ensureCurrentDay()
-                    mutationExecutor.loadLatestSnapshot() to waterRepository.preferencesFlow
-                        .first()
-                        .toChecklistHydrationSnapshot()
+                planOperationMutex.withLock {
+                    withContext(Dispatchers.IO) {
+                        waterRepository.ensureCurrentDay()
+                        mutationExecutor.loadLatestSnapshot() to waterRepository.preferencesFlow
+                            .first()
+                            .toChecklistHydrationSnapshot()
+                    }
                 }
             }.onSuccess { (snapshot, latestHydrationSnapshot) ->
                 currentSnapshot = snapshot
@@ -503,6 +508,8 @@ class WeeklyPlanViewModel(
                 hydrationSnapshot = hydrationSnapshot
             )
         }
+
+        MealCalendarWidgetProvider.refresh(getApplication())
     }
 
     private fun applySnapshotUpdate(
@@ -516,6 +523,8 @@ class WeeklyPlanViewModel(
             payload = payload,
             hydrationSnapshot = hydrationSnapshot
         )
+
+        MealCalendarWidgetProvider.refresh(getApplication())
     }
 
     private fun <T> executePlanMutation(
@@ -529,8 +538,10 @@ class WeeklyPlanViewModel(
             }
 
             runCatching {
-                withContext(Dispatchers.IO) {
-                    mutation()
+                planOperationMutex.withLock {
+                    withContext(Dispatchers.IO) {
+                        mutation()
+                    }
                 }
             }.onSuccess { result ->
                 onSuccess(result)
