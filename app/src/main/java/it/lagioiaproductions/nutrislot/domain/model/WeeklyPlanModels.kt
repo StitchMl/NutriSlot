@@ -12,7 +12,9 @@ data class MealSlot(
     val planId: String,
     val dayOfWeek: WeekDay,
     val mealSlotType: MealSlotType,
-    val plannedMealText: String
+    val plannedMealText: String,
+    val consumptionTargetCanonicalKeys: List<String> = emptyList(),
+    val consumptionTargetSource: MealConsumptionTargetSource? = null
 )
 
 data class MealConsumption(

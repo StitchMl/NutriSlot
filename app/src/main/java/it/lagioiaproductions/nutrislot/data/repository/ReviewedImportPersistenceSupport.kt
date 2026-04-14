@@ -13,6 +13,7 @@ import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMea
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedWeeklyFrequencyTarget
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.domain.model.WeeklyFrequencyTargetSupport
 import java.util.UUID
 
 internal data class ImportedPlanPersistencePayload(
@@ -35,6 +36,13 @@ internal fun buildImportedPlanPersistencePayload(
 ): ImportedPlanPersistencePayload {
     val reusedExistingPlanId = !existingPlanId.isNullOrBlank()
     val planId = existingPlanId?.takeIf(String::isNotBlank) ?: UUID.randomUUID().toString()
+    val resolvedWeeklyTargets = weeklyTargets.ifEmpty {
+        if (sourceFileName == null) {
+            manualBaselineWeeklyFrequencyTargets()
+        } else {
+            emptyList()
+        }
+    }
 
     val normalizedCellMap = cells.associateBy(
         keySelector = { it.dayOfWeek to it.mealSlotType },
@@ -57,7 +65,9 @@ internal fun buildImportedPlanPersistencePayload(
                 planId = planId,
                 dayOfWeek = day.name,
                 mealSlotType = mealSlotType.name,
-                plannedMealText = normalizedCellMap[day to mealSlotType].orEmpty()
+                plannedMealText = normalizedCellMap[day to mealSlotType].orEmpty(),
+                consumptionTargetKeysSerialized = "",
+                consumptionTargetSource = null
             )
         }
     }
@@ -86,7 +96,7 @@ internal fun buildImportedPlanPersistencePayload(
         )
     }
 
-    val targetEntities = weeklyTargets.mapIndexed { index, target ->
+    val targetEntities = resolvedWeeklyTargets.mapIndexed { index, target ->
         WeeklyFrequencyTargetEntity(
             id = "${planId}_TARGET_$index",
             planId = planId,
@@ -108,5 +118,99 @@ internal fun buildImportedPlanPersistencePayload(
         rules = rules,
         weeklyTargets = targetEntities,
         reusedExistingPlanId = reusedExistingPlanId
+    )
+}
+
+private fun manualBaselineWeeklyFrequencyTargets(): List<ReviewedImportedWeeklyFrequencyTarget> {
+    return listOf(
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "frutta e verdura",
+            sourceText = "Consumare almeno 5 porzioni di frutta e verdura al giorno per assicurarsi un quantitativo sufficiente di antiossidanti",
+            minimumTimesPerWeek = 5
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "acqua",
+            portionText = "2 l",
+            sourceText = "Bere almeno 2L di acqua/die per favorire l'escrezione renale",
+            minimumTimesPerWeek = 2000
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "caffe e the",
+            sourceText = "Consumare massimo N.3 caffe/the al giorno",
+            maximumTimesPerWeek = 3
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "carne bianca",
+            sourceText = "Carne bianca 2-3 volte a settimana",
+            minimumTimesPerWeek = 2,
+            maximumTimesPerWeek = 3
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "carne rossa",
+            sourceText = "Carne rossa 1 volta a settimana",
+            minimumTimesPerWeek = 1,
+            maximumTimesPerWeek = 1
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "affettati",
+            sourceText = "Affettati 1 volta a settimana",
+            minimumTimesPerWeek = 1,
+            maximumTimesPerWeek = 1
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "uova",
+            portionText = "N. 2 uova",
+            sourceText = "Uova 1 porzione a settimana (N. 2 uova)",
+            minimumTimesPerWeek = 1,
+            maximumTimesPerWeek = 1
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "formaggi",
+            sourceText = "Formaggi 2 volte a settimana",
+            minimumTimesPerWeek = 2,
+            maximumTimesPerWeek = 2
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "patate",
+            sourceText = "Patate 1 volta a settimana",
+            minimumTimesPerWeek = 1,
+            maximumTimesPerWeek = 1
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "piatto unico",
+            portionText = "legumi + cereal",
+            sourceText = "Piatto unico 2-3 volte a settimana (legumi + cereal)",
+            minimumTimesPerWeek = 2,
+            maximumTimesPerWeek = 3
+        ),
+        manualBaselineWeeklyFrequencyTarget(
+            canonicalKey = "pesce",
+            sourceText = "Pesce 3-4 volte a settimana",
+            minimumTimesPerWeek = 3,
+            maximumTimesPerWeek = 4
+        )
+    ).sortedBy { it.title }
+}
+
+private fun manualBaselineWeeklyFrequencyTarget(
+    canonicalKey: String,
+    sourceText: String,
+    portionText: String? = null,
+    minimumTimesPerWeek: Int? = null,
+    maximumTimesPerWeek: Int? = null
+): ReviewedImportedWeeklyFrequencyTarget {
+    val title = WeeklyFrequencyTargetSupport.formatTitle(canonicalKey)
+    return ReviewedImportedWeeklyFrequencyTarget(
+        title = title,
+        canonicalKey = canonicalKey,
+        portionText = portionText,
+        minimumTimesPerWeek = minimumTimesPerWeek,
+        maximumTimesPerWeek = maximumTimesPerWeek,
+        matchTerms = WeeklyFrequencyTargetSupport.resolveMatchTerms(
+            title = title,
+            sourceText = sourceText
+        ),
+        pageNumber = null,
+        sourceText = sourceText
     )
 }

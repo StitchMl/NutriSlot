@@ -9,6 +9,7 @@ import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
 import it.lagioiaproductions.nutrislot.data.local.room.WeeklyPlanDao
 import it.lagioiaproductions.nutrislot.data.repository.mapper.areMealSlotTypesCompatible
 import it.lagioiaproductions.nutrislot.data.repository.mapper.normalizeMealText
+import it.lagioiaproductions.nutrislot.data.repository.mapper.serializeStringList
 import it.lagioiaproductions.nutrislot.data.repository.mapper.toDomain
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealCell
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealOption
@@ -17,6 +18,7 @@ import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedWee
 import it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanning
 import it.lagioiaproductions.nutrislot.data.repository.planning.WeeklyPlanningCalculator
 import it.lagioiaproductions.nutrislot.data.repository.planning.isActualSourceConsumed
+import it.lagioiaproductions.nutrislot.domain.model.MealConsumptionTargetSource
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
 import it.lagioiaproductions.nutrislot.domain.model.sortedForWeeklyDisplay
@@ -257,7 +259,9 @@ class WeeklyPlanRepository(
         )
 
         val updatedTargetSlot = targetSlot.copy(
-            plannedMealText = normalizeMealText(selectedOption.mealText)
+            plannedMealText = normalizeMealText(selectedOption.mealText),
+            consumptionTargetKeysSerialized = "",
+            consumptionTargetSource = null
         )
 
         weeklyPlanDao.insertMealSlots(
@@ -268,7 +272,9 @@ class WeeklyPlanRepository(
     suspend fun updateSlotPlannedMealText(
         planId: String,
         slotId: String,
-        mealText: String
+        mealText: String,
+        consumptionTargetCanonicalKeys: List<String>,
+        consumptionTargetSource: MealConsumptionTargetSource?
     ) = database.withTransaction {
         val plan = weeklyPlanDao.getPlanById(planId)
             ?: throw IllegalStateException("Piano non trovato.")
@@ -280,7 +286,9 @@ class WeeklyPlanRepository(
         weeklyPlanDao.insertMealSlots(
             slots = listOf(
                 targetSlot.copy(
-                    plannedMealText = normalizeMealText(mealText)
+                    plannedMealText = normalizeMealText(mealText),
+                    consumptionTargetKeysSerialized = serializeStringList(consumptionTargetCanonicalKeys),
+                    consumptionTargetSource = consumptionTargetSource?.name
                 )
             )
         )

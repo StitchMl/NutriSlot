@@ -9,6 +9,7 @@ import it.lagioiaproductions.nutrislot.data.local.room.WeeklyFrequencyTargetEnti
 import it.lagioiaproductions.nutrislot.data.local.room.WeeklyPlanEntity
 import it.lagioiaproductions.nutrislot.domain.model.MealAssignment
 import it.lagioiaproductions.nutrislot.domain.model.MealConsumption
+import it.lagioiaproductions.nutrislot.domain.model.MealConsumptionTargetSource
 import it.lagioiaproductions.nutrislot.domain.model.MealOption
 import it.lagioiaproductions.nutrislot.domain.model.MealOptionSourceType
 import it.lagioiaproductions.nutrislot.domain.model.MealRule
@@ -33,7 +34,11 @@ internal fun MealSlotEntity.toDomain(): MealSlot {
         planId = planId,
         dayOfWeek = WeekDay.valueOf(dayOfWeek),
         mealSlotType = MealSlotType.valueOf(mealSlotType),
-        plannedMealText = plannedMealText
+        plannedMealText = plannedMealText,
+        consumptionTargetCanonicalKeys = deserializeStringList(consumptionTargetKeysSerialized),
+        consumptionTargetSource = consumptionTargetSource
+            ?.takeIf { it.isNotBlank() }
+            ?.let(MealConsumptionTargetSource::valueOf)
     )
 }
 

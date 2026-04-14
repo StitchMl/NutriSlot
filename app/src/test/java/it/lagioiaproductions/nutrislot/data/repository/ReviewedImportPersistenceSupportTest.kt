@@ -86,6 +86,43 @@ class ReviewedImportPersistenceSupportTest {
         assertEquals(35, payload.slots.size)
     }
 
+    @Test
+    fun buildImportedPlanPersistencePayload_usesBaselineWeeklyTargetsForManualPlans() {
+        val payload = buildImportedPlanPersistencePayload(
+            existingPlanId = null,
+            sourceFileName = null,
+            cells = emptyList()
+        )
+
+        val targetsByKey = payload.weeklyTargets.associateBy { it.canonicalKey }
+
+        assertEquals(11, payload.weeklyTargets.size)
+        assertEquals(
+            2000,
+            targetsByKey.getValue("acqua").minimumTimesPerWeek
+        )
+        assertEquals(
+            "2 l",
+            targetsByKey.getValue("acqua").portionText
+        )
+        assertEquals(
+            3,
+            targetsByKey.getValue("caffe e the").maximumTimesPerWeek
+        )
+        assertEquals(
+            2,
+            targetsByKey.getValue("piatto unico").minimumTimesPerWeek
+        )
+        assertEquals(
+            3,
+            targetsByKey.getValue("piatto unico").maximumTimesPerWeek
+        )
+        assertEquals(
+            "legumi + cereal",
+            targetsByKey.getValue("piatto unico").portionText
+        )
+    }
+
     private companion object {
         const val ExistingPlanId = "plan-attivo"
     }

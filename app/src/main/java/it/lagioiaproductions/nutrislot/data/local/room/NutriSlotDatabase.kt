@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         WeeklyFrequencyTargetEntity::class,
         ShoppingListItemEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class NutriSlotDatabase : RoomDatabase() {
@@ -95,6 +95,24 @@ abstract class NutriSlotDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    ALTER TABLE `meal_slots`
+                    ADD COLUMN `consumptionTargetKeysSerialized` TEXT NOT NULL DEFAULT ''
+                    """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+                    ALTER TABLE `meal_slots`
+                    ADD COLUMN `consumptionTargetSource` TEXT
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getInstance(context: Context): NutriSlotDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -102,7 +120,7 @@ abstract class NutriSlotDatabase : RoomDatabase() {
                     NutriSlotDatabase::class.java,
                     "nutrislot.db"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                     .also { database ->
                         INSTANCE = database

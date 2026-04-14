@@ -12,7 +12,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import it.lagioiaproductions.nutrislot.ui.calories.CalorieTrackerScreen
 import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileRoute
-import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileViewModel
+import it.lagioiaproductions.nutrislot.ui.importfile.viewmodel.ImportFileViewModel
 import it.lagioiaproductions.nutrislot.ui.importpreview.ImportPreviewScreen
 import it.lagioiaproductions.nutrislot.ui.root.AppRootScaffold
 import it.lagioiaproductions.nutrislot.ui.root.AppTopLevelDestination
@@ -22,7 +22,7 @@ import it.lagioiaproductions.nutrislot.ui.shoppinglist.ShoppingListRoute
 import it.lagioiaproductions.nutrislot.ui.water.WaterTrackerRoute
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanScreen
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanViewModel
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistScreen
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistScreen
 import it.lagioiaproductions.nutrislot.ui.weight.WeightScreen
 
 private object Routes {
@@ -203,6 +203,12 @@ fun AppNavGraph(
                     uiState = importUiState,
                     onBackClick = { navController.popBackStack() },
                     onFileSelected = importFileViewModel::importFromUri,
+                    onStartManualEntryClick = {
+                        importFileViewModel.startManualPlanCreation()
+                        navController.navigate(Routes.IMPORT_PREVIEW) {
+                            launchSingleTop = true
+                        }
+                    },
                     onGoToPreviewClick = { navController.navigate(Routes.IMPORT_PREVIEW) }
                 )
             }

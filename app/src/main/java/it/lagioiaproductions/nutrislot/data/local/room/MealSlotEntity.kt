@@ -26,5 +26,7 @@ data class MealSlotEntity(
     val planId: String,
     val dayOfWeek: String,
     val mealSlotType: String,
-    val plannedMealText: String
+    val plannedMealText: String,
+    val consumptionTargetKeysSerialized: String = "",
+    val consumptionTargetSource: String? = null
 )

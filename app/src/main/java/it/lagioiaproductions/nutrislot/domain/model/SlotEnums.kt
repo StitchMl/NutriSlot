@@ -65,6 +65,12 @@ enum class WeekDay(
         fun orderedValues(): List<WeekDay> = entries.sortedBy { it.sortOrder }
     }
 }
+
+enum class MealConsumptionTargetSource {
+    MANUAL,
+    GEMINI
+}
+
 enum class CellRecognitionState {
     RECOGNIZED,
     SUSPECTED,

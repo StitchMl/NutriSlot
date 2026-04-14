@@ -74,21 +74,27 @@ class WeeklyPlanningCalculatorTest {
                 planId = PlanId,
                 dayOfWeek = "MONDAY",
                 mealSlotType = "LUNCH",
-                plannedMealText = "Pasta"
+                plannedMealText = "Pasta",
+                consumptionTargetKeysSerialized = "",
+                consumptionTargetSource = null
             ),
             MealSlotEntity(
                 id = TuesdayLunchSlotId,
                 planId = PlanId,
                 dayOfWeek = "TUESDAY",
                 mealSlotType = "LUNCH",
-                plannedMealText = "Pollo"
+                plannedMealText = "Pollo",
+                consumptionTargetKeysSerialized = "",
+                consumptionTargetSource = null
             ),
             MealSlotEntity(
                 id = WednesdayLunchSlotId,
                 planId = PlanId,
                 dayOfWeek = "WEDNESDAY",
                 mealSlotType = "LUNCH",
-                plannedMealText = "Pesce"
+                plannedMealText = "Pesce",
+                consumptionTargetKeysSerialized = "",
+                consumptionTargetSource = null
             )
         )
     }
