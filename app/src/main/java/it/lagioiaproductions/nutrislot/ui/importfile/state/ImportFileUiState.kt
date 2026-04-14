@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.importfile
+package it.lagioiaproductions.nutrislot.ui.importfile.state
 
 import it.lagioiaproductions.nutrislot.domain.model.CellRecognitionState
 import it.lagioiaproductions.nutrislot.domain.model.ImportStatus

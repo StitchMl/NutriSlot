@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.media
 
 import android.content.Context
 import android.graphics.Bitmap

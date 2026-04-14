@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weight
+package it.lagioiaproductions.nutrislot.ui.weight.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.ui.shared.WeightEntryUi
+import it.lagioiaproductions.nutrislot.ui.weight.support.formatFullDate
+import it.lagioiaproductions.nutrislot.ui.weight.support.formatWeight
 
 internal fun LazyListScope.weightHistorySection(
     entries: List<WeightEntryUi>,

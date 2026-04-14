@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.water
+package it.lagioiaproductions.nutrislot.ui.water.background
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.water.theme.WaterTrackerColors
 import kotlin.math.PI
 import kotlin.math.sin
 

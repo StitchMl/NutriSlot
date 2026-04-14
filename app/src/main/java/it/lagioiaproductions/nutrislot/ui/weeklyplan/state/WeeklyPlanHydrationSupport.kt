@@ -1,6 +1,7 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.state
 
 import it.lagioiaproductions.nutrislot.data.water.WaterStoredPreferences
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyChecklistHydrationSnapshot
 
 internal fun WaterStoredPreferences.toChecklistHydrationSnapshot(): WeeklyChecklistHydrationSnapshot {
     return WeeklyChecklistHydrationSnapshot(

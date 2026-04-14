@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.slot
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,6 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.ParsedMealSectionUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.mealSemanticLabel
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.parseMealSectionVisuals
 
 @Composable
 internal fun rememberDialogMealSections(mealText: String): List<ParsedMealSectionUi> {

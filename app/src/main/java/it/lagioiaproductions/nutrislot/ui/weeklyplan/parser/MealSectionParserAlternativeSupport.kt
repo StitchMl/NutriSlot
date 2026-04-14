@@ -1,8 +1,6 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.parser
 
 import it.lagioiaproductions.nutrislot.ui.shared.normalizeMealUiLine
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.normalizeAlternativeMarkers
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.restoreCollapsedWhitespace
 
 private val ALTERNATIVE_QUANTITY_REGEX = Regex(
     pattern = """\b(?:n\.?\s*\d+|\d+(?:[.,]\d+)?\s*(?:kg|g|gr|grammi?|ml|l|uov[ao]|fette?|cucchiai?|cucchiaini?))\b""",

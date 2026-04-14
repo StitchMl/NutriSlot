@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.water
+package it.lagioiaproductions.nutrislot.ui.water.route
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -7,6 +7,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import it.lagioiaproductions.nutrislot.data.water.WaterPreferencesRepository
+import it.lagioiaproductions.nutrislot.ui.water.screen.WaterTrackerScreen
+import it.lagioiaproductions.nutrislot.ui.water.viewmodel.WaterTrackerViewModel
+import it.lagioiaproductions.nutrislot.ui.water.viewmodel.WaterTrackerViewModelFactory
 
 @Composable
 fun WaterTrackerRoute() {

@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.calories
+package it.lagioiaproductions.nutrislot.ui.calories.state
 
 import it.lagioiaproductions.nutrislot.ui.shared.CalorieDayLogUi
 import it.lagioiaproductions.nutrislot.ui.shared.CalorieJournalEntryUi

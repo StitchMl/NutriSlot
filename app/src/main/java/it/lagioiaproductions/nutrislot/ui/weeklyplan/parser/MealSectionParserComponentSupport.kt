@@ -4,9 +4,6 @@ package it.lagioiaproductions.nutrislot.ui.weeklyplan.parser
 
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyFrequencyTargetSupport
 import it.lagioiaproductions.nutrislot.ui.shared.normalizeMealUiLine
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.ParsedMealComponent
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.normalizeBreadQualifierShorthand
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.splitTopLevelAlternatives
 
 private val EXAMPLE_PREFIX_REGEX = Regex(
     pattern = "^(?:es\\.?|ad\\s+es\\.?)\\s*",

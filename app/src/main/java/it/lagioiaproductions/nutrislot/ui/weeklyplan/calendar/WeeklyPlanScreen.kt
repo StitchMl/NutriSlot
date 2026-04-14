@@ -1,9 +1,16 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar
 
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.ui.shared.ShoppingFeedbackUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotSaveRequest
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.ErrorContent
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.LoadingContent
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.SlotActionDialog
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanUiState
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.EditSlotDialog
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.shopping.rememberPlannerShoppingFeedbackState
 
 @Composable
 fun WeeklyPlanScreen(

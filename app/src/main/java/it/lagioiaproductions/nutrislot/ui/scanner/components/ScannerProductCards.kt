@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.components
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -33,6 +33,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.scanner.model.ScannedProductUi
+import it.lagioiaproductions.nutrislot.ui.scanner.model.nutritionSourceLabel
+import it.lagioiaproductions.nutrislot.ui.scanner.support.ScannerAssessmentUi
+import it.lagioiaproductions.nutrislot.ui.scanner.support.ScannerMetricUi
+import it.lagioiaproductions.nutrislot.ui.scanner.support.toAssessment
 
 @Composable
 internal fun SelectedScannerProductCard(

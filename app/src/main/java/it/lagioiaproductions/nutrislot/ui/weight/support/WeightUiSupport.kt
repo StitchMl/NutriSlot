@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weight
+package it.lagioiaproductions.nutrislot.ui.weight.support
 
 import it.lagioiaproductions.nutrislot.ui.shared.WeightEntryUi
 import java.text.SimpleDateFormat

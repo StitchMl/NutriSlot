@@ -19,18 +19,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.ChecklistVisualFilter
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyChecklistFilterRow
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyChecklistFilteredEmptyState
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyChecklistSectionHeader
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyChecklistSectionToggle
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistCard
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistEmptyState
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistItemUi
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistOverviewCard
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistPeriodUi
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyQuantityChecklistTopBar
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.isSatisfied
 
 @Composable
 fun WeeklyQuantityChecklistScreen(

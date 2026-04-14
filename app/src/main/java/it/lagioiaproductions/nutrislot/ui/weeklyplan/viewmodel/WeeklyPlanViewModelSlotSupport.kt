@@ -1,7 +1,19 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel
 
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistItemUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.hasLinkedWaterTracking
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanCustomizationManager
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.mergeMealTextWithNutritionSummary
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.stripStoredMealNutrition
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotDialogUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditableConsumptionTargetUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.SlotActionDialogUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.buildSlotActionDialog
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.buildWeeklySlotUis
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.resolvePlannedConsumptionSource
 
 internal data class PlannedSlotConsumptionCommand(
     val targetSlotId: String,
@@ -24,7 +36,8 @@ internal fun buildEditSlotDialog(
         nutritionText = slotUi.nutritionSummary.orEmpty(),
         selectedConsumptionTargetCanonicalKeys = slotUi.displayedConsumptionTargetCanonicalKeys,
         availableConsumptionTargets = availableConsumptionTargets,
-        consumptionTargetSource = slotUi.displayedConsumptionTargetSource
+        consumptionTargetSource = slotUi.displayedConsumptionTargetSource,
+        canResetToOriginal = slotUi.hasCustomizations
     )
 }
 
@@ -41,24 +54,28 @@ internal fun List<WeeklyQuantityChecklistItemUi>.toEditableConsumptionTargets():
 
 internal fun WeeklyPlanSnapshot.resolveWeeklySlotUi(
     slotId: String,
-    currentSlots: List<WeeklySlotUi>
+    currentSlots: List<WeeklySlotUi>,
+    customizationManager: WeeklyPlanCustomizationManager
 ): WeeklySlotUi? {
     return currentSlots.firstOrNull { it.slotId == slotId }
-        ?: buildWeeklySlotUis(this).firstOrNull { it.slotId == slotId }
+        ?: buildWeeklySlotUis(this, customizationManager).firstOrNull { it.slotId == slotId }
 }
 
 internal fun WeeklyPlanSnapshot.buildTargetSlotActionDialog(
     slotId: String,
-    currentSlots: List<WeeklySlotUi>
+    currentSlots: List<WeeklySlotUi>,
+    customizationManager: WeeklyPlanCustomizationManager
 ): SlotActionDialogUi? {
     val targetUi = resolveWeeklySlotUi(
         slotId = slotId,
-        currentSlots = currentSlots
+        currentSlots = currentSlots,
+        customizationManager = customizationManager
     ) ?: return null
 
     return buildSlotActionDialog(
         snapshot = this,
-        targetUi = targetUi
+        targetUi = targetUi,
+        customizationManager = customizationManager
     )
 }
 

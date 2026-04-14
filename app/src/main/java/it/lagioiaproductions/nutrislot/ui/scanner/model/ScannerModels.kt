@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.model
 
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
 

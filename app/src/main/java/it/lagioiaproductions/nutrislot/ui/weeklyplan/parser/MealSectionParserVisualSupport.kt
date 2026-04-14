@@ -1,6 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
-
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.normalizeMealParserMatchable
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.parser
 
 private data class MealVisualRule(
     val semanticKey: String,

@@ -1,7 +1,10 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist
 
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyFrequencyTarget
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyFrequencyTargetSupport
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.ParsedMealComponent
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.parseMealStructuredSections
 
 internal data class WeeklyChecklistTargetSpec(
     val canonicalKey: String,

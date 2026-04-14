@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.api
 
 import android.util.Base64
 import android.util.Log

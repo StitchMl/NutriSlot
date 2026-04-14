@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist
 
 internal val WeeklyQuantityChecklistItemUi.isExactTarget: Boolean
     get() = minimumTargetValue != null && minimumTargetValue == maximumTargetValue

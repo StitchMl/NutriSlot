@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.shopping
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect

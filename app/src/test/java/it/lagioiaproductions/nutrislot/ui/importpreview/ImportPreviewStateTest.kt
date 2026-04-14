@@ -3,8 +3,9 @@ package it.lagioiaproductions.nutrislot.ui.importpreview
 import it.lagioiaproductions.nutrislot.domain.model.CellRecognitionState
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
-import it.lagioiaproductions.nutrislot.ui.importfile.EditableImportedMealCellUi
-import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileUiState
+import it.lagioiaproductions.nutrislot.ui.importfile.state.EditableImportedMealCellUi
+import it.lagioiaproductions.nutrislot.ui.importfile.state.ImportFileUiState
+import it.lagioiaproductions.nutrislot.ui.importpreview.state.resolveImportPreviewVisibility
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

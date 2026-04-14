@@ -1,7 +1,10 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.api
 
 import android.graphics.Bitmap
 import android.util.Log
+import it.lagioiaproductions.nutrislot.ui.scanner.model.ScannedProductUi
+import it.lagioiaproductions.nutrislot.ui.scanner.media.ScannerImageEncoder
+import it.lagioiaproductions.nutrislot.ui.scanner.model.hasNutritionValues
 import java.io.IOException
 
 internal sealed interface GeminiScanResult {

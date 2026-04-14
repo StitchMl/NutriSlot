@@ -1,8 +1,9 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.slot
 
 import androidx.compose.ui.graphics.Color
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.MealVisualInfo
 
 internal data class FoodVisualStyle(
     val container: Color,

@@ -236,23 +236,19 @@ class GeminiMealTargetCataloger(
     ): String {
         val normalizedResponse = responseText.lowercase()
 
-        return when {
-            statusCode == 403 && normalizedResponse.contains("reported as leaked") -> {
+        return when (statusCode) {
+            403 if normalizedResponse.contains("reported as leaked") -> {
                 "La Gemini API key configurata e stata segnalata come compromessa."
             }
-
-            statusCode == 401 || statusCode == 403 -> {
+            401, 403 -> {
                 "Gemini ha rifiutato la API key configurata."
             }
-
-            statusCode == 429 -> {
+            429 -> {
                 "Gemini e temporaneamente occupato. Riprova tra poco."
             }
-
-            statusCode == 400 -> {
+            400 -> {
                 "La richiesta inviata a Gemini non e valida."
             }
-
             else -> {
                 "Gemini ha risposto con HTTP $statusCode."
             }

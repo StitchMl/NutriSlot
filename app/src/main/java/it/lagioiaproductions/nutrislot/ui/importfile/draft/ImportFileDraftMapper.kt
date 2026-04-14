@@ -1,10 +1,11 @@
-package it.lagioiaproductions.nutrislot.ui.importfile
+package it.lagioiaproductions.nutrislot.ui.importfile.draft
 
 import it.lagioiaproductions.nutrislot.domain.model.ImportStatus
 import it.lagioiaproductions.nutrislot.domain.model.ImportedPlanDraft
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.CellRecognitionState
+import it.lagioiaproductions.nutrislot.ui.importfile.state.EditableImportedMealCellUi
 
 internal fun ImportedPlanDraft.toEditableUiCells(): List<EditableImportedMealCellUi> {
     return cells

@@ -2,7 +2,7 @@
     "SameParameterValue", "SameParameterValue"
 )
 
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -13,6 +13,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanUiState
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.shopping.extractShoppingItemsFromSlots
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.orderedCalendarDays
 
 internal val weeklyCalendarSlotOrder = listOf(
     MealSlotType.BREAKFAST,

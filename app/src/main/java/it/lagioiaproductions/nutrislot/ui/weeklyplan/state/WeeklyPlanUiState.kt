@@ -1,6 +1,10 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.state
 
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistItemUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotDialogUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.SlotActionDialogUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
 
 data class WeeklyPlanUiState(
     val isLoading: Boolean = false,

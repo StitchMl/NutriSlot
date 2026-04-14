@@ -1,17 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
-
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.MutableParsedMealComponent
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.isNutritionLine
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.isStandaloneAlternativeSeparatorLine
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.isStandaloneMealHeading
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.mealLineStartsWithBullet
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.merge
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.normalizeMealParserLine
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.normalizeMealParserLines
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.parseComponentSegment
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.renderComponentLine
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.stripMealNutritionBlock
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.toImmutable
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.parser
 
 internal data class MealVisualInfo(
     val emoji: String,

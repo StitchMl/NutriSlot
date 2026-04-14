@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.route
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +23,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import it.lagioiaproductions.nutrislot.ui.scanner.viewmodel.ScannerViewModel
+import it.lagioiaproductions.nutrislot.ui.scanner.components.ScannerErrorCard
+import it.lagioiaproductions.nutrislot.ui.scanner.components.ScannerHeroCard
+import it.lagioiaproductions.nutrislot.ui.scanner.components.ScannerLoadingCard
+import it.lagioiaproductions.nutrislot.ui.scanner.components.ScannerStatusCard
+import it.lagioiaproductions.nutrislot.ui.scanner.components.SelectedScannerProductCard
+import it.lagioiaproductions.nutrislot.ui.scanner.model.toLinkedProduct
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -7,6 +7,8 @@ import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlan
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.resolvePlannedConsumptionSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

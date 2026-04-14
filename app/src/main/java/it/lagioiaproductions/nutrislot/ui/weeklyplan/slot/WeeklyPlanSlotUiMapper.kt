@@ -1,17 +1,21 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.slot
 
 import it.lagioiaproductions.nutrislot.domain.model.MealSlot
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.buildActiveWeekPlanning
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanCustomizationManager
 
 internal fun buildWeeklySlotUis(
-    snapshot: WeeklyPlanSnapshot
+    snapshot: WeeklyPlanSnapshot,
+    customizationManager: WeeklyPlanCustomizationManager
 ): List<WeeklySlotUi> {
-    return WeeklySlotUiMapper(snapshot).build()
+    return WeeklySlotUiMapper(snapshot, customizationManager).build()
 }
 
 private class WeeklySlotUiMapper(
-    private val snapshot: WeeklyPlanSnapshot
+    private val snapshot: WeeklyPlanSnapshot,
+    private val customizationManager: WeeklyPlanCustomizationManager
 ) {
     private val planning = buildActiveWeekPlanning(snapshot)
     private val slotById = snapshot.slots.associateBy(MealSlot::id)
@@ -34,7 +38,11 @@ private class WeeklySlotUiMapper(
             dayOfWeek = slot.dayOfWeek,
             mealSlotType = slot.mealSlotType,
             originalMealText = slot.plannedMealText,
-            displayedMealText = resolveDisplayedMealText(slot, actualSourceSlotId, pendingSourceSlotId),
+            displayedMealText = resolveDisplayedMealText(
+                slot,
+                actualSourceSlotId,
+                pendingSourceSlotId
+            ),
             displayedConsumptionTargetCanonicalKeys = resolveDisplayedConsumptionTargetCanonicalKeys(
                 slot = slot,
                 actualSourceSlotId = actualSourceSlotId,
@@ -48,8 +56,13 @@ private class WeeklySlotUiMapper(
             displayState = resolveDisplayState(slot, actualSourceSlotId),
             isActuallyCompletedThisWeek = actualSourceSlotId != null,
             reassignedFromDayLabel = reassignedFromSlot?.dayOfWeek?.displayName,
-            reassignedFromMealSlotLabel = reassignedFromSlot?.mealSlotType?.displayName
+            reassignedFromMealSlotLabel = reassignedFromSlot?.mealSlotType?.displayName,
+            hasCustomizations = hasCustomizations(slot)
         )
+    }
+
+    private fun hasCustomizations(slot: MealSlot): Boolean {
+        return customizationManager.hasSlotCustomization(snapshot.plan.id, slot.id)
     }
 
     private fun resolvePendingSourceSlotId(

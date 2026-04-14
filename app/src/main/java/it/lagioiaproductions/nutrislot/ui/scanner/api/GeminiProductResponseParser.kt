@@ -1,5 +1,8 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.api
 
+import it.lagioiaproductions.nutrislot.ui.scanner.model.NutritionSource
+import it.lagioiaproductions.nutrislot.ui.scanner.model.ScannedProductUi
+import it.lagioiaproductions.nutrislot.ui.scanner.model.hasNutritionValues
 import org.json.JSONObject
 
 internal class GeminiProductResponseParser {

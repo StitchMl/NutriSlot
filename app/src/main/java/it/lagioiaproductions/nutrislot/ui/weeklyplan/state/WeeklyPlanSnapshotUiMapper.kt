@@ -1,9 +1,13 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.state
 
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanCustomizationManager
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.SlotActionDialogUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.buildWeeklySlotUis
 
 internal fun WeeklyPlanSnapshot.toUiState(
+    customizationManager: WeeklyPlanCustomizationManager,
     actionMessage: String?,
     actionErrorMessage: String?,
     isApplyingSlotAction: Boolean,
@@ -21,7 +25,7 @@ internal fun WeeklyPlanSnapshot.toUiState(
         currentWeekReferenceDay = currentWeekReferenceDay,
         selectedCalendarDay = selectedCalendarDay,
         showConsumedSlotsInCalendar = showConsumedSlotsInCalendar,
-        slots = buildWeeklySlotUis(this),
+        slots = buildWeeklySlotUis(this, customizationManager),
         slotActionDialog = slotActionDialog,
         isApplyingSlotAction = isApplyingSlotAction,
         actionMessage = actionMessage,

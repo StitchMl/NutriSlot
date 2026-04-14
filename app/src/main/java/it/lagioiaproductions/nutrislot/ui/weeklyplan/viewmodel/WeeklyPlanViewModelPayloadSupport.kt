@@ -1,7 +1,14 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel
 
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyChecklistHydrationSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanCalorieSyncUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanCalorieUndoUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanSnapshotStatePayload
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanStateFactory
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanUiState
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.dayKeyForCurrentWeek
 
 internal fun buildLoadResultState(
     stateFactory: WeeklyPlanStateFactory,

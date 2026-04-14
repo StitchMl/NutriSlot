@@ -1,6 +1,8 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.slot
 
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.buildActiveWeekPlanning
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.stripStoredMealNutrition
 
 internal data class PlannedConsumptionSource(
     val sourceSlotId: String?,

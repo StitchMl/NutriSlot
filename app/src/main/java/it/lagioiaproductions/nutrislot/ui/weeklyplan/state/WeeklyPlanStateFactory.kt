@@ -1,7 +1,11 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.state
 
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyChecklistHydrationSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanCustomizationManager
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotDialogUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.SlotActionDialogUi
 
 internal data class WeeklyPlanSnapshotStatePayload(
     val actionMessage: String? = null,
@@ -119,6 +123,7 @@ internal class WeeklyPlanStateFactory(
         hydrationSnapshot: WeeklyChecklistHydrationSnapshot? = null
     ): WeeklyPlanUiState {
         val baseState = snapshot.toUiState(
+            customizationManager = customizationManager,
             actionMessage = payload.actionMessage,
             actionErrorMessage = payload.actionErrorMessage,
             isApplyingSlotAction = payload.isApplyingSlotAction,

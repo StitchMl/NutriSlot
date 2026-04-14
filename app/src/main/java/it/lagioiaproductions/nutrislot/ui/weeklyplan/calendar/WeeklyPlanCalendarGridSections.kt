@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,6 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotCard
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.shopping.extractShoppingItemsFromMealText
 
 @Composable
 internal fun CalendarSlotRow(

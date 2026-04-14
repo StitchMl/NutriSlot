@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.water
+package it.lagioiaproductions.nutrislot.ui.water.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +20,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.water.dialogs.ContainerPresetsDialog
+import it.lagioiaproductions.nutrislot.ui.water.dialogs.ReminderDialog
+import it.lagioiaproductions.nutrislot.ui.water.theme.WaterTrackerColors
+import it.lagioiaproductions.nutrislot.ui.water.state.WaterTrackerUiState
+import it.lagioiaproductions.nutrislot.ui.water.background.AnimatedWaterBackground
+import it.lagioiaproductions.nutrislot.ui.water.components.WaterActionsPanel
+import it.lagioiaproductions.nutrislot.ui.water.components.WaterContainerPresetsSection
+import it.lagioiaproductions.nutrislot.ui.water.components.WaterGoalMeter
+import it.lagioiaproductions.nutrislot.ui.water.components.WaterHeaderTipCard
+import it.lagioiaproductions.nutrislot.ui.water.components.WaterRecordsCard
+import it.lagioiaproductions.nutrislot.ui.water.dialogs.AmountDialog
+import it.lagioiaproductions.nutrislot.ui.water.dialogs.ResetWaterDialog
 
 @Suppress("AssignedValueIsNeverRead")
 @Composable

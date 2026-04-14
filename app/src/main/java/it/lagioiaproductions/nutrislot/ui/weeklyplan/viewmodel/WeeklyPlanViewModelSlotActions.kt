@@ -1,9 +1,7 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel
 
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.applySnapshotUpdateInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.executePlanMutationInternal
 import kotlinx.coroutines.flow.update
 
 internal fun WeeklyPlanViewModel.toggleSlotCompletedFromCalendarInternal(slotId: String) {
@@ -20,7 +18,8 @@ internal fun WeeklyPlanViewModel.openSlotActionInternal(slotId: String) {
     val snapshot = currentSnapshot ?: return
     val dialog = snapshot.buildTargetSlotActionDialog(
         slotId = slotId,
-        currentSlots = mutableUiState.value.slots
+        currentSlots = mutableUiState.value.slots,
+        customizationManager = customizationManager
     ) ?: return
 
     mutableUiState.update { state ->

@@ -3,6 +3,7 @@ package it.lagioiaproductions.nutrislot.ui.importfile
 import it.lagioiaproductions.nutrislot.domain.model.CellRecognitionState
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.ui.importfile.draft.buildManualEditableUiCells
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

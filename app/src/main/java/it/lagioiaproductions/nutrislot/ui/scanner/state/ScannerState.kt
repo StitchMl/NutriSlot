@@ -1,6 +1,7 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.state
 
 import android.graphics.Bitmap
+import it.lagioiaproductions.nutrislot.ui.scanner.model.ScannedProductUi
 
 internal data class ScannerUiState(
     val previewBitmap: Bitmap? = null,

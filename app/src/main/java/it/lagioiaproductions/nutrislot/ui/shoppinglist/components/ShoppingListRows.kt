@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.shoppinglist
+package it.lagioiaproductions.nutrislot.ui.shoppinglist.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +33,10 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import it.lagioiaproductions.nutrislot.ui.shared.ShoppingListItemUi
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.decor.EmojiBubble
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.decor.SmallTag
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.parsing.ParsedShoppingOption
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.parsing.parseShoppingEntry
 
 @Composable
 internal fun CompactShoppingRow(

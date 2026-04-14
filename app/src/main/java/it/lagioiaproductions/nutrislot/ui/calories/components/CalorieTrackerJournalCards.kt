@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.calories
+package it.lagioiaproductions.nutrislot.ui.calories.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.calories.state.CalorieTrackerSectionUi
 import it.lagioiaproductions.nutrislot.ui.shared.CalorieJournalEntryUi
 
 @Composable

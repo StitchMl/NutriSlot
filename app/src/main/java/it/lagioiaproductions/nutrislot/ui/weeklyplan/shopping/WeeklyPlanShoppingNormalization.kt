@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.shopping
 
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.isNutritionLine
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.isStandaloneMealHeading

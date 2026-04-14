@@ -1,11 +1,11 @@
-package it.lagioiaproductions.nutrislot.ui.importpreview
+package it.lagioiaproductions.nutrislot.ui.importpreview.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
-import it.lagioiaproductions.nutrislot.ui.importfile.EditableImportedMealCellUi
-import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileUiState
+import it.lagioiaproductions.nutrislot.ui.importfile.state.EditableImportedMealCellUi
+import it.lagioiaproductions.nutrislot.ui.importfile.state.ImportFileUiState
 
 internal val PreviewSlotOrder = listOf(
     MealSlotType.BREAKFAST,

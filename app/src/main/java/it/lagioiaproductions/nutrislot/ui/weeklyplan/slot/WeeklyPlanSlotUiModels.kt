@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.slot
 
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.MealConsumptionTargetSource
@@ -63,7 +63,8 @@ data class EditSlotDialogUi(
     val consumptionTargetSource: MealConsumptionTargetSource? = null,
     val isGeminiRecalculating: Boolean = false,
     val isGeminiCatalogingTargets: Boolean = false,
-    val geminiMessage: String? = null
+    val geminiMessage: String? = null,
+    val canResetToOriginal: Boolean = false
 )
 
 data class EditableConsumptionTargetUi(

@@ -7,6 +7,8 @@ import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyFrequencyTarget
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistBuilder
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

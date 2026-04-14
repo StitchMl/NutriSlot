@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.edit
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
@@ -6,6 +6,10 @@ import it.lagioiaproductions.nutrislot.data.repository.mapper.deserializeStringL
 import it.lagioiaproductions.nutrislot.data.repository.mapper.serializeStringList
 import it.lagioiaproductions.nutrislot.domain.model.MealConsumptionTargetSource
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyChecklistHydrationSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanUiState
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistBuilder
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
 
 internal class WeeklyPlanCustomizationManager(
     private val preferences: SharedPreferences
@@ -40,6 +44,11 @@ internal class WeeklyPlanCustomizationManager(
                 .remove(WeeklyPlanPreferences.slotTargetsPreferenceKey(planId, slotId))
                 .remove(WeeklyPlanPreferences.slotTargetSourcePreferenceKey(planId, slotId))
         }
+    }
+
+    fun hasSlotCustomization(planId: String, slotId: String): Boolean {
+        return preferences.contains(WeeklyPlanPreferences.slotMealPreferenceKey(planId, slotId)) ||
+                preferences.contains(WeeklyPlanPreferences.slotTargetsPreferenceKey(planId, slotId))
     }
 
     fun applyDecorations(

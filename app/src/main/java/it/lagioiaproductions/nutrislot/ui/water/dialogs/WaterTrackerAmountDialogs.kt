@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.water
+package it.lagioiaproductions.nutrislot.ui.water.dialogs
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

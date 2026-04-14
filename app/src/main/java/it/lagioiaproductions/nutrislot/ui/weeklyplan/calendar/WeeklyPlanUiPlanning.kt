@@ -1,8 +1,9 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar
 
 import it.lagioiaproductions.nutrislot.data.repository.planning.ActiveWeekPlanning
 import it.lagioiaproductions.nutrislot.domain.model.MealAssignment
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.isInCurrentWeek
 
 internal fun WeeklyPlanSnapshot.activeWeekAssignments(): List<MealAssignment> {
     return assignments.filter { assignment ->

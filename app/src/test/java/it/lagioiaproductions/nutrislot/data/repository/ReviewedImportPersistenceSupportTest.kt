@@ -1,3 +1,5 @@
+@file:Suppress("ConstPropertyName")
+
 package it.lagioiaproductions.nutrislot.data.repository
 
 import it.lagioiaproductions.nutrislot.data.repository.model.ReviewedImportedMealCell

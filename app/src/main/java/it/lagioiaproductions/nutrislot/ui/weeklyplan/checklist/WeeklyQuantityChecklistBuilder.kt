@@ -1,9 +1,10 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist
 
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyFrequencyTarget
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyFrequencyTargetSupport
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.stripMealNutritionBlock
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
 
 internal data class WeeklyChecklistHydrationSnapshot(
     val consumedMl: Int,

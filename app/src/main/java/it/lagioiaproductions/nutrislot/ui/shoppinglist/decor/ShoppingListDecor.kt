@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.shoppinglist
+package it.lagioiaproductions.nutrislot.ui.shoppinglist.decor
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.padding

@@ -1,6 +1,7 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.support
 
 import androidx.compose.ui.graphics.Color
+import it.lagioiaproductions.nutrislot.ui.scanner.model.ScannedProductUi
 
 internal data class ScannerAssessmentUi(
     val score: Int,

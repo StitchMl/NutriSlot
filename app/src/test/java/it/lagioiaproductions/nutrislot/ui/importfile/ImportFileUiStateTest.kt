@@ -5,6 +5,10 @@ import it.lagioiaproductions.nutrislot.domain.model.ImportStatus
 import it.lagioiaproductions.nutrislot.domain.model.ImportWarning
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.ui.importfile.state.EditableImportedMealCellUi
+import it.lagioiaproductions.nutrislot.ui.importfile.state.ImportFileUiState
+import it.lagioiaproductions.nutrislot.ui.importfile.state.asImportFailure
+import it.lagioiaproductions.nutrislot.ui.importfile.state.beginFreshImport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

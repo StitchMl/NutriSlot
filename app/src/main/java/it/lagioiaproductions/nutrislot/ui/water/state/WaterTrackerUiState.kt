@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.water
+package it.lagioiaproductions.nutrislot.ui.water.state
 
 data class WaterTrackerUiState(
     val targetMl: Int = 2000,

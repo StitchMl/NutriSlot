@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.scanner
+package it.lagioiaproductions.nutrislot.ui.scanner.viewmodel
 
 import android.app.Application
 import android.graphics.Bitmap
@@ -6,6 +6,11 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import it.lagioiaproductions.nutrislot.BuildConfig
+import it.lagioiaproductions.nutrislot.ui.scanner.api.GeminiProductScanner
+import it.lagioiaproductions.nutrislot.ui.scanner.api.GeminiScanResult
+import it.lagioiaproductions.nutrislot.ui.scanner.media.ScannerImageLoader
+import it.lagioiaproductions.nutrislot.ui.scanner.model.ScannedProductUi
+import it.lagioiaproductions.nutrislot.ui.scanner.state.ScannerUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

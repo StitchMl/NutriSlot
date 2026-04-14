@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.shoppinglist
+package it.lagioiaproductions.nutrislot.ui.shoppinglist.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

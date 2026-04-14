@@ -1,4 +1,8 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.shopping
+
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.ParsedMealComponent
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.parseMealStructuredSections
 
 internal fun extractShoppingItemsFromSlots(slots: List<WeeklySlotUi>): List<String> {
     return slots

@@ -4,6 +4,13 @@ import it.lagioiaproductions.nutrislot.domain.model.MealConsumptionTargetSource
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistItemUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistMetricUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistPeriodUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditableConsumptionTargetUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.buildEditSlotDialog
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.toEditableConsumptionTargets
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

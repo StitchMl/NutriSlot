@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist
 
 enum class WeeklyQuantityChecklistStatusUi {
     UNDER_TARGET,

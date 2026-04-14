@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.state
 
 import it.lagioiaproductions.nutrislot.data.repository.WeeklyPlanRepository
 import it.lagioiaproductions.nutrislot.domain.model.MealConsumptionTargetSource

@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.edit
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -19,14 +19,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,6 +42,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.MealConsumptionTargetSource
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.mealSemanticLabel
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.parseMealSectionVisuals
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotDialogUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotSaveRequest
 
 @Composable
 fun EditSlotDialog(
@@ -128,7 +131,10 @@ fun EditSlotDialog(
                                             verticalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
                                             Text(
-                                                text = "${section.visualInfo.emoji} ${section.lines.firstOrNull() ?: mealSemanticLabel(section.visualInfo.semanticKey)}",
+                                                text = "${section.visualInfo.emoji} ${section.lines.firstOrNull() ?: mealSemanticLabel(
+                                                    section.visualInfo.semanticKey
+                                                )
+                                                }",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.Medium,
                                                 maxLines = 2,
@@ -320,103 +326,93 @@ private fun EditSlotActionBar(
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.46f)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(vertical = 10.dp, horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            FilledIconButton(
+                onClick = onSave,
+                enabled = canActOnMeal && !isGeminiBusy,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             ) {
-                FilledTonalButton(
-                    onClick = onSave,
-                    enabled = canActOnMeal && !isGeminiBusy,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Save,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = " Salva qui",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Save,
+                    contentDescription = "Salva",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
 
-                FilledTonalButton(
-                    onClick = onSaveForNextWeeks,
-                    enabled = canActOnMeal && !isGeminiBusy,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            FilledIconButton(
+                onClick = onSaveForNextWeeks,
+                enabled = canActOnMeal && !isGeminiBusy,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DateRange,
+                    contentDescription = "Salva per il futuro",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            FilledIconButton(
+                onClick = onRecalculateNutritionWithGemini,
+                enabled = !isGeminiBusy && canActOnMeal,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                if (isGeminiBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
                     )
-                ) {
+                } else {
                     Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = " Salva come base",
-                        style = MaterialTheme.typography.labelLarge
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "Calcola con Gemini",
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            FilledIconButton(
+                onClick = onReset,
+                enabled = !isGeminiBusy,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             ) {
-                FilledTonalButton(
-                    onClick = onRecalculateNutritionWithGemini,
-                    enabled = !isGeminiBusy && canActOnMeal,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    if (isGeminiBusy) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "Calcola nutrienti con Gemini"
-                        )
-                    }
-                    Text(
-                        text = " Nutrienti AI",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Undo,
+                    contentDescription = "Ripristina",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
 
-                OutlinedIconButton(
-                    onClick = onReset,
-                    enabled = !isGeminiBusy
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Undo,
-                        contentDescription = "Ripristina"
-                    )
-                }
-
-                OutlinedIconButton(
-                    onClick = onDismiss,
-                    enabled = !isGeminiBusy
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Chiudi"
-                    )
-                }
+            FilledIconButton(
+                onClick = onDismiss,
+                enabled = !isGeminiBusy,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Chiudi",
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
@@ -438,7 +434,7 @@ private fun EditSlotHeroCard(
         }
 
         else -> {
-            listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.secondaryContainer, Color(0xFFFFE6B4))
+            listOf(Color(0xFFF7E7CE), Color(0xFFF3D9B1), Color(0xFFFFE6B4))
         }
     }
 

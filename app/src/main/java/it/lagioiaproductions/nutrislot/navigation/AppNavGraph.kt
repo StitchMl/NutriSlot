@@ -10,20 +10,20 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import it.lagioiaproductions.nutrislot.ui.calories.CalorieTrackerScreen
-import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileRoute
+import it.lagioiaproductions.nutrislot.ui.calories.route.CalorieTrackerScreen
+import it.lagioiaproductions.nutrislot.ui.importfile.route.ImportFileRoute
 import it.lagioiaproductions.nutrislot.ui.importfile.viewmodel.ImportFileViewModel
-import it.lagioiaproductions.nutrislot.ui.importpreview.ImportPreviewScreen
+import it.lagioiaproductions.nutrislot.ui.importpreview.route.ImportPreviewScreen
 import it.lagioiaproductions.nutrislot.ui.root.AppRootScaffold
 import it.lagioiaproductions.nutrislot.ui.root.AppTopLevelDestination
-import it.lagioiaproductions.nutrislot.ui.scanner.ScannerScreen
+import it.lagioiaproductions.nutrislot.ui.scanner.route.ScannerScreen
 import it.lagioiaproductions.nutrislot.ui.shared.AppBridgeViewModel
-import it.lagioiaproductions.nutrislot.ui.shoppinglist.ShoppingListRoute
-import it.lagioiaproductions.nutrislot.ui.water.WaterTrackerRoute
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanScreen
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanViewModel
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.route.ShoppingListRoute
+import it.lagioiaproductions.nutrislot.ui.water.route.WaterTrackerRoute
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.WeeklyPlanScreen
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.WeeklyPlanViewModel
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistScreen
-import it.lagioiaproductions.nutrislot.ui.weight.WeightScreen
+import it.lagioiaproductions.nutrislot.ui.weight.route.WeightScreen
 
 private object Routes {
     const val IMPORT_FILE = "import_file"

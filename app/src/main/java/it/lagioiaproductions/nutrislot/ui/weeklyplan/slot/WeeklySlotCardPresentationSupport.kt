@@ -1,10 +1,15 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+@file:Suppress("unused")
+
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.slot
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.slotTimeLabel
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.ParsedMealSectionUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.parseMealSectionVisuals
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.stripMealNutritionBlock
 
 internal data class CalendarMealContentUi(
@@ -160,7 +165,6 @@ private fun canToggleWeeklySlotCompleted(slotUi: WeeklySlotUi): Boolean {
     return slotUi.isActuallyCompletedThisWeek || slotUi.displayedMealText.isNotBlank()
 }
 
-@Suppress("unused")
 private fun shouldShowInlineNutrition(
     slotUi: WeeklySlotUi,
     content: CalendarMealContentUi

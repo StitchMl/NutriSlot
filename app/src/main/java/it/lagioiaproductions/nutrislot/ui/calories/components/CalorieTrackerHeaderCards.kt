@@ -1,6 +1,6 @@
 @file:Suppress("SameParameterValue")
 
-package it.lagioiaproductions.nutrislot.ui.calories
+package it.lagioiaproductions.nutrislot.ui.calories.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.calories.state.CalorieTrackerDayUi
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
 
 @Composable

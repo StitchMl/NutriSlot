@@ -46,9 +46,10 @@ android {
     defaultConfig {
         applicationId = "it.lagioiaproductions.nutrislot"
         minSdk = 26
+        //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 5
-        versionName = "5.4"
+        versionCode = 6
+        versionName = "6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")

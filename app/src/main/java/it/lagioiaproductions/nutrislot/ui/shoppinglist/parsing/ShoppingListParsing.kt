@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.shoppinglist
+package it.lagioiaproductions.nutrislot.ui.shoppinglist.parsing
 
 internal data class ParsedShoppingEntry(
     val isExtra: Boolean,

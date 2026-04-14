@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.importpreview
+package it.lagioiaproductions.nutrislot.ui.importpreview.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,9 +24,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.CellRecognitionState
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
-import it.lagioiaproductions.nutrislot.ui.importfile.EditableImportedMealCellUi
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.ParsedMealSectionUi
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parseMealSectionVisuals
+import it.lagioiaproductions.nutrislot.ui.importfile.state.EditableImportedMealCellUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.ParsedMealSectionUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.parseMealSectionVisuals
 
 @Composable
 internal fun EditableMealCellCard(

@@ -7,8 +7,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import it.lagioiaproductions.nutrislot.ui.shared.AppBridgeViewModel
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanUiState
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanViewModel
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanUiState
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.WeeklyPlanViewModel
 
 @Composable
 internal fun WeeklyPlanNavigationEffects(

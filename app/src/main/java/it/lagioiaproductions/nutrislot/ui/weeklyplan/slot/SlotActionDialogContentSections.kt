@@ -1,6 +1,6 @@
 @file:Suppress("SameParameterValue", "SameParameterValue", "SameParameterValue")
 
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.slot
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,6 +17,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.WeeklyStatusBadge
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.ParsedMealSectionUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.slotStatusContainerColor
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.slotStatusContentColor
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.slotStatusLabel
 
 @Composable
 internal fun SlotActionDialogBody(

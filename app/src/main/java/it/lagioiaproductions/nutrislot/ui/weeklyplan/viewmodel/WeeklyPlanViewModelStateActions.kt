@@ -4,13 +4,10 @@ import androidx.core.content.edit
 import androidx.lifecycle.viewModelScope
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanPreferences
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanSnapshotStatePayload
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanViewModel
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.buildLoadFailureState
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.buildLoadResultState
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.currentWeekDay
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.toChecklistHydrationSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanPreferences
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanSnapshotStatePayload
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.currentWeekDay
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.toChecklistHydrationSnapshot
 import it.lagioiaproductions.nutrislot.widget.MealCalendarWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first

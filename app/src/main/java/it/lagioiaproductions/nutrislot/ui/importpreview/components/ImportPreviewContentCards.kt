@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.importpreview
+package it.lagioiaproductions.nutrislot.ui.importpreview.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

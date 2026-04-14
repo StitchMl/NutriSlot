@@ -1,3 +1,5 @@
+@file:Suppress("ConstPropertyName")
+
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import it.lagioiaproductions.nutrislot.domain.model.MealAssignment
@@ -6,6 +8,7 @@ import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlan
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.buildPendingAssignedSourceMap
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

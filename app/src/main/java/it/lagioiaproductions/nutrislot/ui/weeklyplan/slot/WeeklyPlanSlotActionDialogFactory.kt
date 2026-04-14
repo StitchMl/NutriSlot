@@ -1,23 +1,29 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+@file:Suppress("CanBeParameter")
+
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.slot
 
 import it.lagioiaproductions.nutrislot.data.repository.mapper.areMealSlotTypesCompatible
 import it.lagioiaproductions.nutrislot.data.repository.planning.isActualSourceConsumed
 import it.lagioiaproductions.nutrislot.domain.model.MealSlot
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.buildActiveWeekPlanning
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanCustomizationManager
 
 internal fun buildSlotActionDialog(
     snapshot: WeeklyPlanSnapshot,
-    targetUi: WeeklySlotUi
+    targetUi: WeeklySlotUi,
+    customizationManager: WeeklyPlanCustomizationManager
 ): SlotActionDialogUi {
-    return WeeklyPlanSlotActionDialogFactory(snapshot).build(targetUi)
+    return WeeklyPlanSlotActionDialogFactory(snapshot, customizationManager).build(targetUi)
 }
 
 private class WeeklyPlanSlotActionDialogFactory(
-    private val snapshot: WeeklyPlanSnapshot
+    private val snapshot: WeeklyPlanSnapshot,
+    private val customizationManager: WeeklyPlanCustomizationManager
 ) {
     private val planning = buildActiveWeekPlanning(snapshot)
-    private val weeklySlotUiById = buildWeeklySlotUis(snapshot).associateBy(WeeklySlotUi::slotId)
+    private val weeklySlotUiById = buildWeeklySlotUis(snapshot, customizationManager).associateBy(WeeklySlotUi::slotId)
 
     fun build(targetUi: WeeklySlotUi): SlotActionDialogUi {
         val targetSlot = snapshot.slots.first { it.id == targetUi.slotId }

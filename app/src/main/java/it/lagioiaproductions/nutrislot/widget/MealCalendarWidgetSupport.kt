@@ -1,3 +1,5 @@
+@file:Suppress("ConstPropertyName", "ConstPropertyName")
+
 package it.lagioiaproductions.nutrislot.widget
 
 import android.content.Context
@@ -7,11 +9,11 @@ import it.lagioiaproductions.nutrislot.domain.model.CurrentWeekWindow
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
 import it.lagioiaproductions.nutrislot.domain.model.currentWeekWindow
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanCustomizationManager
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklyPlanPreferences
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklySlotUi
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.buildWeeklySlotUis
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.stripStoredMealNutrition
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanCustomizationManager
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanPreferences
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.buildWeeklySlotUis
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.stripStoredMealNutrition
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -29,6 +31,7 @@ internal data class MealCalendarWidgetItem(
     val isDimmed: Boolean
 )
 
+@Suppress("ConstPropertyName")
 internal object MealCalendarWidgetSupport {
     private const val CompletedLabel = "Completato"
     private const val CompletedWithSwapLabel = "Completato con scambio"
@@ -58,7 +61,7 @@ internal object MealCalendarWidgetSupport {
 
         val decoratedSlots = customizationManager.decorateSlots(
             snapshot = snapshot,
-            slots = buildWeeklySlotUis(snapshot)
+            slots = buildWeeklySlotUis(snapshot, customizationManager)
         )
 
         return buildItems(
@@ -77,7 +80,7 @@ internal object MealCalendarWidgetSupport {
 
         return slots.asSequence()
             .sortedWith(
-                compareBy<WeeklySlotUi>(
+                compareBy(
                     { it.dayOfWeek.sortOrder },
                     { it.mealSlotType.sortOrder }
                 )
@@ -97,8 +100,7 @@ internal object MealCalendarWidgetSupport {
                     stableId = slot.slotId.hashCode().toLong(),
                     dayLabel = dayLabelFor(date, locale),
                     dateLabel = dateLabelFor(date, locale),
-                    metaText = listOf(slot.mealSlotType.displayName, statusLabel)
-                        .filterNotNull()
+                    metaText = listOfNotNull(slot.mealSlotType.displayName, statusLabel)
                         .joinToString(separator = " | "),
                     mealText = mealText,
                     mealSlotType = slot.mealSlotType,

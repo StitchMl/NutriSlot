@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weight
+package it.lagioiaproductions.nutrislot.ui.weight.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -29,6 +29,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.ui.shared.WeightEntryUi
 import it.lagioiaproductions.nutrislot.ui.shared.WeightSummaryUi
+import it.lagioiaproductions.nutrislot.ui.weight.support.formatDelta
+import it.lagioiaproductions.nutrislot.ui.weight.support.formatFullDate
+import it.lagioiaproductions.nutrislot.ui.weight.support.formatWeight
+import it.lagioiaproductions.nutrislot.ui.weight.support.recentAverageWeight
 import kotlin.math.abs
 
 @Composable

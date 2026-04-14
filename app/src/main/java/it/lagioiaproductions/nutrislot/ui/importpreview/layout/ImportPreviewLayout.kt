@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.importpreview
+package it.lagioiaproductions.nutrislot.ui.importpreview.layout
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -29,9 +29,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
-import it.lagioiaproductions.nutrislot.ui.importfile.EditableImportedMealCellUi
-import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileUiState
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.slotTimeLabel
+import it.lagioiaproductions.nutrislot.ui.importfile.state.EditableImportedMealCellUi
+import it.lagioiaproductions.nutrislot.ui.importfile.state.ImportFileUiState
+import it.lagioiaproductions.nutrislot.ui.importpreview.state.ImportPreviewGridState
+import it.lagioiaproductions.nutrislot.ui.importpreview.state.PreviewSlotOrder
+import it.lagioiaproductions.nutrislot.ui.importpreview.components.EditableMealCellCard
+import it.lagioiaproductions.nutrislot.ui.importpreview.components.EmptyFilteredStateCard
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.slotTimeLabel
 
 internal val TimeRailWidth = 84.dp
 internal val DayColumnWidth = 208.dp

@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.shoppinglist
+package it.lagioiaproductions.nutrislot.ui.shoppinglist.route
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -10,6 +10,7 @@ import it.lagioiaproductions.nutrislot.data.local.room.NutriSlotDatabase
 import it.lagioiaproductions.nutrislot.data.local.room.ShoppingListItemEntity
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
 import it.lagioiaproductions.nutrislot.ui.shared.ShoppingListItemUi
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.screen.ShoppingListScreen
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 

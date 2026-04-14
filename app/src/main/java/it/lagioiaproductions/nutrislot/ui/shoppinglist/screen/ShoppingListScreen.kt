@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.shoppinglist
+package it.lagioiaproductions.nutrislot.ui.shoppinglist.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,6 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
 import it.lagioiaproductions.nutrislot.ui.shared.ShoppingListItemUi
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.components.AddShoppingItemSection
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.components.LatestScannedProductBanner
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.components.ShoppingFooterSummary
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.components.ShoppingListHeader
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.components.ShoppingItemsBoard
 
 @Composable
 fun ShoppingListScreen(

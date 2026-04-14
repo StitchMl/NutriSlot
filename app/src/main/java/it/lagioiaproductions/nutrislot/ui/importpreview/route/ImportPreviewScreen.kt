@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.importpreview
+package it.lagioiaproductions.nutrislot.ui.importpreview.route
 
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -12,7 +12,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
-import it.lagioiaproductions.nutrislot.ui.importfile.ImportFileUiState
+import it.lagioiaproductions.nutrislot.ui.importfile.state.ImportFileUiState
+import it.lagioiaproductions.nutrislot.ui.importpreview.components.EditMealCellDialog
+import it.lagioiaproductions.nutrislot.ui.importpreview.components.EmptyPreviewContent
+import it.lagioiaproductions.nutrislot.ui.importpreview.layout.ImportPreviewBottomBar
+import it.lagioiaproductions.nutrislot.ui.importpreview.layout.ImportPreviewContent
+import it.lagioiaproductions.nutrislot.ui.importpreview.state.rememberImportPreviewGridState
 
 @Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)

@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.importpreview
+package it.lagioiaproductions.nutrislot.ui.importpreview.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,9 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import it.lagioiaproductions.nutrislot.domain.model.CellRecognitionState
-import it.lagioiaproductions.nutrislot.ui.importfile.EditableImportedMealCellUi
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.parseMealSectionVisuals
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.slotTimeLabel
+import it.lagioiaproductions.nutrislot.ui.importfile.state.EditableImportedMealCellUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.parser.parseMealSectionVisuals
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.calendar.slotTimeLabel
 
 @Composable
 internal fun EditMealCellDialog(

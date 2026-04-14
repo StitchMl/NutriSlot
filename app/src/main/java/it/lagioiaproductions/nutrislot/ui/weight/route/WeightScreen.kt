@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weight
+package it.lagioiaproductions.nutrislot.ui.weight.route
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,6 +23,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.ui.shared.WeightEntryUi
 import it.lagioiaproductions.nutrislot.ui.shared.WeightSummaryUi
+import it.lagioiaproductions.nutrislot.ui.weight.components.WeightSummaryCard
+import it.lagioiaproductions.nutrislot.ui.weight.components.WeightTrendCard
+import it.lagioiaproductions.nutrislot.ui.weight.support.buildRecentDateOptions
+import it.lagioiaproductions.nutrislot.ui.weight.components.WeightEntryFormCard
+import it.lagioiaproductions.nutrislot.ui.weight.components.weightHistorySection
+import it.lagioiaproductions.nutrislot.ui.weight.support.parseWeightInput
+import it.lagioiaproductions.nutrislot.ui.weight.support.todayDateKey
+import it.lagioiaproductions.nutrislot.ui.weight.support.validateWeightInput
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

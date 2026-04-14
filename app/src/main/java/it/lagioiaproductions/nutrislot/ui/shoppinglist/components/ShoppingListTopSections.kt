@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.shoppinglist
+package it.lagioiaproductions.nutrislot.ui.shoppinglist.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
+import it.lagioiaproductions.nutrislot.ui.shoppinglist.decor.SmallTag
 
 @Composable
 internal fun ShoppingListHeader() {

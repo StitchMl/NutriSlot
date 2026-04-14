@@ -4,7 +4,7 @@ import it.lagioiaproductions.nutrislot.domain.model.CurrentWeekWindow
 import it.lagioiaproductions.nutrislot.domain.model.MealSlotType
 import it.lagioiaproductions.nutrislot.domain.model.SlotDisplayState
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale

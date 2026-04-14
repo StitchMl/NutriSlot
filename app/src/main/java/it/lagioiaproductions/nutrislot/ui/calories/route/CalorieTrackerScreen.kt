@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.calories
+package it.lagioiaproductions.nutrislot.ui.calories.route
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.calories.state.buildCalorieTrackerDayUi
+import it.lagioiaproductions.nutrislot.ui.calories.components.CalorieDateCard
+import it.lagioiaproductions.nutrislot.ui.calories.components.CalorieGoalDialog
+import it.lagioiaproductions.nutrislot.ui.calories.components.CalorieJournalContent
+import it.lagioiaproductions.nutrislot.ui.calories.components.CalorieSummaryCard
+import it.lagioiaproductions.nutrislot.ui.calories.components.CalorieTrackerActionRow
+import it.lagioiaproductions.nutrislot.ui.calories.components.LatestScannedProductBanner
 import it.lagioiaproductions.nutrislot.ui.shared.CalorieDayLogUi
 import it.lagioiaproductions.nutrislot.ui.shared.LinkedScannedProductUi
 

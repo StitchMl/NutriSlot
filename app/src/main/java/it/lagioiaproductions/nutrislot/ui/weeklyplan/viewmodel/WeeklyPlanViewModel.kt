@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel
 
 import android.app.Application
 import android.content.Context
@@ -11,18 +11,13 @@ import it.lagioiaproductions.nutrislot.data.repository.WeeklyPlanRepository
 import it.lagioiaproductions.nutrislot.data.water.WaterPreferencesRepository
 import it.lagioiaproductions.nutrislot.domain.model.WeekDay
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.consumePendingCalorieSyncEventInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.consumePendingCalorieUndoEventInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.dismissEditSlotInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.loadLatestPlanInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.observeHydrationPreferencesInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.openEditSlotInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.recalculateEditSlotNutritionWithGeminiInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.resetEditSlotInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.saveEditSlotForNextWeeksInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.saveEditSlotInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.selectCalendarDayInternal
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel.toggleConsumedSlotsVisibilityInternal
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyChecklistHydrationSnapshot
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanCustomizationManager
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.WeeklyPlanPreferences
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotSaveRequest
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanMutationExecutor
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanStateFactory
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

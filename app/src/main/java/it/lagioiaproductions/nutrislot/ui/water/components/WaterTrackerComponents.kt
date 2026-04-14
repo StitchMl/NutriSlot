@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.water
+package it.lagioiaproductions.nutrislot.ui.water.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -35,9 +35,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import it.lagioiaproductions.nutrislot.ui.water.theme.WaterTrackerColors
+import it.lagioiaproductions.nutrislot.ui.water.state.WaterTrackerUiState
+import it.lagioiaproductions.nutrislot.ui.water.state.formatWaterAmount
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -354,7 +358,7 @@ fun WaterActionsPanel(
 
 @Composable
 private fun WaterIconActionButton(
-    imageVector: androidx.compose.ui.graphics.vector.ImageVector,
+    imageVector: ImageVector,
     contentDescription: String,
     onClick: () -> Unit
 ) {

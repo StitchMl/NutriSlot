@@ -1,6 +1,10 @@
 package it.lagioiaproductions.nutrislot.ui.weeklyplan
 
 import it.lagioiaproductions.nutrislot.domain.model.ImportedMealNutrition
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.extractStoredNutritionSummary
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.mergeMealTextWithNutritionSummary
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.stripStoredMealNutrition
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.toNutritionSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

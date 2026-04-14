@@ -1,4 +1,4 @@
-package it.lagioiaproductions.nutrislot.ui.weeklyplan
+package it.lagioiaproductions.nutrislot.ui.weeklyplan.parser
 
 private const val BREAD_QUALIFIER_SLASH_PLACEHOLDER = "__BREAD_QUALIFIER_SLASH__"
 
