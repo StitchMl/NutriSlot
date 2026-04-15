@@ -28,126 +28,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import it.lagioiaproductions.nutrislot.ui.shared.WeightEntryUi
-import it.lagioiaproductions.nutrislot.ui.shared.WeightSummaryUi
-import it.lagioiaproductions.nutrislot.ui.weight.support.formatDelta
-import it.lagioiaproductions.nutrislot.ui.weight.support.formatFullDate
 import it.lagioiaproductions.nutrislot.ui.weight.support.formatWeight
 import it.lagioiaproductions.nutrislot.ui.weight.support.recentAverageWeight
 import kotlin.math.abs
 
-@Composable
-internal fun WeightSummaryCard(
-    summary: WeightSummaryUi,
-    entries: List<WeightEntryUi>,
-    totalEntries: Int
-) {
-    val latestEntry = entries.maxByOrNull { it.createdAtEpochMillis }
-    val latestText = summary.latestWeightKg?.let { "${formatWeight(it)} kg" } ?: "--"
-    val delta = summary.deltaFromPreviousKg
-    val deltaText = delta?.let { formatDelta(it) } ?: "--"
-    val averageText = recentAverageWeight(entries)?.let { "${formatWeight(it)} kg" } ?: "--"
-    val deltaAccent = when {
-        delta == null -> MaterialTheme.colorScheme.primary
-        delta < 0f -> Color(0xFF0F766E)
-        delta > 0f -> Color(0xFFB45309)
-        else -> MaterialTheme.colorScheme.primary
-    }
-    val deltaSupport = when {
-        delta == null -> "Prima base"
-        delta < 0f -> "In discesa"
-        delta > 0f -> "In salita"
-        else -> "Stabile"
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        )
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
-                            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.72f),
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
-                        )
-                    )
-                )
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "Memoria peso",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Text(
-                    text = latestText,
-                    style = MaterialTheme.typography.displayMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = latestEntry?.let { "Ultima registrazione ${formatFullDate(it.dateKey)}" }
-                        ?: "Le misurazioni salvate restano disponibili qui.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                latestEntry?.note?.takeIf { it.isNotBlank() }?.let { note ->
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
-                    ) {
-                        Text(
-                            text = note,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    WeightMetricBadge(
-                        title = "Delta",
-                        value = deltaText,
-                        supporting = deltaSupport,
-                        accent = deltaAccent,
-                        modifier = Modifier.weight(1f)
-                    )
-                    WeightMetricBadge(
-                        title = "Media 7",
-                        value = averageText,
-                        supporting = "Ultime misure",
-                        accent = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    WeightMetricBadge(
-                        title = "Totale",
-                        value = totalEntries.toString(),
-                        supporting = "Salvate",
-                        accent = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    }
-}
-
+/** Secondary card that visualizes recent weight trend and compact historical stats. */
 @Composable
 internal fun WeightTrendCard(
     entries: List<WeightEntryUi>
@@ -249,43 +134,7 @@ internal fun WeightTrendCard(
     }
 }
 
-@Composable
-private fun WeightMetricBadge(
-    title: String,
-    value: String,
-    supporting: String,
-    accent: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = accent
-            )
-            Text(
-                text = supporting,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
+/** Small legend that explains the line and point colors of the weight chart. */
 @Composable
 private fun WeightTrendLegend() {
     Row(
@@ -303,6 +152,7 @@ private fun WeightTrendLegend() {
     }
 }
 
+/** Legend item used by the weight trend chart. */
 @Composable
 private fun WeightLegendDot(
     label: String,
@@ -326,6 +176,7 @@ private fun WeightLegendDot(
     }
 }
 
+/** Draws the compact weight chart using the latest 12 entries. */
 @Composable
 private fun WeightTrendChart(
     entries: List<WeightEntryUi>

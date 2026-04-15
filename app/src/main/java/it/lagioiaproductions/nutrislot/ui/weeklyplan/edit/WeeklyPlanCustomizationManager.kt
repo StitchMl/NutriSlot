@@ -7,14 +7,21 @@ import it.lagioiaproductions.nutrislot.data.repository.mapper.serializeStringLis
 import it.lagioiaproductions.nutrislot.domain.model.MealConsumptionTargetSource
 import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyChecklistHydrationSnapshot
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanUiState
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyQuantityChecklistBuilder
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.state.WeeklyPlanUiState
 
+/**
+ * Persists local, user-driven weekly plan customizations outside the imported base snapshot.
+ */
 internal class WeeklyPlanCustomizationManager(
     private val preferences: SharedPreferences
 ) {
 
+    /**
+     * Stores the current slot customization so it can be reapplied on the next state rebuild.
+     */
+    @Suppress("unused")
     fun saveSlotCustomization(
         planId: String,
         slotId: String,
@@ -37,6 +44,10 @@ internal class WeeklyPlanCustomizationManager(
         }
     }
 
+    /**
+     * Clears all locally stored overrides for the provided slot.
+     */
+    @Suppress("unused")
     fun resetSlotCustomization(planId: String, slotId: String) {
         preferences.edit {
             remove(WeeklyPlanPreferences.slotMealPreferenceKey(planId, slotId))
@@ -46,11 +57,19 @@ internal class WeeklyPlanCustomizationManager(
         }
     }
 
+    /**
+     * Checks whether any local override is currently stored for the provided slot.
+     */
     fun hasSlotCustomization(planId: String, slotId: String): Boolean {
         return preferences.contains(WeeklyPlanPreferences.slotMealPreferenceKey(planId, slotId)) ||
-                preferences.contains(WeeklyPlanPreferences.slotTargetsPreferenceKey(planId, slotId))
+            preferences.contains(WeeklyPlanPreferences.slotNutritionPreferenceKey(planId, slotId)) ||
+            preferences.contains(WeeklyPlanPreferences.slotTargetsPreferenceKey(planId, slotId)) ||
+            preferences.contains(WeeklyPlanPreferences.slotTargetSourcePreferenceKey(planId, slotId))
     }
 
+    /**
+     * Applies local overrides to slots and rebuilds the derived checklist section.
+     */
     fun applyDecorations(
         snapshot: WeeklyPlanSnapshot,
         state: WeeklyPlanUiState,
@@ -72,6 +91,9 @@ internal class WeeklyPlanCustomizationManager(
         )
     }
 
+    /**
+     * Merges stored preferences into the slot list rendered by the weekly plan UI.
+     */
     fun decorateSlots(
         snapshot: WeeklyPlanSnapshot,
         slots: List<WeeklySlotUi>

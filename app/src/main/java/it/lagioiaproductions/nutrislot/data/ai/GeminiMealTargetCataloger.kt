@@ -26,6 +26,7 @@ class GeminiMealTargetCataloger(
     private val apiKey: String
 ) {
 
+    @Suppress("unused")
     fun catalogMealTargets(
         mealText: String,
         candidates: List<MealTargetCatalogCandidate>

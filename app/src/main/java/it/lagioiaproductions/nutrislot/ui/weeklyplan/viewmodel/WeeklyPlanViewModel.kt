@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel
 
 import android.app.Application
@@ -23,6 +25,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 
+/**
+ * Screen-level coordinator for weekly plan UI.
+ *
+ * Public methods stay intentionally tiny and delegate to focused extension files grouped by concern.
+ */
 class WeeklyPlanViewModel(
     application: Application
 ) : AndroidViewModel(application) {
@@ -65,44 +72,62 @@ class WeeklyPlanViewModel(
         observeHydrationPreferencesInternal()
     }
 
+    /** Toggles a slot from planned to consumed directly from the calendar surface. */
     fun toggleSlotCompletedFromCalendar(slotId: String) =
         toggleSlotCompletedFromCalendarInternal(slotId)
 
+    /** Loads the most recent weekly plan snapshot from storage. */
     fun loadLatestPlan() = loadLatestPlanInternal()
 
+    /** Marks the current calorie undo event as consumed by the UI. */
     fun consumePendingCalorieUndoEvent() = consumePendingCalorieUndoEventInternal()
 
+    /** Switches the calendar focus day used by the screen. */
     fun selectCalendarDay(day: WeekDay) = selectCalendarDayInternal(day)
 
+    /** Flips the preference that controls whether consumed slots stay visible in calendar cells. */
     fun toggleConsumedSlotsVisibility() = toggleConsumedSlotsVisibilityInternal()
 
+    /** Opens the slot action dialog for the requested slot. */
     fun openSlotAction(slotId: String) = openSlotActionInternal(slotId)
 
+    /** Closes the slot action dialog. */
     fun dismissSlotAction() = dismissSlotActionInternal()
 
+    /** Opens the meal edit dialog for the requested slot. */
     fun openEditSlot(slotId: String) = openEditSlotInternal(slotId)
 
+    /** Closes the meal edit dialog. */
     fun dismissEditSlot() = dismissEditSlotInternal()
 
+    /** Saves the edit only for the currently rendered week. */
     fun saveEditSlot(request: EditSlotSaveRequest) = saveEditSlotInternal(request)
 
+    /** Persists the edit as the new base meal for future weeks. */
     fun saveEditSlotForNextWeeks(request: EditSlotSaveRequest) =
         saveEditSlotForNextWeeksInternal(request)
 
+    /** Asks Gemini to recalculate the nutrition summary for the current draft meal. */
     fun recalculateEditSlotNutritionWithGemini(mealText: String) =
         recalculateEditSlotNutritionWithGeminiInternal(mealText)
 
+    /** Removes local customization for the currently edited slot. */
     fun resetEditSlot() = resetEditSlotInternal()
 
+    /** Consumes the meal that is currently planned for the active slot dialog. */
     fun consumeAsPlanned() = consumeAsPlannedInternal()
 
+    /** Consumes a replacement meal coming from another slot. */
     fun consumeReplacement(sourceSlotId: String) =
         consumeReplacementInternal(sourceSlotId)
 
+    /** Applies one of the extra catalog options to the currently active slot dialog. */
     fun selectExtraCatalogOption(optionId: String) =
         selectExtraCatalogOptionInternal(optionId)
 
+    /** Reverts the latest completion for the active slot dialog. */
     fun undoCompletedMeal() = undoCompletedMealInternal()
 
+    /** Marks the current calorie sync event as consumed by the UI. */
     fun consumePendingCalorieSyncEvent() = consumePendingCalorieSyncEventInternal()
 }

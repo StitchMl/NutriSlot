@@ -15,8 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,11 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+/** Main checklist card used to summarize one weekly target and its progress. */
 @Composable
 internal fun WeeklyQuantityChecklistCard(
     item: WeeklyQuantityChecklistItemUi,
@@ -169,7 +167,7 @@ internal fun WeeklyQuantityChecklistCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 WeeklyChecklistPill(
-                    text = "📄 ${item.sourceLabel}",
+                    text = "\uD83D\uDCC4 ${item.sourceLabel}",
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -178,7 +176,7 @@ internal fun WeeklyQuantityChecklistCard(
                     ?.takeIf { it.isNotBlank() }
                     ?.let { portionText ->
                         WeeklyChecklistPill(
-                            text = "📏 $portionText",
+                            text = "\uD83D\uDCCF $portionText",
                             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.74f),
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -196,7 +194,7 @@ internal fun WeeklyQuantityChecklistCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "💧 Apri scheda acqua",
+                        text = "\uD83D\uDCA7 Apri scheda acqua",
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -211,6 +209,7 @@ internal fun WeeklyQuantityChecklistCard(
     }
 }
 
+/** Small pill token reused across checklist cards for metadata labels. */
 @Composable
 internal fun WeeklyChecklistPill(
     text: String,
@@ -229,123 +228,5 @@ internal fun WeeklyChecklistPill(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-    }
-}
-
-internal fun checklistStatusIcon(
-    item: WeeklyQuantityChecklistItemUi
-): ImageVector {
-    return when {
-        item.hasLinkedWaterTracking -> Icons.Filled.Opacity
-        item.status == WeeklyQuantityChecklistStatusUi.UNDER_TARGET ||
-            item.status == WeeklyQuantityChecklistStatusUi.OVER_LIMIT -> Icons.Filled.ErrorOutline
-        else -> Icons.Filled.CheckCircle
-    }
-}
-
-@Composable
-internal fun checklistContainerColor(
-    status: WeeklyQuantityChecklistStatusUi
-): Color {
-    return when (status) {
-        WeeklyQuantityChecklistStatusUi.UNDER_TARGET -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.56f)
-        WeeklyQuantityChecklistStatusUi.ON_TRACK -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-        WeeklyQuantityChecklistStatusUi.COMPLETED -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.48f)
-        WeeklyQuantityChecklistStatusUi.LIMIT_REACHED -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.62f)
-        WeeklyQuantityChecklistStatusUi.OVER_LIMIT -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.64f)
-    }
-}
-
-@Composable
-internal fun checklistContentColor(
-    status: WeeklyQuantityChecklistStatusUi
-): Color {
-    return when (status) {
-        WeeklyQuantityChecklistStatusUi.UNDER_TARGET -> MaterialTheme.colorScheme.primary
-        WeeklyQuantityChecklistStatusUi.ON_TRACK -> MaterialTheme.colorScheme.secondary
-        WeeklyQuantityChecklistStatusUi.COMPLETED -> MaterialTheme.colorScheme.tertiary
-        WeeklyQuantityChecklistStatusUi.LIMIT_REACHED -> MaterialTheme.colorScheme.tertiary
-        WeeklyQuantityChecklistStatusUi.OVER_LIMIT -> MaterialTheme.colorScheme.error
-    }
-}
-
-@Composable
-internal fun checklistProgressColor(
-    status: WeeklyQuantityChecklistStatusUi
-): Color {
-    return when (status) {
-        WeeklyQuantityChecklistStatusUi.UNDER_TARGET -> MaterialTheme.colorScheme.primary
-        WeeklyQuantityChecklistStatusUi.ON_TRACK -> MaterialTheme.colorScheme.secondary
-        WeeklyQuantityChecklistStatusUi.COMPLETED -> MaterialTheme.colorScheme.tertiary
-        WeeklyQuantityChecklistStatusUi.LIMIT_REACHED -> MaterialTheme.colorScheme.tertiary
-        WeeklyQuantityChecklistStatusUi.OVER_LIMIT -> MaterialTheme.colorScheme.error
-    }
-}
-
-internal fun checklistCompactHint(
-    item: WeeklyQuantityChecklistItemUi
-): String {
-    return when (item.status) {
-        WeeklyQuantityChecklistStatusUi.UNDER_TARGET -> {
-            when (item.metric) {
-                WeeklyQuantityChecklistMetricUi.MILLILITERS -> "Ancora ${shortMlLabel(item.remainingMinimumValue)}"
-                WeeklyQuantityChecklistMetricUi.PORTIONS -> "Ancora ${item.remainingMinimumValue} porz."
-                WeeklyQuantityChecklistMetricUi.OCCURRENCES -> "Ancora ${item.remainingMinimumValue} volte"
-            }
-        }
-
-        WeeklyQuantityChecklistStatusUi.ON_TRACK -> "Sei nel range"
-        WeeklyQuantityChecklistStatusUi.COMPLETED -> "Fatto"
-        WeeklyQuantityChecklistStatusUi.LIMIT_REACHED -> "Perfetto"
-        WeeklyQuantityChecklistStatusUi.OVER_LIMIT -> "Oltre il limite"
-    }
-}
-
-private fun shortMlLabel(
-    value: Int
-): String {
-    return if (value >= 1000 && value % 1000 == 0) {
-        "${value / 1000}L"
-    } else {
-        "$value ml"
-    }
-}
-
-internal fun targetEmoji(
-    item: WeeklyQuantityChecklistItemUi
-): String {
-    val normalizedKey = "${item.id} ${item.title}".lowercase()
-    return when {
-        normalizedKey.contains("acqua") -> "💧"
-        normalizedKey.contains("frutta") || normalizedKey.contains("verdura") -> "🥦"
-        normalizedKey.contains("caffe") || normalizedKey.contains("th") -> "☕"
-        normalizedKey.contains("carne bianca") -> "🍗"
-        normalizedKey.contains("carne rossa") -> "🥩"
-        normalizedKey.contains("affettati") -> "🥓"
-        normalizedKey.contains("uova") -> "🥚"
-        normalizedKey.contains("formaggi") -> "🧀"
-        normalizedKey.contains("patate") -> "🥔"
-        normalizedKey.contains("piatto unico") || normalizedKey.contains("legumi") -> "🍲"
-        normalizedKey.contains("pesce") -> "🐟"
-        item.period == WeeklyQuantityChecklistPeriodUi.DAILY -> "🌞"
-        else -> "📌"
-    }
-}
-
-internal fun periodEmoji(
-    item: WeeklyQuantityChecklistItemUi
-): String {
-    return if (item.period == WeeklyQuantityChecklistPeriodUi.DAILY) "🌞" else "📅"
-}
-
-internal fun statusEmoji(
-    status: WeeklyQuantityChecklistStatusUi
-): String {
-    return when (status) {
-        WeeklyQuantityChecklistStatusUi.UNDER_TARGET -> "⚠️"
-        WeeklyQuantityChecklistStatusUi.ON_TRACK -> "🟢"
-        WeeklyQuantityChecklistStatusUi.COMPLETED -> "✅"
-        WeeklyQuantityChecklistStatusUi.LIMIT_REACHED -> "🎯"
-        WeeklyQuantityChecklistStatusUi.OVER_LIMIT -> "🚫"
     }
 }

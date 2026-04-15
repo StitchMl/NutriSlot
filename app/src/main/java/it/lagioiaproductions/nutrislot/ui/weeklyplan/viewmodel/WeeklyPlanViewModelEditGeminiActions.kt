@@ -1,175 +1,23 @@
-@file:Suppress("UnusedReceiverParameter")
-
 package it.lagioiaproductions.nutrislot.ui.weeklyplan.viewmodel
 
 import androidx.lifecycle.viewModelScope
 import it.lagioiaproductions.nutrislot.data.ai.MealTargetCatalogCandidate
 import it.lagioiaproductions.nutrislot.domain.model.MealConsumptionTargetSource
-import it.lagioiaproductions.nutrislot.domain.model.WeeklyPlanSnapshot
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotDialogUi
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotSaveRequest
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.WeeklyChecklistTargetSpec
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.buildTrackableChecklistTargetSpecs
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.checklist.isWaterTarget
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.mergeMealTextWithNutritionSummary
-import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.normalizeNutritionSummary
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.stripStoredMealNutrition
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.edit.toNutritionSummary
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotDialogUi
+import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotSaveRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal fun WeeklyPlanViewModel.openEditSlotInternal(slotId: String) {
-    val slotUi = mutableUiState.value.slots.firstOrNull { it.slotId == slotId } ?: return
-
-    mutableUiState.update { state ->
-        state.copy(
-            slotActionDialog = null,
-            editSlotDialog = buildEditSlotDialog(
-                slotUi = slotUi,
-                availableConsumptionTargets = state.weeklyQuantityChecklist.toEditableConsumptionTargets()
-            )
-        )
-    }
-}
-
-internal fun WeeklyPlanViewModel.dismissEditSlotInternal() {
-    mutableUiState.update { state ->
-        state.copy(editSlotDialog = null)
-    }
-}
-
-internal fun WeeklyPlanViewModel.saveEditSlotInternal(request: EditSlotSaveRequest) {
-    val snapshot = currentSnapshot ?: return
-    val dialog = mutableUiState.value.editSlotDialog ?: return
-    val normalizedMealText = stripStoredMealNutrition(request.mealText)
-    val normalizedNutritionText = normalizeNutritionSummary(request.nutritionText)
-    val resolvedTargetSelection = resolveTargetSelectionInternal(
-        dialog = dialog,
-        request = request,
-        normalizedMealText = normalizedMealText
-    )
-
-    if (resolvedTargetSelection.shouldCatalogWithGemini) {
-        catalogTargetsWithGeminiBeforeSavingInternal(
-            dialog = dialog,
-            mealText = normalizedMealText
-        ) { targetCanonicalKeys, targetSource, actionMessage ->
-            customizationManager.saveSlotCustomization(
-                planId = snapshot.plan.id,
-                slotId = dialog.slotId,
-                mealText = normalizedMealText,
-                nutritionText = normalizedNutritionText,
-                targetCanonicalKeys = targetCanonicalKeys,
-                targetSource = targetSource
-            )
-
-            applyCustomizationUpdateInternal(
-                snapshot = snapshot,
-                actionMessage = actionMessage
-            )
-        }
-        return
-    }
-
-    customizationManager.saveSlotCustomization(
-        planId = snapshot.plan.id,
-        slotId = dialog.slotId,
-        mealText = normalizedMealText,
-        nutritionText = normalizedNutritionText,
-        targetCanonicalKeys = resolvedTargetSelection.targetCanonicalKeys,
-        targetSource = resolvedTargetSelection.targetSource
-    )
-
-    applyCustomizationUpdateInternal(
-        snapshot = snapshot,
-        actionMessage = if (request.didUserEditConsumptionTargets) {
-            "Box e target aggiornati."
-        } else {
-            "Box aggiornato."
-        }
-    )
-}
-
-internal fun WeeklyPlanViewModel.saveEditSlotForNextWeeksInternal(
-    request: EditSlotSaveRequest
-) {
-    val snapshot = currentSnapshot ?: return
-    val dialog = mutableUiState.value.editSlotDialog ?: return
-    val normalizedMealText = stripStoredMealNutrition(request.mealText)
-    val resolvedTargetSelection = resolveTargetSelectionInternal(
-        dialog = dialog,
-        request = request,
-        normalizedMealText = normalizedMealText
-    )
-    val storedMealText = mergeMealTextWithNutritionSummary(
-        mealText = request.mealText,
-        nutritionSummary = request.nutritionText
-    )
-
-    if (resolvedTargetSelection.shouldCatalogWithGemini) {
-        catalogTargetsWithGeminiBeforeSavingInternal(
-            dialog = dialog,
-            mealText = normalizedMealText
-        ) { targetCanonicalKeys, targetSource, actionMessage ->
-            persistBaseMealUpdateInternal(
-                snapshot = snapshot,
-                dialog = dialog,
-                storedMealText = storedMealText,
-                targetCanonicalKeys = targetCanonicalKeys,
-                targetSource = targetSource,
-                actionMessage = actionMessage
-            )
-        }
-        return
-    }
-
-    persistBaseMealUpdateInternal(
-        snapshot = snapshot,
-        dialog = dialog,
-        storedMealText = storedMealText,
-        targetCanonicalKeys = resolvedTargetSelection.targetCanonicalKeys,
-        targetSource = resolvedTargetSelection.targetSource,
-        actionMessage = "Pasto salvato anche come base per le prossime settimane."
-    )
-}
-
-internal fun WeeklyPlanViewModel.persistBaseMealUpdateInternal(
-    snapshot: WeeklyPlanSnapshot,
-    dialog: EditSlotDialogUi,
-    storedMealText: String,
-    targetCanonicalKeys: List<String>,
-    targetSource: MealConsumptionTargetSource?,
-    actionMessage: String
-) {
-    executePlanMutationInternal(
-        fallbackErrorMessage = "Errore sconosciuto durante il salvataggio del pasto.",
-        mutation = {
-            mutationExecutor.updateSlotBaseMeal(
-                planId = snapshot.plan.id,
-                slotId = dialog.slotId,
-                mealText = storedMealText,
-                consumptionTargetCanonicalKeys = targetCanonicalKeys,
-                consumptionTargetSource = targetSource
-            )
-        },
-        onSuccess = { updatedSnapshot ->
-            customizationManager.resetSlotCustomization(
-                planId = snapshot.plan.id,
-                slotId = dialog.slotId
-            )
-
-            applySnapshotUpdateInternal(
-                snapshot = updatedSnapshot,
-                payload = buildMessagePayload(
-                    actionMessage = actionMessage
-                )
-            )
-        }
-    )
-}
-
+/**
+ * Recomputes the nutrition block for the current draft meal via Gemini and keeps UI state in sync.
+ */
 internal fun WeeklyPlanViewModel.recalculateEditSlotNutritionWithGeminiInternal(
     mealText: String
 ) {
@@ -246,21 +94,10 @@ internal fun WeeklyPlanViewModel.recalculateEditSlotNutritionWithGeminiInternal(
     }
 }
 
-internal fun WeeklyPlanViewModel.resetEditSlotInternal() {
-    val snapshot = currentSnapshot ?: return
-    val dialog = mutableUiState.value.editSlotDialog ?: return
-
-    customizationManager.resetSlotCustomization(
-        planId = snapshot.plan.id,
-        slotId = dialog.slotId
-    )
-
-    applyCustomizationUpdateInternal(
-        snapshot = snapshot,
-        actionMessage = "Personalizzazione rimossa."
-    )
-}
-
+/**
+ * Determines whether target chips stay as-is, become manual or need a new Gemini classification pass.
+ */
+@Suppress("UnusedReceiverParameter")
 internal fun WeeklyPlanViewModel.resolveTargetSelectionInternal(
     dialog: EditSlotDialogUi,
     request: EditSlotSaveRequest,
@@ -313,6 +150,9 @@ internal fun WeeklyPlanViewModel.resolveTargetSelectionInternal(
     }
 }
 
+/**
+ * Runs Gemini target classification before persisting a draft whose meal text changed materially.
+ */
 internal fun WeeklyPlanViewModel.catalogTargetsWithGeminiBeforeSavingInternal(
     dialog: EditSlotDialogUi,
     mealText: String,
@@ -366,6 +206,9 @@ internal fun WeeklyPlanViewModel.catalogTargetsWithGeminiBeforeSavingInternal(
     }
 }
 
+/**
+ * Builds the Gemini candidate catalog by reusing checklist metadata when the latest snapshot is available.
+ */
 internal fun WeeklyPlanViewModel.buildMealTargetCatalogCandidatesInternal(
     dialog: EditSlotDialogUi
 ): List<MealTargetCatalogCandidate> {
@@ -393,6 +236,9 @@ internal fun WeeklyPlanViewModel.buildMealTargetCatalogCandidatesInternal(
     }
 }
 
+/**
+ * Updates only the Gemini-related flags of the open edit dialog.
+ */
 internal fun WeeklyPlanViewModel.updateEditDialogGeminiStateInternal(
     dialog: EditSlotDialogUi,
     isCatalogingTargets: Boolean,
@@ -413,6 +259,9 @@ internal fun WeeklyPlanViewModel.updateEditDialogGeminiStateInternal(
     }
 }
 
+/**
+ * Applies Gemini target output to the currently open dialog after verifying the slot still matches.
+ */
 internal fun WeeklyPlanViewModel.applyGeminiTargetResolutionInternal(
     dialog: EditSlotDialogUi,
     targetCanonicalKeys: List<String>,
@@ -436,6 +285,9 @@ internal fun WeeklyPlanViewModel.applyGeminiTargetResolutionInternal(
     }
 }
 
+/**
+ * Compact summary of how target selection should be persisted after user edits.
+ */
 internal data class ResolvedTargetSelection(
     val targetCanonicalKeys: List<String>,
     val targetSource: MealConsumptionTargetSource?,

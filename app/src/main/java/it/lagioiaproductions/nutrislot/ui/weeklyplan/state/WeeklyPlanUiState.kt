@@ -6,6 +6,7 @@ import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.EditSlotDialogUi
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.SlotActionDialogUi
 import it.lagioiaproductions.nutrislot.ui.weeklyplan.slot.WeeklySlotUi
 
+/** Aggregate UI state consumed by the weekly plan screen. */
 data class WeeklyPlanUiState(
     val isLoading: Boolean = false,
     val hasLoadedOnce: Boolean = false,
